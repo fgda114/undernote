@@ -59,7 +59,7 @@ erDiagram
     }
     GENRE_YEAR {
         int year PK "genres.yaml 연도 블록"
-        json_list buckets "{slug, label} 목록 — 과거 연도 블록 수정 금지"
+        json_list buckets "{id, label, order} 목록 (규범: api-contracts §3.5) — 과거 연도 블록 수정 금지"
         int minReviewsToPublish "연말 버킷 발행 최소 편수 (기본 3 — D1)"
     }
     TAG {
