@@ -1,0 +1,47 @@
+# ─── BATHOS 파이프라인 작업물 ───────────────────────────────
+# .agent-team/ 은 웨이브 파이프라인의 내부 산출물(기획·아키텍처·리뷰·QA)과
+# _state/(세션 스냅샷·SSOT·감사로그)를 담는다. 제품 코드가 아니므로 제외.
+.agent-team/
+**/_state/
+**/*.audit.jsonl
+**/*.bak.*
+**/*.quarantine.*
+
+# ─── 의존성 · 빌드 산출물 ──────────────────────────────────
+node_modules/
+dist/
+build/
+out/
+.next/
+.svelte-kit/
+.nuxt/
+.cache/
+*.tsbuildinfo
+
+# ─── 환경변수 · 시크릿 ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ─── 로그 ─────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── 에디터 · OS ──────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── 테스트 · 커버리지 ─────────────────────────────────────
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
