@@ -57,7 +57,7 @@ undernote/
 | `/stories/<slug>/` | 음악 이야기 (CF-5) |
 | `/artists/<slug>/` | 아티스트 (CF-6) |
 | `/list/<year>/` | 연간 리스트 — activeYear면 진행형(보드+10선), 과거면 확정 스냅샷 |
-| `/monthly/<yyyy-mm>/` | 월말정산 (평론 있는 달만 — R-4) |
+| `/list/<year>/<mm>/` | 월말정산 (평론 있는 달만 — R-4). Jonnathan ux-flow-map·ui-spec과 1:1 합의 |
 | `/archive/…` | 4축 탐색 (연도·버킷·태그·아티스트 — 점수 비표시) |
 | `/about/` | 소개/기준 (CF-8 — 전역 내비 필수, US-8 AC2) |
 

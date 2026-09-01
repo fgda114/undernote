@@ -135,6 +135,17 @@
       "report_path": "02-market-analysis/usp-recommendations-v2.md",
       "facilitator": "Paul",
       "decided": "2026-09-01T04:47:47.864041500Z"
+    },
+    {
+      "gate_id": "gate-13ffb7d6-b669-4561-9612-82caabf5d86f",
+      "wave_id": "W2",
+      "gate_type": "Plan",
+      "verdict": "CONCERNS",
+      "issues_total": 0,
+      "issues_critical": 0,
+      "report_path": "04-architecture/build-plan.md",
+      "facilitator": "Paul",
+      "decided": "2026-09-01T16:10:09.394609100Z"
     }
   ],
   "risks": [],

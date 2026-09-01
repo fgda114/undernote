@@ -15,40 +15,40 @@
 
 ```mermaid
 erDiagram
-    ALBUM ||--o| REVIEW : "1:1 (평론은 앨범당 최대 1편 — E-105)"
+    ALBUM ||--o| REVIEW : "1:1 (평론은 앨범당 최대 1편 — 파일명 강제 + E-108)"
     ALBUM }o--|{ ARTIST : "artists[] 참조 (복수 가능)"
-    STORY }o--o{ ALBUM : "refs[] 참조 (role 옵션: lead/follower)"
+    STORY }o--o{ ALBUM : "albums[] 참조 (role 옵션: lead/follow)"
     ALBUM }o--|| GENRE_YEAR : "bucket ∈ 발매연도 설정 (+ etc)"
     ALBUM }o--o{ TAG : "tags[] (등록부 정규화, 0~n)"
     STORY }o--o{ TAG : "tags[] (옵션)"
     SNAPSHOT }o--|{ REVIEW : "항목→평론 slug (SS-8 검사 대상)"
-    SITE_CONFIG ||--o{ GENRE_YEAR : "activeYear 지정"
+    SITE_CONFIG ||--o{ GENRE_YEAR : "active_year 지정"
 
     ALBUM {
-        string id PK "파일명 = {artist}-{album} kebab. User 확정"
+        string slug PK "파일명 = {artist}-{album} kebab. User 확정"
         string title "앨범명"
-        string_list artists FK "ARTIST.id 목록 — 해석 실패 E-104"
-        date releaseDate "YYYY-MM-DD. 연도만 확실하면 YYYY-01-01 + precision"
-        enum releasePrecision "day | month | year"
+        string_list artists FK "artist slug 목록 — 해석 실패 E-103"
+        string release_date "YYYY[-MM[-DD]] — 연도만도 허용 (MB 지연·B6 대응, 연도 = 귀속 키)"
         string bucket "장르 버킷 slug 또는 etc"
         string_list tags "세부 태그 canonical slug"
-        string cover "자체 호스팅 사본 경로 (옵션 — 부재 시 W-203)"
-        string_list links "듣기 링크 수기 오버라이드 (옵션)"
+        string cover "자체 호스팅 사본 경로 (옵션 — 부재 시 E-202)"
+        json_list listen_links "수기 오버라이드 {service,url} — 자동 검색형보다 우선 (옵션)"
+        string cover_source "커버 출처 기록 (ADR-0008 §3)"
         string mbid "MusicBrainz release-group ID (옵션)"
         string label "레이블 (옵션 — 출처 명시용, ADR-0008)"
     }
     REVIEW {
-        string albumId PK_FK "파일명 = ALBUM.id (1:1 강제)"
+        string album PK_FK "파일명 = ALBUM.slug (1:1 강제 · 불일치 E-108)"
         string score "정규식 검증 문자열 — 연산은 십분위 정수 (ADR-0004)"
-        date published "발행일 YYYY-MM-DD (Asia/Seoul)"
-        bool worthIt "편집 체크: 안 들으면 손해인가 (USP-C) — true 필수"
+        date date "발행일 YYYY-MM-DD (Asia/Seoul)"
+        bool editorial_check "편집 체크: 안 들으면 손해인가 (USP-C) — true 필수 (E-106)"
         markdown body "본문"
     }
     STORY {
         string slug PK "파일명"
         string title
-        date published
-        json_list refs "각 항목 {album, role?} — 미해석 W-201"
+        date date
+        json_list albums "각 항목 {ref|text, role?} — ref 미해석 E-204"
         string_list tags "옵션"
         markdown body
     }
@@ -68,16 +68,16 @@ erDiagram
         string_list aliases "정규화 별칭"
     }
     SNAPSHOT {
-        int year PK "snapshots/{year}.json — 확정 후 불변 (ADR-0005)"
-        datetime finalizedAt
-        string forewordPath "서문 md"
-        json top10 "rank·albumId·reviewSlug·score·표시필드 비정규화"
+        int year PK "snapshots/(year).md — 프론트매터 동결 + 본문 서문. 확정 후 불변 (ADR-0005)"
+        date finalized_at "확정 시점 기록 (도출 입력 아님 — R-10)"
+        json top10 "rank·album slug·score·표시필드 비정규화"
         json buckets "버킷별 노미네이트 5 + winner. 미발행 버킷은 사유와 함께 기록"
     }
     SITE_CONFIG {
-        int activeYear "홈 보드·진행형 리스트 기준 연도 (ADR-0005 — 시계 아닌 설정)"
-        json_list listenLinkTemplates "검색형 듣기 링크 템플릿 (SS-13)"
-        string siteName
+        int active_year "홈 보드·진행형 리스트 기준 연도 (ADR-0005 — 시계 아닌 설정)"
+        json listen_link_patterns "검색형 듣기 링크 패턴 오버라이드 (SS-13, 옵션)"
+        bool og_use_cover "커버의 OG 카드 사용 킬스위치 (ADR-0008 §5)"
+        string site_name
     }
 ```
 
@@ -92,8 +92,8 @@ erDiagram
 | 점수 문자열 + 십분위 정수 | 부동소수점 비교 오염 차단 — 정렬이 제품 약속 (ADR-0004) |
 | 버킷 = 연도별 설정, 태그 = 등록부 | 장르 2층 분리 · 과거 리스트 고정 (ADR-0007, 과제 ①) |
 | 리스트 비저장 + 연간 스냅샷 비정규화 | 도출 불변식 + 발표 시점 선언의 불변성 (ADR-0005) |
-| `releasePrecision` | MB가 연도만 주는 앨범 실존(B6). 연도는 리스트 귀속에 필수, 월·일은 표시용 — 정밀도를 데이터에 정직하게 기록 |
-| 편집 체크 `worthIt` | USP-C 기록 요구(SS-1). false인 평론은 발행 불가(E-106) — "실림 = 추천"의 데이터화 |
+| `release_date` 유연 정밀도 (YYYY[-MM[-DD]]) | MB가 연도만 주는 앨범 실존(B6). 연도는 리스트 귀속에 필수, 월·일은 표시용 — 정밀도를 패턴으로 정직하게 허용 |
+| 편집 체크 `editorial_check` | USP-C 기록 요구(SS-1). false인 평론은 발행 불가(E-106) — "실림 = 추천"의 데이터화 |
 
 ## 3. 접근 패턴 → 사전 계산 (이것이 이 모델의 역설계 원점)
 
@@ -103,12 +103,12 @@ erDiagram
 |---|---|---|---|
 | P1 | 버킷별 당해 발매작 평론 점수 상위 5 (보드·홈) | reviews × albums 조인 → filter(releaseYear=activeYear, bucket≠etc) → group by bucket → sort | SS-4 |
 | P2 | 당해 발매작 평론 전체 상위 10 (진행형 10선) | 위 필터(etc 포함) → sort → take 10 | SS-5 |
-| P3 | 월별 발행 평론 점수순 (월말정산) | group by month(published) → sort | SS-7 |
-| P4 | 앨범 X를 참조하는 이야기 (평론 페이지 역링크) | stories.refs 역인덱스 Map<albumId, story[]> | SS-10 |
+| P3 | 월별 발행 평론 점수순 (월말정산) | group by month(date) → sort | SS-7 |
+| P4 | 앨범 X를 참조하는 이야기 (평론 페이지 역링크) | stories.albums 역인덱스 Map<albumSlug, story[]> | SS-10 |
 | P5 | 태그·버킷 일치 이야기 (사다리 폴백 ②③) | Map<tag, story[]> · Map<bucket, story[]> | SS-10 |
 | P6 | 아티스트별 전체 글 (아티스트 페이지) | Map<artistSlug, (review|story)[]> — 복수 아티스트 전원 집계 | SS-12 |
 | P7 | 연도·버킷·태그·아티스트 아카이브 축 | 4개 역인덱스 — 전 글 유형 포함, 점수 필드 미전달(D2) | SS-11 |
-| P8 | 보드 상태 → 평론 배지 | P1 결과의 역방향 Map<albumId, {bucket, rank}> | SS-4 |
+| P8 | 보드 상태 → 평론 배지 | P1 결과의 역방향 Map<albumSlug, {bucket, rank}> | SS-4 |
 | P9 | 리스트 항목 → 평론 실존 (무결성) | 전 리스트·스냅샷 항목의 slug 해석 검사 | SS-8 |
 
 전부 O(n) 스캔 + 해시맵. n = 파일 수백 (아래 §5) — **인덱스 튜닝·증분 계산은 하지 않는다** (낭비).
@@ -134,7 +134,7 @@ erDiagram
 ## 6. 시간·정렬 규칙 (결정성 — 규범은 exceptions.md §1)
 
 - 모든 날짜 `YYYY-MM-DD`, 시간대 Asia/Seoul, 시각 미저장.
-- 전 리스트 정렬 키: `(scoreTenths desc, review.published asc, albumId asc)` — 3차 키까지 고정해 완전 결정.
+- 전 리스트 정렬 키: `(scoreTenths desc, review.date asc, album slug asc)` — 3차 키까지 고정해 완전 결정.
 - 연도 귀속: 연간 리스트 = **발매 연도** / 월말정산 = **발행 월** / 아카이브 연도 축 = **발행 연도** (SS-5·7·11).
 
 ## 7. 마이그레이션 전략

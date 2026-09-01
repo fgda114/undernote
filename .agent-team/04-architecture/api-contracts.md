@@ -28,7 +28,7 @@ $defs:
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
   score:           # 0.0~10.0 소수 1자리 (E-105) — 문자열 (ADR-0004)
     type: string
-    pattern: "^(10\.0|[0-9]\.[0-9])$"
+    pattern: "^(10\\.0|[0-9]\\.[0-9])$"
     # number가 아닌 이유 (ADR-0004): ① YAML 파서가 8.30을 8.3으로 접어
     # SS-3 인수조건("8.30 입력 = 실패")이 검출 불능이 되고 ② 부동소수 비교가
     # 정렬(R-1)을 오염시킨다. 연산·정렬은 로드 시 십분위 정수(83)로 변환해
@@ -150,30 +150,39 @@ properties:
   name: { type: string, minLength: 1 }   # 표기명. 본문 = 소개글 (빈 본문 허용 — US-14)
 ```
 
-### 3.5 BucketConfig — `config/buckets/<year>.yaml`
+### 3.5 GenresConfig — `config/genres.yaml` (연도 블록 — D1)
 
 ```yaml
-$id: undernote/bucket-config
+$id: undernote/genres-config
 type: object
-required: [year, buckets]
+required: [years]
 additionalProperties: false
 properties:
-  year: { type: integer, minimum: 2026 }
-  buckets:
+  years:
     type: array
     minItems: 1
     items:
       type: object
-      required: [id, label, order]
+      required: [year, buckets]
       additionalProperties: false
       properties:
-        id:    { $ref: "#/$defs/slug" }   # "etc"는 예약어 — 설정에 넣으면 E-109
-        label: { type: string }
-        order: { type: integer }          # 보드 지면의 버킷 표시 순서
-  min_reviews_to_publish: { type: integer, default: 3 }   # 연말 성립 규칙 (D1)
+        year: { type: integer, minimum: 2026 }
+        buckets:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [id, label, order]
+            additionalProperties: false
+            properties:
+              id:    { $ref: "#/$defs/slug" }   # "etc"는 예약어 — 설정에 넣으면 E-109
+              label: { type: string }
+              order: { type: integer }          # 보드 지면의 버킷 표시 순서
+        min_reviews_to_publish: { type: integer, default: 3 }   # 연말 성립 규칙 (D1)
+# 과거 연도 블록 수정 금지 (R-8 — 운영 수칙). 이듬해 변경은 새 연도 블록 추가로
 ```
 
-### 3.6 TagRegistry — `config/genre-tags.yaml`
+### 3.6 TagRegistry — `config/tags.yaml`
 
 ```yaml
 $id: undernote/tag-registry
@@ -376,9 +385,10 @@ Finding:
 | 페이지 유형 | og:title | og:description | og:image |
 |---|---|---|---|
 | 평론 | `앨범명 — 아티스트` | 발췌 (본문 첫 문단, 점수 문자열 포함 금지) | 커버 카드 (**점수 비표시** — D2). `og_use_cover=false`거나 커버 부재 시 기본 카드 |
-| 10선·보드·월말정산 | 리스트 제목 (`2026 올해의 앨범 — 현재 노미네이트` 등) | 리스트 성격 요약 | 리스트 카드 (점수 포함 여부 = Jonnathan 시안 확정 대기) |
+| 10선·보드·월말정산 | 리스트 제목 (`2026 올해의 앨범 — 현재 노미네이트` 등) | 리스트 성격 요약 | 리스트 카드 — 순위·앨범·아티스트만 |
 | 이야기·아티스트·기타 | 글 제목 | 발췌 | 기본형 카드 (제목 + 매체명) |
 
+- **카드·OG 메타 전 유형 점수 비표시** (ui-spec §11 확정 2026-09-01 — 점수는 간판이 아니라 인프라, D2). 위반 = E-115 빌드 실패.
 - 추가로 `og:type`·`og:url`·`twitter:card`(summary_large_image) 포함.
 - **검증:** checker가 렌더 산출 HTML에서 3요소 존재를 전수 확인 (부재 = E-111 실패 —
   "원 노동 0" 약속은 카드가 항상 완성돼 있어야 성립한다).

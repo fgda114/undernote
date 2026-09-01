@@ -2,8 +2,9 @@
 
 | | |
 |---|---|
-| 작성 | Jonnathan · 2026-09-01 (W2 2단계) |
+| 작성 | Jonnathan · 2026-09-01 (W2 2단계 · 아키 확정 델타 반영) |
 | 규칙 | 전 컴포넌트 토큰만 참조 · JS 0 · 상태 전수 명시 · a11y 계약 포함 |
+| 데이터 | 필드명은 api-contracts.md §4 최종본 (ListEntry · CoverSet). **score는 문자열("8.3") — 재포맷 금지, 그대로 출력** |
 | 참조 | 시각 실물: `../lineage-concepts.html` (AlbumBox·LineageBlock·CoverImage·프레임) |
 
 폼·모달·토스트는 이 제품에 존재하지 않는다 (계정·댓글·관리 UI 없음 —
@@ -29,24 +30,27 @@ charter §5, D7). 계약 대상은 아래 12종이 전부다.
 - a11y: 장식 아님 — 실제 텍스트로 렌더 (스크린리더가 형식을 먼저 읽는 것이 의도)
 
 ## 4. BoardRow (보드 행) — 홈·연간 보드 공용
-- **구성:** `<li>` 전체가 `<a>` → 평론. 내부: 순위(tabular 15/700, 폭 20px) ·
-  CoverImage 48px · 앨범명(sans 16/700)+아티스트(14 `--muted`) · 점수(tabular 15/600, 우측)
+- **데이터:** ListEntry {album, title, artists_label, score, review_url,
+  bucket, cover}
+- **구성:** `<li>` 전체가 `<a href={review_url}>`. 내부: 순위(tabular 15/700,
+  폭 20px) · CoverImage 48px · title(sans 16/700)+artists_label(14 `--muted`) ·
+  score(tabular 15/600, 우측 — 문자열 그대로)
 - **변이:** default / **first** (1위): 순위 `--seal` + 좌측 2px `--seal` 보더
-- **상태:** default / hover: 배경 `--wash` 120ms / focus-visible / 커버 없음:
+- **상태:** default / hover: 배경 `--wash` 120ms / focus-visible / cover=null:
   CoverImage 자리표시 변이
-- 높이 ≥56px (타깃 충족). 점수 소수 1자리 고정 문자열 (SS-3).
+- 높이 ≥56px (타깃 충족).
 - **a11y:** `<ol>` 안의 `<li>` — 순위는 마크업 순서와 일치. 링크 접근명 =
-  "앨범명, 아티스트" (점수는 시각 보조 — `aria-hidden` 아님, 뒤에 읽혀도 무방)
+  "title, artists_label" (점수는 시각 보조 — `aria-hidden` 아님, 뒤에 읽혀도 무방)
 
 ## 5. BoardPanel (버킷 보드)
 - 구성: 버킷 라벨(sans 15/700) + BoardRow×0~5 + 빈 상태
-- **상태:** 5행 만석 / 1~4행 (있는 만큼 — 자리 채움 금지) / **0행**: 라벨 +
-  `아직 이 장르의 후보가 없습니다.` (15 `--muted`) / 확정 후: 연간 지면에서
-  선정 1위에 `--seal` 강조 (ui-spec §4.2)
+- **상태 (SSOT: exceptions.md R-4):** 5행 만석 / 1~4행 (있는 만큼 — 자리
+  채움 금지) / **0행**: 라벨 + `아직 이 장르의 후보가 없습니다.` (15 `--muted`)
+  / 확정 후: 연간 지면에서 선정 1위에 `--seal` 강조 (ui-spec §4.2)
 - 그리드: 부모가 `grid + gap 24px` 배치 (반응형 ui-spec §12)
 
 ## 6. ListRankRow (리스트 지면 행) — 10선·월말정산
-- BoardRow 확장: 커버 64px(확정 1위 160px) · 앨범명 serif 700 · 점수 표시
+- BoardRow 확장: 커버 64px(확정 1위 160px) · title serif 700 · score 표시
 - 변이: default / champion(확정 1위) / 상태는 BoardRow와 동일
 - 불변식: 나열 순서 = 점수 내림차순 (빌드 보장 SS-8 — 디자인은 재정렬 UI를
   제공하지 않는다)
@@ -59,15 +63,24 @@ charter §5, D7). 계약 대상은 아래 12종이 전부다.
 - a11y: 제목이 링크 접근명. 날짜는 `<time datetime>`
 
 ## 8. CoverImage (커버)
-- **변이:** 48(보드) / 64(리스트) / 160(확정 1위) / 320(평론 히어로) —
-  James 파생 4종(96/320/640 @2x)과 매핑
-- **상태:** loaded(WebP+폴백, `--r-4`, lazy) / **placeholder**: `--ink` 바탕 +
-  앨범명 첫 글자(serif, `--paper`) — SS-14 / loading 중: 배경 `--wash`
-- a11y: `alt="{앨범명} 커버"` · placeholder는 `role="img"` + 동일 alt
+- **데이터:** CoverSet {w96, w320, w640, alt} 또는 null (E-202)
+- **표시 크기 → 소스 매핑 (2x 밀도):**
+  | 표시 | 용처 | 소스 |
+  |---|---|---|
+  | 44px | AlbumBox 행 | w96 |
+  | 48px | 보드 행 | w96 |
+  | 64px | 리스트 행 | w320 (다운스케일 — w96은 2x에 부족) |
+  | 160px | 확정 1위 | w320 |
+  | 320px | 평론 히어로 | w640 |
+- **상태:** loaded(WebP+폴백, `--r-4`, lazy, `alt` 필드 사용) /
+  **null → placeholder**: `--ink` 바탕 + 앨범명 첫 글자(serif, `--paper`) —
+  SS-14·E-202 / loading 중: 배경 `--wash`
+- a11y: `alt={cover.alt}` · placeholder는 `role="img"` + `aria-label="{앨범명} 커버"`
 
 ## 9. ScoreVerdict (평결 블록) — 평론 전용
-- 구성(순서 고정): seal 2px×48px 룰 → 오버라인 `평결` → 점수(serif 42/700
-  + `/10` 15 `--muted`) → NominateBadge(조건부) → 듣기 링크 행(조건부)
+- 구성(순서 고정): seal 2px×48px 룰 → 오버라인 `평결` → score(serif 42/700,
+  문자열 그대로 + `/10` 15 `--muted`) → NominateBadge(조건부) → 듣기 링크
+  행(조건부)
 - **상태:** 기본 / 배지 없음(행 미출력) / 듣기 링크 0(행 미출력) —
   빈 껍데기 금지 (US-3 AC3 원칙 준용)
 - 위치 불변식: **본문 종료 후에만** (D2 — 이 컴포넌트를 본문 앞에 놓는
@@ -99,8 +112,9 @@ charter §5, D7). 계약 대상은 아래 12종이 전부다.
 - 구성: `--wash` 컨테이너 · 티어1 `시작한 앨범`(seal 라벨) — lead 카드
   (좌측 3px `--seal` 보더, 커버 64, serif 제목, 1줄 설명) · 연결선+`이어받은
   앨범들` · 티어2 follow 카드 그리드(2열→1열) · `시도하는 아티스트` 한 줄
-- 데이터: 참조 목록의 `role?: 선도|추종` (James 확정 옵션 필드)
-- **상태:** role 태그 ≥1(선도 1개 이상 필수) → 렌더 / 태그 없음 → **미출력,
+- 데이터: 참조 항목의 `role?: "lead"|"follow"` (James 확정 enum — 지면
+  라벨은 `시작한 앨범`/`따라가는 앨범`으로 번역 표기)
+- **상태:** role 태그 ≥1(lead 1개 이상 필수) → 렌더 / 태그 없음 → **미출력,
   AlbumBox만** (자동 폴백 — 원에게 태깅을 강제하지 않음, D7)
 - 시각 실물: `../lineage-concepts.html` 안 B 섹션
 
@@ -111,5 +125,7 @@ charter §5, D7). 계약 대상은 아래 12종이 전부다.
 - **focus-visible:** `outline: 2px solid var(--seal); outline-offset: 2px` 전 인터랙티브 요소
 - **hover:** 색 전환 120ms ease-out만. transform 금지
 - **빈 껍데기 금지:** 조건부 컴포넌트는 "빈 채로 표시"가 아니라 **미출력**이
-  기본 (본 문서에 명시된 빈 상태 카피가 있는 경우만 예외 — BoardPanel 0행)
+  기본 (본 문서에 명시된 빈 상태 카피가 있는 경우만 예외 — BoardPanel 0행).
+  규칙의 SSOT는 04-architecture/exceptions.md R-4
 - **날조 금지:** 자리 채움·가짜 항목·"곧 공개" 예고 UI 없음
+- **점수 재포맷 금지:** `score` 문자열을 그대로 출력 — 파싱·반올림·패딩 없음

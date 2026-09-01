@@ -108,9 +108,7 @@
   .node .cover{width:52px;height:52px;font-size:16px}
   .node .name{font-weight:700;font-size:15px;line-height:1.35}
   .node .meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-  .edges{position:relative;height:100%}
   .map-col{display:flex;flex-direction:column;gap:14px}
-  .map svg{display:block;width:100%;height:100%}
   .map-note{margin-top:24px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
 
   /* ---- 평가(좋은 점/아쉬운 점) ---- */
@@ -129,7 +127,6 @@
     .follow-grid{grid-template-columns:1fr}
     .verdict{grid-template-columns:1fr}
     .map-grid{grid-template-columns:1fr;gap:10px}
-    .edges{display:none}
     .page{padding:28px 18px 36px}
   }
 </style>
@@ -263,7 +260,9 @@
     <div class="verdict">
       <div class="v good"><b>이렇게 하면 좋은 점</b>
         "누가 먼저, 누가 다음"이 그림처럼 보여요. 글을 다 읽지 않아도 흐름이 잡히고,
-        원이 말한 "선도한 앨범 / 따라가는 앨범 나열"이 화면에 그대로 구현됩니다.</div>
+        원이 말한 "선도한 앨범 / 따라가는 앨범 나열"이 화면에 그대로 구현됩니다.
+        이 블록만 이미지 한 장으로 뽑아서 인스타에 올릴 수도 있어요 —
+        글 홍보용 카드가 저절로 생기는 셈입니다.</div>
       <div class="v bad"><b>아쉬운 점</b>
         앨범마다 "시작인지 / 따라감인지" 원이 표시해 줘야 해요(부담은 체크 하나 수준).
         흐름이 여러 갈래로 얽히면 두 줄로는 다 못 담습니다.</div>
@@ -299,7 +298,6 @@
               </div>
             </div>
             <div class="map-col">
-              <svg viewBox="0 0 300 150" aria-hidden="true" preserveAspectRatio="none" style="position:absolute;width:0;height:0"></svg>
               <div class="node">
                 <div class="cover c2">D</div>
                 <div><div class="name">DOPAMINE</div><div class="meta">프리티펀 · 2026 · 평론 8.4</div></div>
@@ -336,9 +334,11 @@
     <h2>고르는 법</h2>
     <p><strong>"A" / "B" / "C" 한 글자로 답하시면 됩니다.</strong> 섞어도 됩니다 —
     예: "일단 A로 가고, 표시하는 게 귀찮지 않으면 B도".</p>
-    <p>참고로 셋은 서로를 막지 않습니다. 데이터는 같은 걸 쓰기 때문에,</p>
+    <p>그리고 이게 중요합니다 — <strong>셋은 경쟁이 아니라 같은 재료 위의 성장
+    경로입니다.</strong> 데이터는 같은 걸 쓰기 때문에,</p>
     <div class="path">A(글 + 앨범 상자) → B(계보 블록) → C(계보 지도) 순서로
-    <strong>언제든 다음 단계로 자랄 수 있습니다.</strong> 지금 A를 골라도 B·C를 포기하는 게 아닙니다.</div>
+    <strong>언제든 다음 단계로 자랄 수 있습니다.</strong> 지금 A를 골라도 B·C를 포기하는 게
+    아닙니다 — 지금 고른 것이 나중을 막지 않습니다.</div>
     <p style="margin-top:16px;color:var(--muted);font-size:15px">저희 추천: <strong>A로 시작</strong>하되,
     계보 글을 쓸 때 "시작/따라감" 표시가 귀찮지 않다면 <strong>B</strong>가 원의 아이디어에 가장 가깝습니다.
     C는 글이 쌓인 뒤의 목표로 남겨 둡니다.</p>

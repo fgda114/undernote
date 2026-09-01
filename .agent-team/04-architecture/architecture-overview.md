@@ -52,7 +52,7 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph EDIT["편집 시점 (User 로컬)"]
-        CLI["발행 CLI (scripts/)<br/>new-review · new-story · new-artist · finalize<br/>MB/CAA 조회 + 스캐폴드 + 커버 사본"]
+        CLI["편집 CLI (scripts/)<br/>album-add · finalize<br/>MB/CAA 조회 + 스캐폴드 + 커버 사본"]
     end
     subgraph REPO["git 저장소"]
         CONTENT["content/<br/>albums · reviews · stories · artists · snapshots"]
@@ -61,7 +61,7 @@ flowchart TB
     end
     subgraph BUILD["빌드 (CI 또는 로컬) — 제품 로직의 실행 지점"]
         V1["1 스키마 검증<br/>(Astro Content Collections + Zod — SS-1)"]
-        V2["2 참조·규칙 검증<br/>(lib/validate — E-1xx·2xx)"]
+        V2["2 참조 해석 (resolver)<br/>E-102·103·104 = 중단"]
         DERIVE["3 도출<br/>(lib/derive — 보드·10선·월말·역링크·인덱스·배지)"]
         RENDER["4 렌더 (Astro) + 이미지 파생 4크기 + OG 카드 (satori)"]
         V3["5 사후 검증<br/>(dist 링크 검사·SS-8·고아·OG 존재)"]
@@ -82,11 +82,10 @@ flowchart TB
 | `lib/score` | 문자열 ↔ 십분위 정수 (ADR-0004). 유일한 점수 파서 | SS-3 |
 | `lib/derive/lists` | 보드·10선·월말정산 도출 + 동점 알림 산출. **순수 함수 — 골든 테스트 대상** | SS-3·4·5·7 |
 | `lib/derive/links` | 참조 해석·역링크·사다리 폴백 사슬·아티스트 집계·아카이브 인덱스·배지 | SS-9·10·11·12 |
-| `lib/validate` | 참조 무결성·버킷/태그 정규화·1:1·연도 규칙 (E-1xx·2xx) | SS-1·2 |
+| `lib/checker` | 참조 무결성·태그 정규화·1:1·링크율 100%·고아·OG — E-* 전수 + build-report | SS-1·2·8·15 |
 | `lib/listen-links` | 검색형 듣기 링크 템플릿 적용 + 수기 우선 | SS-13 |
 | `og/` | 카드 3템플릿 렌더 (ADR-0010) | SS-15 |
 | `scripts/*` | 편집 시점 CLI (MB/CAA 어댑터 포함 — 폴백은 여기서) | SS-2·6·14 |
-| `postbuild/check` | dist 전수 링크·리스트-평론 100%·고아·OG 검사 | SS-8·15 |
 
 페이지(라우트 8종 — Jonnathan 합의 2026-09-01): `/` · `/reviews/{slug}/` · `/stories/{slug}/` ·
 `/artists/{slug}/` · `/list/{year}/` · `/list/{year}/{mm}/` · `/archive/...` · `/about/`.
