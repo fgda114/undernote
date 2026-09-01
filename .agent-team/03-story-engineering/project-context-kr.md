@@ -28,7 +28,7 @@
 | 클라이언트 JS | **0** (유일 예외 후보: 쿠키리스 계측 스니펫 1개 — W5.5에서 선정) | [Source: 04-architecture/architecture-overview.md#6-관측-가능성] |
 | 호스팅 | 정적 CDN — 후보 3종(Cloudflare Pages·Netlify·GitHub Pages) 무료 한도 **W5.0에서 실확인 후** 확정 | [Source: 04-architecture/adr/ADR-0009-hosting.md] |
 
-> **CONCERNS: Astro 메이저 버전.** ADR-0002는 "Astro 5"를 명기했으나 W3 리서치(2026-09-02) 시점 최신 안정은 **Astro 7.2**(7.0 = 2026-06-22, Vite 8·신규 Rust 컴파일러)다. Astro 6(2026-03 안정)에서 **Node 22 최소·Zod v4 전환·`Astro.glob()` 등 구 API 제거**가 있었고, ADR-0002의 채택 근거인 Content Layer API는 5→7에서 유지된다(2차 출처 — 스토리 W5-0 `latest_tech` 절 참조). Astro 5.x의 현행 지원 상태는 **미확인**. → **W5.0에서 "현행 안정 메이저 설치 + Node 22+"를 User에게 확인받고 착수한다** (구현 방식 결정권 = User, [Source: 00-plan/charter.md#6-제약]). 이 사실은 리드에게 보고됨.
+> **해소됨 (2026-09-02): Astro 메이저 버전.** W3 최신기술 확인이 ADR-0002의 "Astro 5" 표기가 두 메이저 지연임을 발견 → 리드가 재확인(현행 안정 7.2.9) 후 **ADR-0002를 "Astro (현행 메이저 7.x)"로 개정**했다. 채택 근거(Content Collections + Zod 빌드 타임 검증)는 5→7 유지 — 프레임워크 선택이 아니라 버전 표기 정정. 로컬 환경 Node v24.14.0·npm 11.9.0 확인 완료(Astro 7의 Node 22 요건 충족 — 리드 검증). **W5.0에 남는 것: 정확한 마이너 핀 + Zod v4 breaking change 실확인**뿐이다. [Source: 04-architecture/adr/ADR-0002-ssg-astro.md]
 
 - 신규 라이브러리 추가는 최소 원칙 + lockfile(`npm ci`) 고정. [Source: 04-architecture/architecture-overview.md#5-보안]
 

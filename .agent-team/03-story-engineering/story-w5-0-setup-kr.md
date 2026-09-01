@@ -26,13 +26,13 @@ so that **이후 전 에픽(E1~E5)이 "검증이 먼저 있는" 파이프라인 
 3. **Given** git push / **Then** CI가 검증→테스트→빌드를 실행하고, 실패 시 배포가 일어나지 않으며 기존 사이트는 마지막 성공 상태로 유지된다. [Source: 04-architecture/exceptions.md#3부-장애-부분-실패-설계]
 4. **Given** CI 환경 / **Then** `TZ=Asia/Seoul`이 명시돼 있고, 동일 입력 2회 빌드의 산출 해시가 동일하다 (결정성 게이트의 골격 — 본격 픽스처는 W5.2). [Source: 04-architecture/exceptions.md#R-10] [Source: 04-architecture/build-plan.md#3-테스트-전략]
 5. **Given** 호스팅 후보 3종(Cloudflare Pages·Netlify·GitHub Pages) / **When** W5.0 착수일에 공식 문서로 무료 한도 실확인 / **Then** 1개를 확정하고 git 연동 자동 빌드가 동작한다. 확인 내용(날짜·출처 URL·한도 수치)을 커밋 메시지 또는 `08-impl-notes/`에 기록한다. [Source: 04-architecture/adr/ADR-0009-hosting.md]
-6. **Given** Astro 메이저 버전 질문 / **Then** User에게 "현행 안정 메이저(리서치 시점 7.2) + Node 22+" 채택을 확인받은 기록이 남는다 (아래 developer_context·latest_tech 참조). 거부 시 ADR-0002 대안 경로. [Source: 04-architecture/adr/ADR-0002-ssg-astro.md]
+6. **Given** Astro 설치 / **Then** **현행 메이저 7.x**(ADR-0002 개정판 확정 — User 승인 기존재·로컬 Node v24.14.0 검증 완료)에서 **정확한 마이너 핀 + Zod v4 breaking change를 npm·공식 문서로 실확인**하고 기록한다. 메이저 선택은 더 이상 미결이 아니다. [Source: 04-architecture/adr/ADR-0002-ssg-astro.md]
 
 ## 작업/하위작업(Tasks / Subtasks)
 
-- [ ] 작업 1 — Astro 버전 확인 + User 승인 (AC: #6)
-  - [ ] npm에서 astro 최신 안정 버전·요구 Node 버전 실확인 (본 스토리 latest_tech는 2026-09-02 기준 — 착수일에 재확인)
-  - [ ] User에게 메이저 선택 확인 (ADR-0002의 요구 5조건 충족 여부 명시)
+- [ ] 작업 1 — Astro 7.x 마이너 핀 + Zod v4 확인 (AC: #6)
+  - [ ] npm에서 astro 7.x 최신 마이너 실확인 후 lockfile 핀 (본 스토리 latest_tech는 2026-09-02 기준 — 착수일에 재확인)
+  - [ ] Zod v4 breaking change를 공식 업그레이드 가이드로 확인 (`content.config.ts` 문법에 영향)
 - [ ] 작업 2 — 저장소 스캐폴드 (AC: #1)
   - [ ] `code-structure.md` §1 트리 그대로 생성 (content/·config/·scripts/·src/·public/·tests/·reports/)
   - [ ] `config/site.yaml`·`genres.yaml`(2026 블록, B안 3버킷 기본값)·`tags.yaml`(빈 등록부) 초기값
@@ -53,7 +53,7 @@ so that **이후 전 에픽(E1~E5)이 "검증이 먼저 있는" 파이프라인 
 제품 코드가 아니라 **게이트의 존재 증명**을 만든다. 이 시스템은 "런타임이 없는 시스템"이며 빌드가 곧 제품 로직의 실행 지점이다 [Source: 04-architecture/architecture-overview.md#0-형태를-결정한-세-가지-사실]. 따라서 W5.0의 완료 기준은 "사이트가 예쁘게 뜬다"가 아니라 **"잘못된 콘텐츠가 배포될 수 없음이 증명된다"**이다 (AC2). 스캐폴드는 `code-structure.md` §1 트리를 그대로 따른다 — 임의 변형 금지 (구조 변경은 그 문서 갱신과 함께) [Source: 04-architecture/code-structure.md#1-저장소-트리].
 
 ### 중요한 제약·전제
-- **Astro 메이저 버전 결정이 첫 작업이다.** ADR-0002는 "Astro 5" 명기이나 2026-09-02 기준 최신 안정은 7.2다 (latest_tech 절). ADR의 채택 근거(Content Collections 빌드 타임 Zod 검증·zero-JS·astro:assets·순수 lib 분리)는 메이저와 무관하게 유지되므로 **결정은 "Astro인가"가 아니라 "몇 버전인가"뿐**이다. 구현 방식 결정권은 User [Source: 00-plan/charter.md#6-제약] — 확인 후 착수 (ADR-0002도 "User 확인 후 착수" 명기) [Source: 04-architecture/build-plan.md#W5.0].
+- **Astro 메이저 = 7.x 확정 (해소됨 — 2026-09-02 ADR-0002 개정).** W3가 "Astro 5" 표기의 두 메이저 지연을 발견 → 리드 재확인(현행 안정 7.2.9) 후 ADR 개정. 채택 근거(Content Collections 빌드 타임 Zod 검증·zero-JS·astro:assets·순수 lib 분리)는 5→7 유지. 남은 것은 **마이너 핀 + Zod v4 breaking 실확인**뿐 [Source: 04-architecture/adr/ADR-0002-ssg-astro.md]. build-plan의 "User 확인 후 착수" 요건은 개정 ADR의 기존 User 승인으로 충족 [Source: 04-architecture/build-plan.md#W5.0].
 - Node 22+ 필요 (Astro 6부터 최소 요구 — latest_tech). 개발 환경 = Windows 11 · PowerShell · Node/npm [Source: 00-plan/charter.md#6-제약].
 - CI에 `TZ=Asia/Seoul` 명시는 협상 불가 — 월말정산 종료 월 판정이 이 값에 걸려 있다 [Source: 04-architecture/exceptions.md#R-10].
 - 호스팅 요건 4개: 정적+CDN / 커스텀 도메인+HTTPS 자동 / git push 연동 원자적 배포 / 월 비용 0 목표 [Source: 04-architecture/adr/ADR-0009-hosting.md].
@@ -79,7 +79,7 @@ so that **이후 전 에픽(E1~E5)이 "검증이 먼저 있는" 파이프라인 
 
 | 라이브러리/프레임워크 | 버전 | 비고 |
 |----------------------|------|------|
-| Astro | **현행 안정 메이저 — 착수일 npm 실확인 + User 승인** (2026-09-02 리서치: 7.2.x) | ADR-0002는 "5" 명기 — 아래 latest_tech의 6·7 breaking 목록 참조. Content Layer API는 유지 |
+| Astro | **7.x — 착수일 npm에서 최신 마이너 실확인 후 핀** (2026-09-02 확인: 7.2.9) | ADR-0002 개정판이 7.x 명기 (2026-09-01 정정). 아래 latest_tech의 6·7 breaking 목록 참조. Content Layer API 유지 |
 | Node.js | 22+ | Astro 6부터 최소 요구 (2차 출처 — 착수일 공식 문서 재확인) |
 | Zod | Astro 동봉 버전 사용 (Astro 6+는 v4 계열) | v3→v4 스키마 문법 차이 있음 — `content.config.ts` 작성 시 설치된 버전 문서 기준 |
 | TypeScript | Astro 권장 버전 | |
@@ -125,7 +125,7 @@ satori·resvg는 이 스토리 범위 아님 (W5.1). 신규 의존 추가는 최
 - 저장소 최근 커밋은 전부 문서(W1·W2 산출물)이며 **제품 코드·의존성 0** — 회귀 걱정 없이 그린필드 스캐폴드 가능. 커밋 규약은 한국어 conventional commit 형태(`docs:`·`chore:`)가 확립돼 있다 — 구현 커밋도 이 관례를 따를 것 (발행 커밋은 `publish: <slug>` [Source: 04-architecture/code-structure.md#4-명명-규칙]).
 
 ### Latest Tech Information (latest_tech_information) — 2026-09-02 리서치
-- **Astro 최신 안정 = 7.2.x** (7.2: 2026-08 — 실험적 증분 정적 빌드 등 / 7.0: 2026-06-22 — Vite 8·신규 Rust 컴파일러). 출처: astro.build/blog (공식).
+- **Astro 최신 안정 = 7.2.9** (7.2: 2026-08 — 실험적 증분 정적 빌드 등 / 7.0: 2026-06-22 — Vite 8·신규 Rust 컴파일러). 출처: astro.build/blog + github.com/withastro/astro/releases (리드 재확인 2026-09-02). ADR-0002는 이 발견으로 "5"→"7.x" 개정됨.
 - **Astro 6 (2026-03 안정) breaking**: Node 22 최소 / Zod v4 / `Astro.glob()`·`emitESMImage()`·`<ViewTransitions />` 제거(→`<ClientRouter />`) / i18n redirect 동작 변경. **Content Layer API(Astro 5 도입)는 유지.** 출처: southwellmedia.com 정리 글 — **2차 출처이므로 착수일 공식 업그레이드 가이드로 재확인 필수.**
 - Astro 5.x의 현행 지원·보안 패치 상태: **미확인.**
 - 본 프로젝트는 `Astro.glob()`·ViewTransitions·i18n을 쓰지 않으므로 위 제거 항목의 직접 영향 없음. 실질 영향은 ① Node 22 요구 ② Zod v4 문법 두 가지다.
@@ -145,7 +145,7 @@ _(구현 시 기입)_
 _(구현 시 기입)_
 
 ### 완료 노트 목록(Completion Notes List)
-- _(구현 시 기입 — Astro 채택 버전·User 승인 기록·호스팅 확정 내용 필수)_
+- _(구현 시 기입 — Astro 핀 버전·Zod v4 확인 결과·호스팅 확정 내용 필수)_
 
 ### 파일 목록(File List)
 <!-- ⚠️ 다음 스토리(W5.1)의 이전 스토리 인텔리전스 입력 — 반드시 채울 것 (D4) -->
