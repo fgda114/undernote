@@ -1,0 +1,16 @@
+{
+  "schema": "bathos/model-plan@1",
+  "updated": "2026-09-01T02:58:33.214731800Z",
+  "updated_by": "Paul",
+  "session_backend": "claude",
+  "defaults": {
+    "runtime": "claude"
+  },
+  "roles": {
+    "john-reverse-specialist": {
+      "runtime": "claude",
+      "model": "haiku"
+    }
+  },
+  "waves": {}
+}

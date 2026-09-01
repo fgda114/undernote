@@ -1,0 +1,133 @@
+{
+  "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+  "codename": "undernote",
+  "current_level": 3,
+  "status": "active",
+  "lang": "ko",
+  "created": "2026-09-01T02:44:48.003822100Z",
+  "routing": [
+    {
+      "decision_id": "ld-cc4e79b3-675f-4f21-8f37-faf316109f0b",
+      "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+      "recommended_level": 3,
+      "confirmed_level": 3,
+      "stakes": {
+        "scope": "product",
+        "novelty": true,
+        "regulation_ip": false,
+        "team_size": "solo"
+      },
+      "wave_set": [
+        "W0",
+        "W1",
+        "W2",
+        "W3",
+        "W4",
+        "W5",
+        "W6"
+      ],
+      "role_set": [
+        "Caleb",
+        "John",
+        "Caleb",
+        "Joshua",
+        "James",
+        "Jonnathan",
+        "Matthew",
+        "Mark",
+        "Nathanael",
+        "Phillip",
+        "Andrew",
+        "Stephen",
+        "Thomas",
+        "Timothy",
+        "Matthias",
+        "Michael",
+        "Hananiah",
+        "Martin"
+      ],
+      "user_verdict": "approve",
+      "decided": "2026-09-01T02:44:54.401778600Z"
+    }
+  ],
+  "waves": [
+    {
+      "wave_id": "W0",
+      "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+      "name": "Analysis",
+      "status": "skipped",
+      "active_roles": [],
+      "exit_gate": "Brief"
+    },
+    {
+      "wave_id": "W1",
+      "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+      "name": "Discovery & Market Research",
+      "status": "pending",
+      "active_roles": [],
+      "entry_gate": "Brief",
+      "exit_gate": "Usp"
+    },
+    {
+      "wave_id": "W2",
+      "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+      "name": "Planning · Architecture · Design",
+      "status": "pending",
+      "active_roles": [],
+      "entry_gate": "Usp",
+      "exit_gate": "Plan"
+    },
+    {
+      "wave_id": "W3",
+      "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+      "name": "Story Engineering & Readiness Gate",
+      "status": "pending",
+      "active_roles": [],
+      "entry_gate": "Plan",
+      "exit_gate": "Implementation"
+    },
+    {
+      "wave_id": "W4",
+      "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+      "name": "IP & Research",
+      "status": "skipped",
+      "active_roles": []
+    },
+    {
+      "wave_id": "W5",
+      "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+      "name": "Implementation",
+      "status": "pending",
+      "active_roles": [],
+      "entry_gate": "Implementation"
+    },
+    {
+      "wave_id": "W6",
+      "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
+      "name": "Verify · Documentation · Report",
+      "status": "pending",
+      "active_roles": [],
+      "exit_gate": "Release"
+    }
+  ],
+  "roles": [],
+  "tasks": [],
+  "gates": [
+    {
+      "gate_id": "gate-7f50a433-852c-4796-8d9d-b22c04fa79b2",
+      "wave_id": "W1",
+      "gate_type": "Usp",
+      "verdict": "CONCERNS",
+      "issues_total": 0,
+      "issues_critical": 0,
+      "report_path": "02-market-analysis/usp-recommendations.md",
+      "facilitator": "Paul",
+      "decided": "2026-09-01T03:11:12.574358Z"
+    }
+  ],
+  "risks": [],
+  "modules": [],
+  "artifacts": [],
+  "stale_story_keys": [],
+  "approved_fingerprints": []
+}
