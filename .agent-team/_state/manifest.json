@@ -123,6 +123,17 @@
       "report_path": "02-market-analysis/usp-recommendations.md",
       "facilitator": "Paul",
       "decided": "2026-09-01T03:11:12.574358Z"
+    },
+    {
+      "gate_id": "gate-b62ba7c2-e83e-4ce4-a76e-a31e8bef0fc0",
+      "wave_id": "W1",
+      "gate_type": "Usp",
+      "verdict": "CONCERNS",
+      "issues_total": 0,
+      "issues_critical": 0,
+      "report_path": "02-market-analysis/usp-recommendations-v2.md",
+      "facilitator": "Paul",
+      "decided": "2026-09-01T04:47:47.864041500Z"
     }
   ],
   "risks": [],
