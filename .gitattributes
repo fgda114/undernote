@@ -1,0 +1,17 @@
+* text=auto
+
+# 훅 스크립트는 반드시 LF — CRLF면 WSL/bash에서 shebang이 깨진다
+*.sh text eol=lf
+# PowerShell 훅은 CRLF 유지
+*.ps1 text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.mp3 binary
+*.flac binary
