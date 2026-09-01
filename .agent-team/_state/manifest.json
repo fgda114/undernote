@@ -72,10 +72,11 @@
       "wave_id": "W2",
       "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
       "name": "Planning · Architecture · Design",
-      "status": "pending",
+      "status": "active",
       "active_roles": [],
       "entry_gate": "Usp",
-      "exit_gate": "Plan"
+      "exit_gate": "Plan",
+      "started": "2026-09-01T04:57:55.204293100Z"
     },
     {
       "wave_id": "W3",
