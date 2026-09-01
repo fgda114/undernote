@@ -82,10 +82,11 @@
       "wave_id": "W3",
       "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
       "name": "Story Engineering & Readiness Gate",
-      "status": "pending",
+      "status": "active",
       "active_roles": [],
       "entry_gate": "Plan",
-      "exit_gate": "Implementation"
+      "exit_gate": "Implementation",
+      "started": "2026-09-01T16:30:05.576285500Z"
     },
     {
       "wave_id": "W4",

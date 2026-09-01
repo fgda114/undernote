@@ -1,8 +1,9 @@
-# ADR-0002. 사이트 생성기 = Astro 5
+# ADR-0002. 사이트 생성기 = Astro (현행 메이저 7.x)
 
 | | |
 |---|---|
 | 상태 | ✅ **Accepted** — User 승인 (2026-09-01). 구현 방식 결정권은 User(charter §6) |
+| 개정 | **2026-09-01 — 버전 정정: Astro 5 → 7.x.** W3(Matthew) 최신기술 확인 단계에서 지연 발견 |
 | 작성 | James · 2026-09-01 |
 | 승인 | User · 2026-09-01 · 리드 Paul 기록 |
 | 의존 | ADR-0001 |
@@ -19,7 +20,25 @@ SSG에 요구되는 것 (SS·디자인 계약에서 역산):
 
 ## 결정
 
-**Astro 5를 채택한다.** 콘텐츠는 Content Collections(Content Layer)로 로드하고, Zod 스키마로 빌드 타임 검증한다.
+**Astro 현행 메이저(7.x)를 채택한다.**
+
+> ⚠️ **버전 정정 (2026-09-01).** 이 ADR은 최초에 "Astro 5"로 작성됐으나, W3의 Matthew가
+> 최신기술 확인 단계에서 **작성 시점 기준 두 메이저 뒤처짐**을 발견했다. 리드가 재확인:
+>
+> | | |
+> |---|---|
+> | 현행 안정판 | **7.2.9** ([Astro Releases](https://github.com/withastro/astro/releases)) |
+> | Astro 7.0 | 2026-06 — Vite 8 · Rust 컴파일러 · Advanced Routing |
+> | Astro 6.0 | 2026-03 — Fonts API · CSP API · Node 22 최소 |
+>
+> **채택 근거는 그대로 유효하다** — Content Collections(Content Layer) + Zod 스키마
+> 빌드 타임 검증은 5→7에서 유지된다. 프레임워크 선택이 아니라 버전 표기만 정정한다.
+>
+> **환경 확인 완료:** 로컬 Node v24.14.0 · npm 11.9.0 — Astro 7의 Node 22 최소 요건 충족.
+> **정확한 마이너 핀과 Zod v4 등 breaking change 대응은 W5.0에서 실확인**한다
+> (story-w5-0-setup 참조). 여기서 지어낸 버전을 박지 않는다.
+
+콘텐츠는 Content Collections(Content Layer)로 로드하고, Zod 스키마로 빌드 타임 검증한다.
 
 - Content Collections가 요구 1을 **프레임워크 기본 기능으로** 제공 — 스키마 불일치 시 빌드가 실패한다. 출처: [Astro Docs — Content collections](https://docs.astro.build/en/guides/content-collections/)
 - zero-JS 기본 출력이 요구 2와 일치. 아일랜드는 쓰지 않는다(필요 없음).

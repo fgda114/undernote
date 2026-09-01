@@ -1,15 +1,23 @@
 {
   "schema": "bathos/model-plan@1",
-  "updated": "2026-09-01T04:58:03.714661500Z",
+  "updated": "2026-09-01T16:39:17.432712300Z",
   "updated_by": "Paul",
   "session_backend": "claude",
   "defaults": {
     "runtime": "claude"
   },
   "roles": {
+    "matthias-qa-validator": {
+      "runtime": "claude",
+      "model": "claude-fable-5"
+    },
     "john-reverse-specialist": {
       "runtime": "claude",
       "model": "haiku"
+    },
+    "thomas-code-reviewer": {
+      "runtime": "claude",
+      "model": "claude-fable-5"
     }
   },
   "waves": {}
