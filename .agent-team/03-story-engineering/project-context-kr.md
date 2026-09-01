@@ -102,14 +102,20 @@ content/·config/ → content.config.ts(Zod) → src/lib/(derive·checker) → p
 
 파생물(보드·인덱스·역링크·배지) 파일 커밋 · 템플릿 내 판단 로직 · 리스트 수동 관리 · 증분 캐시(1차) · 재시도 루프/서킷브레이커(편집 도구엔 사람이 있다 — P9) · 계정/DB 대비 추상화 · 클라이언트 검색/hydration · CMS/관리자 UI(1차) · 점수 float 연산 · 스냅샷 수동 편집 · 과거 연도 버킷 설정 수정 · SEO 투자(기본 위생만) · 사이트→SNS 자동 포스팅. [Source: 04-architecture/design-patterns.md#배제한-패턴] [Source: 03-service-planning/core-features.md#3-non-goals]
 
-## 12. source_hash 산출 방법 (D3 신선도 — 재검증 절차)
+## 12. source_hash 산출 방법 (D3 신선도 — 재검증 절차) — v2, eol 비의존
 
+**해싱 대상 표현을 명시한다:** ① 내용 = **HEAD 커밋에 저장된 저장소 정규화 내용**(`git show HEAD:<path>` — `.gitattributes`의 `text=auto`로 LF 통일). 작업 트리 `cat`은 **금지** — Windows CRLF 체크아웃에서 다른 값이 나온다 (머신·`core.autocrlf` 의존, Matthias C-1/N-0 실측). `git hash-object`도 **금지** — blob 헤더가 섞이는 다른 스킴이다. ② 파일 목록·순서 = 아래 패턴을 `git ls-files`로 확장해 **경로 바이트 사전순**(`LC_ALL=C sort`). ③ 연결 후 sha256 1회.
+
+```bash
+# 저장소 루트에서 (Git Bash)
+git ls-files '.agent-team/00-plan/charter.md' \
+  '.agent-team/03-service-planning/*.md' \
+  '.agent-team/04-architecture/*.md' '.agent-team/04-architecture/adr/*.md' \
+  '.agent-team/07-design/*.md' '.agent-team/07-design/design-system/*.md' \
+  | LC_ALL=C sort | while read f; do git show "HEAD:$f"; done | sha256sum
 ```
-cd .agent-team && cat 00-plan/charter.md \
-  03-service-planning/core-features.md 03-service-planning/user-stories.md \
-  03-service-planning/service-stories.md 03-service-planning/usp.md \
-  03-service-planning/open-decisions.md \
-  04-architecture/*.md 04-architecture/adr/*.md \
-  07-design/*.md 07-design/design-system/*.md | sha256sum
-```
-이 값이 스토리 파일 상단의 `source_hash`와 다르면 **상류가 변경된 것**이다 — 해당 스토리는 stale이며 W3 재컴파일 대상이다 (구현 착수 금지, 리드 보고).
+(2026-09-02 기준 31파일. 참고 실행값 — HEAD `1f79dce`에서 `2768bb71…cda427`, 2회 실행 동일 확인.)
+
+이 값이 스토리 파일 상단의 `source_hash`와 다르면 **상류가 변경된 것**이다 — 해당 스토리는 stale이며 W3 재컴파일 대상이다 (구현 착수 금지, 리드 보고). 미커밋 상류 수정은 이 절차에 안 잡히므로, 상류 문서 수정은 **커밋 후** 재검증한다.
+
+> **경과 주:** 스토리 frontmatter의 현 선언값은 구절차(작업 트리 기준) 값이다. Thomas 리뷰 반영이 끝나는 대로 **본 v2 절차로 최종 1회 재산출해 전 7파일에 스탬프**한다 (게이트 판정 전 완료 — readiness-report에 최종값 기록).
