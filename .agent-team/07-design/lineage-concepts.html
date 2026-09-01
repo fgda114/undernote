@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>undernote — 계보 글, 세 가지 방법 (원에게 보여드리는 시안)</title>
+<!--
+  시안 전용 파일입니다. 원이 브라우저로 열어 보고 A/B/C 중 고르기 위한 것.
+  프로덕션에서는 폰트를 셀프호스팅(서브셋 woff2)합니다 — 아래 CDN은 시안 열람 편의용.
+  화면 속 앨범 짝지음·설명·점수는 전부 예시 데이터입니다.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&display=swap">
+<style>
+  :root{
+    --paper:#FAF9F7; --surface:#FFFFFF; --wash:#F3F1EC;
+    --ink:#201E1B; --muted:#6E6A63; --line:#E7E4DE;
+    --seal:#B23A2F; --seal-deep:#9A2F25;
+    --sans:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --serif:"Noto Serif KR","Apple SD Gothic Neo",serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.75;font-size:17px}
+  a{color:inherit}
+
+  /* ---- 안내용 셸 (시안을 감싸는 설명 영역) ---- */
+  .shell{max-width:860px;margin:0 auto;padding:48px 24px 96px}
+  .shell-head{border-bottom:1px solid var(--line);padding-bottom:32px;margin-bottom:48px}
+  .wordmark{font-family:var(--serif);font-weight:700;font-size:21px;letter-spacing:-.01em}
+  .wordmark .dot{color:var(--seal)}
+  .shell-head h1{font-size:27px;line-height:1.4;font-weight:700;margin:20px 0 12px;text-wrap:balance}
+  .shell-head p{color:var(--muted);max-width:620px}
+  .shell-head .ask{display:inline-block;margin-top:16px;padding:10px 14px;background:var(--wash);border-radius:4px;color:var(--ink);font-size:15px}
+
+  .option{margin-bottom:80px}
+  .option-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+  .option-label{font-family:var(--serif);font-weight:700;font-size:24px}
+  .chip{font-size:13px;font-weight:600;letter-spacing:.02em;padding:3px 10px;border-radius:2px;white-space:nowrap}
+  .chip.now{background:var(--ink);color:var(--paper)}
+  .chip.soon{background:var(--wash);color:var(--ink);border:1px solid var(--line)}
+  .chip.later{background:transparent;color:var(--muted);border:1px dashed var(--muted)}
+  .option-sub{color:var(--muted);font-size:15px;margin-bottom:20px;max-width:640px}
+
+  /* ---- 브라우저 프레임 ---- */
+  .frame{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(32,30,27,.04),0 8px 24px rgba(32,30,27,.05)}
+  .frame-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--wash)}
+  .frame-bar .b{width:9px;height:9px;border-radius:50%;background:var(--line)}
+  .frame-bar .url{font-size:12px;color:var(--muted);margin-left:8px;font-variant-numeric:tabular-nums}
+  .page{padding:40px 32px 48px}
+  .page-inner{max-width:600px;margin:0 auto}
+
+  /* ---- 기사(음악 이야기) 공통 ---- */
+  .overline{font-size:13px;font-weight:700;letter-spacing:.14em;color:var(--seal);margin-bottom:12px}
+  .story-title{font-size:29px;line-height:1.4;font-weight:800;letter-spacing:-.015em;text-wrap:balance;margin-bottom:8px}
+  .story-meta{font-size:14px;color:var(--muted);margin-bottom:28px}
+  .story-body p{margin-bottom:1.4em}
+  .story-body .rlink{color:var(--seal);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+  .ellipsis{color:var(--muted);text-align:center;letter-spacing:.4em;margin:4px 0 28px}
+
+  /* ---- 커버 자리표시 ---- */
+  .cover{border-radius:4px;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:700;flex-shrink:0}
+  .cover.c2{background:#3E3A44}.cover.c3{background:#54423A}.cover.c4{background:#2E4440}
+
+  /* ---- 안 A: 앨범 상자 ---- */
+  .albox{border-top:2px solid var(--ink);margin-top:36px;padding-top:16px}
+  .albox-title{font-size:14px;font-weight:700;letter-spacing:.08em;margin-bottom:4px}
+  .albox-note{font-size:13px;color:var(--muted);margin-bottom:14px}
+  .alrow{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .alrow:last-child{border-bottom:0}
+  .alrow .cover{width:44px;height:44px;font-size:15px}
+  .alrow .t{flex:1;min-width:0}
+  .alrow .name{font-weight:700;font-size:16px}
+  .alrow .artist{font-size:14px;color:var(--muted)}
+  .alrow .go{font-size:14px;font-weight:600;color:var(--seal);white-space:nowrap;text-decoration:none}
+  .alrow .no{font-size:13px;color:var(--muted);white-space:nowrap}
+
+  /* ---- 안 B: 계보 블록 ---- */
+  .lineage{border:1px solid var(--line);border-radius:6px;background:var(--wash);padding:24px 20px;margin:32px 0}
+  .lineage-title{font-size:14px;font-weight:700;letter-spacing:.08em;margin-bottom:18px}
+  .tier-label{font-size:13px;font-weight:700;color:var(--seal);margin-bottom:10px}
+  .tier-label.f{color:var(--muted)}
+  .lead-card{display:flex;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--seal);border-radius:4px;padding:14px 16px}
+  .lead-card .cover{width:64px;height:64px;font-size:19px}
+  .lead-card .name{font-family:var(--serif);font-weight:700;font-size:18px}
+  .lead-card .artist{font-size:14px;color:var(--muted)}
+  .lead-card .why{font-size:14px;margin-top:2px}
+  .flow-arrow{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:14px 0 14px 8px}
+  .flow-arrow::before{content:"";display:block;width:1px;height:22px;background:var(--muted);margin-left:22px}
+  .follow-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .follow-card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 14px;display:flex;gap:12px;align-items:center}
+  .follow-card .cover{width:44px;height:44px;font-size:14px}
+  .follow-card .name{font-weight:700;font-size:15px;line-height:1.4}
+  .follow-card .artist{font-size:13px;color:var(--muted)}
+  .follow-card .go{font-size:13px;font-weight:600;color:var(--seal);text-decoration:none}
+  .follow-card .no{font-size:12px;color:var(--muted)}
+  .artist-line{margin-top:14px;font-size:14px;color:var(--muted)}
+  .artist-line b{color:var(--ink);font-weight:600}
+
+  /* ---- 안 C: 계보 지도 ---- */
+  .map-head{margin-bottom:28px}
+  .map-title{font-family:var(--serif);font-size:25px;font-weight:700;letter-spacing:-.01em}
+  .map-sub{font-size:14px;color:var(--muted);margin-top:4px}
+  .map{position:relative;padding:8px 0 0}
+  .map-years{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:24px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .map-grid{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:center}
+  .node{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;gap:12px;align-items:center}
+  .node.origin{border-left:3px solid var(--seal)}
+  .node .cover{width:52px;height:52px;font-size:16px}
+  .node .name{font-weight:700;font-size:15px;line-height:1.35}
+  .node .meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .edges{position:relative;height:100%}
+  .map-col{display:flex;flex-direction:column;gap:14px}
+  .map svg{display:block;width:100%;height:100%}
+  .map-note{margin-top:24px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+
+  /* ---- 평가(좋은 점/아쉬운 점) ---- */
+  .verdict{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+  .verdict .v{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 18px;font-size:15px;line-height:1.7}
+  .verdict .v b{display:block;font-size:13px;letter-spacing:.06em;margin-bottom:6px}
+  .verdict .good b{color:#2E6B4F}
+  .verdict .bad b{color:var(--muted)}
+
+  .howto{border-top:2px solid var(--ink);padding-top:24px}
+  .howto h2{font-size:19px;margin-bottom:12px}
+  .howto p{max-width:640px;margin-bottom:10px}
+  .howto .path{background:var(--wash);border-radius:4px;padding:12px 16px;font-size:15px;margin-top:8px}
+
+  @media (max-width:640px){
+    .follow-grid{grid-template-columns:1fr}
+    .verdict{grid-template-columns:1fr}
+    .map-grid{grid-template-columns:1fr;gap:10px}
+    .edges{display:none}
+    .page{padding:28px 18px 36px}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="shell-head">
+    <div class="wordmark">undernote<span class="dot">.</span></div>
+    <h1>"누가 시작했고, 누가 따라갔는가" —<br>계보 글을 보여주는 세 가지 방법</h1>
+    <p>원이 말한 것: <em>"음악이 유행하는 건 특정 앨범으로부터 비롯되기에, 그걸 선도한 앨범,
+    또는 현상에 따라가는 앨범을 나열해야 해요."</em><br>
+    그걸 화면으로 만들면 아래 세 가지 모양이 됩니다. 셋 다 원이 든 예시(트랜지션 힙합 —
+    DOPAMINE, HALF BLOOD, 프리티펀, 슬레이어)로 채웠습니다.</p>
+    <span class="ask">쭉 내려 보시고 <strong>A · B · C 중 마음에 드는 걸</strong> 골라 주세요.
+    화면 속 앨범 짝지음·설명은 전부 예시입니다.</span>
+  </header>
+
+  <!-- ================= 안 A ================= -->
+  <section class="option">
+    <div class="option-head">
+      <span class="option-label">안 A — 글 끝에 "앨범 상자"</span>
+      <span class="chip now">지금 1차에서 바로 만들 수 있음</span>
+    </div>
+    <p class="option-sub">계보는 <strong>글로</strong> 씁니다. 글에 나온 앨범들이 글 끝에
+    자동으로 정리되고, 평론이 있는 앨범은 눌러서 넘어갑니다. 원은 평소처럼 글만 쓰면 됩니다.</p>
+
+    <div class="frame">
+      <div class="frame-bar"><span class="b"></span><span class="b"></span><span class="b"></span>
+        <span class="url">undernote.kr/stories/hiphop-transition/</span></div>
+      <div class="page"><div class="page-inner">
+        <div class="overline">음악 이야기</div>
+        <h2 class="story-title">요즘 힙합 앨범은 왜 한 곡 안에서 두 번 변할까</h2>
+        <div class="story-meta">2026. 9. · 힙합/R&B</div>
+        <div class="story-body">
+          <p>노래를 듣다가 갑자기 비트가 뚝 끊기고, 전혀 다른 곡처럼 다시 시작되는 순간이
+          있다. 요즘 힙합에서 부쩍 자주 만나는 이 장치를 '트랜지션'이라고 부른다. 한 곡을
+          두 곡처럼, 한 앨범을 한 편의 흐름처럼 만드는 방법이다.</p>
+          <p>이 흐름 위에서 올해 나온 앨범들이 있다. 프리티펀의
+          <a class="rlink" href="#">《DOPAMINE》</a>이 그렇고, 슬레이어의 《HALF BLOOD》도
+          같은 시도를 한다. 왜 다들 곡을 자르기 시작했을까. 이야기는 몇 년 전으로 거슬러
+          올라간다.</p>
+          <p class="ellipsis">· · ·</p>
+        </div>
+        <div class="albox">
+          <div class="albox-title">이 글에 나온 앨범</div>
+          <div class="albox-note">평론이 있는 앨범은 바로 이어집니다.</div>
+          <div class="alrow">
+            <div class="cover">A</div>
+            <div class="t"><div class="name">ASTROWORLD</div><div class="artist">Travis Scott · 2018</div></div>
+            <a class="go" href="#">평론 읽기 →</a>
+          </div>
+          <div class="alrow">
+            <div class="cover c2">D</div>
+            <div class="t"><div class="name">DOPAMINE</div><div class="artist">프리티펀 · 2026</div></div>
+            <a class="go" href="#">평론 읽기 →</a>
+          </div>
+          <div class="alrow">
+            <div class="cover c3">H</div>
+            <div class="t"><div class="name">HALF BLOOD</div><div class="artist">슬레이어 · 2026</div></div>
+            <span class="no">평론 준비 중</span>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="verdict">
+      <div class="v good"><b>이렇게 하면 좋은 점</b>
+        원이 할 일이 하나도 안 늘어요. 글만 쓰면 앨범 정리와 연결은 자동입니다.
+        지금 1차 사이트에 그대로 들어갑니다.</div>
+      <div class="v bad"><b>아쉬운 점</b>
+        "누가 시작했고 누가 따라갔는지"는 글을 읽어야 알 수 있어요.
+        상자만 봐서는 흐름의 방향이 한눈에 안 보입니다.</div>
+    </div>
+  </section>
+
+  <!-- ================= 안 B ================= -->
+  <section class="option">
+    <div class="option-head">
+      <span class="option-label">안 B — 글 속에 "계보 블록"</span>
+      <span class="chip soon">조금만 더 하면 됨 — 원의 표시 하나 추가</span>
+    </div>
+    <p class="option-sub">글은 그대로 쓰되, 앨범마다 <strong>"이게 시작"인지 "따라간 것"인지</strong>만
+    원이 표시해 주면(앨범당 체크 하나) 글 안에 아래 블록이 자동으로 그려집니다.</p>
+
+    <div class="frame">
+      <div class="frame-bar"><span class="b"></span><span class="b"></span><span class="b"></span>
+        <span class="url">undernote.kr/stories/hiphop-transition/</span></div>
+      <div class="page"><div class="page-inner">
+        <div class="overline">음악 이야기</div>
+        <h2 class="story-title">요즘 힙합 앨범은 왜 한 곡 안에서 두 번 변할까</h2>
+        <div class="story-meta">2026. 9. · 힙합/R&B</div>
+        <div class="story-body">
+          <p>노래를 듣다가 갑자기 비트가 뚝 끊기고, 전혀 다른 곡처럼 다시 시작되는 순간이
+          있다. 요즘 힙합에서 부쩍 자주 만나는 이 장치를 '트랜지션'이라고 부른다.</p>
+        </div>
+
+        <div class="lineage">
+          <div class="lineage-title">이 흐름의 계보</div>
+          <div class="tier-label">시작한 앨범</div>
+          <div class="lead-card">
+            <div class="cover">A</div>
+            <div>
+              <div class="name">ASTROWORLD <span style="font-size:13px;color:var(--muted);font-family:var(--sans);font-weight:400">Travis Scott · 2018</span></div>
+              <div class="why">한 곡을 자르고 이어붙이는 문법을 대중적으로 못박은 앨범 (예시 설명)</div>
+            </div>
+          </div>
+          <div class="flow-arrow">이어받은 앨범들</div>
+          <div class="tier-label f">따라가는 앨범</div>
+          <div class="follow-grid">
+            <div class="follow-card">
+              <div class="cover c2">D</div>
+              <div><div class="name">DOPAMINE</div><div class="artist">프리티펀 · 2026</div><a class="go" href="#">평론 →</a></div>
+            </div>
+            <div class="follow-card">
+              <div class="cover c3">H</div>
+              <div><div class="name">HALF BLOOD</div><div class="artist">슬레이어 · 2026</div><span class="no">평론 준비 중</span></div>
+            </div>
+          </div>
+          <div class="artist-line">지금 이 시도를 하는 아티스트 — <b>프리티펀</b> · <b>슬레이어</b></div>
+        </div>
+
+        <div class="story-body">
+          <p>블록 아래로 글이 계속 이어진다. 위 그림은 글을 안 읽은 사람에게도 흐름의
+          방향을 먼저 보여주는 역할을 한다.</p>
+          <p class="ellipsis">· · ·</p>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="verdict">
+      <div class="v good"><b>이렇게 하면 좋은 점</b>
+        "누가 먼저, 누가 다음"이 그림처럼 보여요. 글을 다 읽지 않아도 흐름이 잡히고,
+        원이 말한 "선도한 앨범 / 따라가는 앨범 나열"이 화면에 그대로 구현됩니다.</div>
+      <div class="v bad"><b>아쉬운 점</b>
+        앨범마다 "시작인지 / 따라감인지" 원이 표시해 줘야 해요(부담은 체크 하나 수준).
+        흐름이 여러 갈래로 얽히면 두 줄로는 다 못 담습니다.</div>
+    </div>
+  </section>
+
+  <!-- ================= 안 C ================= -->
+  <section class="option">
+    <div class="option-head">
+      <span class="option-label">안 C — 별도의 "계보 지도" 페이지</span>
+      <span class="chip later">나중에 — 글이 쌓이고 독자 반응이 확인되면</span>
+    </div>
+    <p class="option-sub">계보만 모아 보여주는 전용 화면입니다. 시간축 위에 앨범들이 놓이고,
+    화살표가 영향의 방향을 보여줍니다. 지금 만드는 건 아니고, <strong>A나 B로 시작했을 때
+    나중에 이렇게 자랄 수 있다</strong>는 그림입니다.</p>
+
+    <div class="frame">
+      <div class="frame-bar"><span class="b"></span><span class="b"></span><span class="b"></span>
+        <span class="url">undernote.kr/lineage/hiphop-transition/</span></div>
+      <div class="page"><div class="page-inner" style="max-width:640px">
+        <div class="map-head">
+          <div class="overline">계보 지도</div>
+          <div class="map-title">힙합 트랜지션 — 시작과 지금</div>
+          <div class="map-sub">앨범을 누르면 평론으로, 지도 아래에서 이야기 전문으로 이어집니다.</div>
+        </div>
+        <div class="map">
+          <div class="map-years"><span>2018</span><span>2022</span><span>2026</span></div>
+          <div class="map-grid">
+            <div class="map-col">
+              <div class="node origin">
+                <div class="cover">A</div>
+                <div><div class="name">ASTROWORLD</div><div class="meta">Travis Scott · 2018 · 시작</div></div>
+              </div>
+            </div>
+            <div class="map-col">
+              <svg viewBox="0 0 300 150" aria-hidden="true" preserveAspectRatio="none" style="position:absolute;width:0;height:0"></svg>
+              <div class="node">
+                <div class="cover c2">D</div>
+                <div><div class="name">DOPAMINE</div><div class="meta">프리티펀 · 2026 · 평론 8.4</div></div>
+              </div>
+              <div class="node">
+                <div class="cover c3">H</div>
+                <div><div class="name">HALF BLOOD</div><div class="meta">슬레이어 · 2026</div></div>
+              </div>
+              <div class="node">
+                <div class="cover c4">?</div>
+                <div><div class="name">다음 앨범</div><div class="meta">평론이 쌓이면 지도가 자랍니다</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="map-note">왼쪽(시작한 앨범)에서 오른쪽(따라가는 앨범)으로 읽습니다.
+          실제 화면에서는 연결선이 그려지고, 흐름이 여러 개면 세로로 쌓입니다.</div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="verdict">
+      <div class="v good"><b>이렇게 하면 좋은 점</b>
+        사이트의 간판이 될 수 있는 화면이에요. "이 장르가 어디서 와서 지금 어디까지
+        왔는지"가 지도 한 장으로 보입니다. 다른 데 없는 볼거리입니다.</div>
+      <div class="v bad"><b>아쉬운 점</b>
+        만드는 손이 제일 많이 가고, 글이 몇 편 없을 땐 지도가 텅 비어 보여요.
+        독자들이 실제로 이걸 원하는지 아직 확인이 안 돼서, 지금 바로 만들 단계는
+        아닙니다.</div>
+    </div>
+  </section>
+
+  <!-- ================= 고르는 법 ================= -->
+  <section class="howto">
+    <h2>고르는 법</h2>
+    <p><strong>"A" / "B" / "C" 한 글자로 답하시면 됩니다.</strong> 섞어도 됩니다 —
+    예: "일단 A로 가고, 표시하는 게 귀찮지 않으면 B도".</p>
+    <p>참고로 셋은 서로를 막지 않습니다. 데이터는 같은 걸 쓰기 때문에,</p>
+    <div class="path">A(글 + 앨범 상자) → B(계보 블록) → C(계보 지도) 순서로
+    <strong>언제든 다음 단계로 자랄 수 있습니다.</strong> 지금 A를 골라도 B·C를 포기하는 게 아닙니다.</div>
+    <p style="margin-top:16px;color:var(--muted);font-size:15px">저희 추천: <strong>A로 시작</strong>하되,
+    계보 글을 쓸 때 "시작/따라감" 표시가 귀찮지 않다면 <strong>B</strong>가 원의 아이디어에 가장 가깝습니다.
+    C는 글이 쌓인 뒤의 목표로 남겨 둡니다.</p>
+  </section>
+
+</div>
+</body>
+</html>
