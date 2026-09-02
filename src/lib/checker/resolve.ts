@@ -79,16 +79,21 @@ export function resolveRepo(data: RepoData): CheckResult {
     }
 
     // Bucket must exist in the RELEASE YEAR's config block ("etc" always ok).
+    // Old albums whose release year has no block (구반) validate against the
+    // UNION of every year block — archive grouping only, never list material
+    // (R-8: a missing year block is normal for back-catalog).
     if (album.data.bucket !== 'etc' && data.genres) {
       const year = releaseYear(album.data.release_date);
       const block = genreYears.get(year);
-      const ids = block ? block.buckets.map((b) => b.id) : [];
+      const ids = block
+        ? block.buckets.map((b) => b.id)
+        : [...new Set(data.genres.years.flatMap((y) => y.buckets.map((b) => b.id)))];
       if (!ids.includes(album.data.bucket)) {
         failures.push({
           code: 'E-104',
           message: block
             ? `E-104: bucket "${album.data.bucket}"은(는) 발매 연도 ${year}의 버킷 설정에 없습니다. 사용 가능: ${ids.join(', ')} 또는 "etc". config/genres.yaml을 확인하세요.`
-            : `E-104: 발매 연도 ${year}의 버킷 설정 블록이 config/genres.yaml에 없습니다. ${year} 연도 블록을 추가하거나 bucket을 "etc"로 지정하세요.`,
+            : `E-104: bucket "${album.data.bucket}"은(는) 어떤 연도 블록에도 없습니다 (발매 연도 ${year}은 블록 없음 — 전 연도 합집합으로 검증). 사용 가능: ${ids.join(', ')} 또는 "etc".`,
           file: album.file,
         });
       }
