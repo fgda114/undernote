@@ -1,0 +1,62 @@
+---
+/**
+ * Footer (components.md §2): about/criteria + archive links, editor SNS
+ * outlinks, ©. Single state.
+ *
+ * The © year is REPO-DERIVED (site.active_year), never new Date():
+ * wall-clock values in page output are a determinism leak (R-10) that the
+ * same-day double-build hash gate cannot catch — do not "fix" this back.
+ * SNS links come from config when they exist; absent → not rendered (R-4).
+ */
+import { getSiteConfig } from '../lib/site.ts';
+
+const site = getSiteConfig();
+---
+
+<footer class="footer">
+  <div class="footer-inner">
+    <ul class="footer-nav">
+      <li><a href="/about/">소개/기준</a></li>
+      <li><a href="/archive/">아카이브</a></li>
+    </ul>
+    <p class="copyright">© {site.active_year} {site.site_name}</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--line);
+    margin-top: var(--s-96);
+  }
+  .footer-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--s-32) 20px var(--s-48);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-16);
+    flex-wrap: wrap;
+  }
+  .footer-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: var(--s-24);
+  }
+  .footer-nav a {
+    font-size: var(--fs-15);
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .footer-nav a:hover {
+    color: var(--seal);
+  }
+  .copyright {
+    font-size: var(--fs-13);
+    color: var(--muted);
+  }
+</style>

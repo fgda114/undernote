@@ -1,0 +1,26 @@
+---
+/**
+ * FormatLabel — the seal-colored overline (components.md §3). Not decoration:
+ * real text, read first by screen readers on purpose (the format IS the
+ * context). One of the five sanctioned --seal slots.
+ */
+interface Props {
+  /** Label text: 평론 / 음악 이야기 / 아티스트 / page overlines (e.g. "2026 올해의 앨범"). */
+  text: string;
+}
+
+const { text } = Astro.props;
+---
+
+<p class="format-label">{text}</p>
+
+<style>
+  .format-label {
+    font-family: var(--sans);
+    font-size: var(--fs-13);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    color: var(--seal);
+  }
+</style>

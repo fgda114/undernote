@@ -1,0 +1,58 @@
+---
+/**
+ * Base layout — document skeleton + the OG injection point every public page
+ * shares (api-contracts §5: og:title/description/image + og:type/og:url/
+ * twitter:card are mandatory on every page — E-111 enforces this in W5.2).
+ *
+ * Score strings NEVER pass through here: OG assembly input types have no
+ * score field at all (E-115 is enforced at the type level, src/lib/og).
+ */
+import Footer from '../components/Footer.astro';
+import Masthead from '../components/Masthead.astro';
+import { absoluteUrl, getSiteConfig } from '../lib/site.ts';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  /** og:type — "article" for reviews/stories, "website" otherwise. */
+  ogType?: 'website' | 'article';
+  /** Site-relative path of the page's share card (task: OG generator). */
+  ogImage?: string;
+  /** Site-relative canonical path of this page, e.g. "/reviews/foo/". */
+  path: string;
+  current?: 'reviews' | 'stories' | 'list' | 'archive' | 'about';
+}
+
+const site = getSiteConfig();
+const { title, description, ogType = 'website', ogImage = '/og/default.png', path, current } = Astro.props;
+const fullTitle = title === site.site_name ? title : `${title} — ${site.site_name}`;
+---
+
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="canonical" href={absoluteUrl(path)} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={absoluteUrl(ogImage)} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={absoluteUrl(path)} />
+    <meta property="og:site_name" content={site.site_name} />
+    <meta name="twitter:card" content="summary_large_image" />
+    {/* Fonts are small subsets; preloading the two first-paint faces avoids FOUT on the wordmark. */}
+    <link rel="preload" href="/fonts/NotoSerifKR-700-sub.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/PretendardVariable-sub.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <Masthead current={current} />
+    <slot />
+    <Footer />
+  </body>
+</html>

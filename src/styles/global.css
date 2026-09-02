@@ -1,0 +1,100 @@
+/**
+ * Global base styles: self-hosted subset fonts, a light reset, reading
+ * defaults and the shared accessibility contracts (focus-visible outline,
+ * reduced-motion) from tokens.md §5-6 and components.md 공통 계약.
+ */
+@import './tokens.css';
+
+/* ── Self-hosted subset fonts (tokens.md §3 — CDN forbidden, <1.5MB total).
+   unicode-range keeps the browser from downloading a face it never paints. ── */
+@font-face {
+  font-family: 'Pretendard Variable';
+  src: url('/fonts/PretendardVariable-sub.woff2') format('woff2-variations');
+  font-weight: 45 920;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Serif KR';
+  src: url('/fonts/NotoSerifKR-400-sub.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Serif KR';
+  src: url('/fonts/NotoSerifKR-700-sub.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ── Reset (small on purpose) ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-17);
+  line-height: 1.75;
+  word-break: keep-all; /* Korean line breaking: keep words intact */
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+/* ── Links: seal underline is one of the five sanctioned accent slots ── */
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--t-micro);
+}
+
+/* Body links inside articles get the seal treatment (visible affordance is
+   color + underline — never color alone, WCAG 1.4.1). */
+.prose a {
+  color: var(--seal);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose a:hover {
+  color: var(--seal-deep);
+}
+
+/* ── Focus: identical outline on every interactive element ── */
+:focus-visible {
+  outline: 2px solid var(--seal);
+  outline-offset: 2px;
+}
+
+/* ── Numbers align in columns (scores, ranks, dates) ── */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Motion sensitivity: stagger removed, transitions collapse ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
