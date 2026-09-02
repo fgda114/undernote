@@ -46,3 +46,24 @@ export const isoDateSchema = z.preprocess(
       error: (iss) => `date "${String(iss.input)}"은(는) YYYY-MM-DD 형식이 아닙니다 (예: 2026-09-02).`,
     }),
 );
+
+/** Release date — year alone is enough (the year is the list-attribution key,
+ * SS-2). YAML may hand us a number (2024), a Date (2024-05-03 unquoted) or a
+ * string; normalize all three to the canonical string form. */
+export const RELEASE_DATE_PATTERN = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+
+export const releaseDateSchema = z.preprocess(
+  (input) => {
+    if (input instanceof Date) return input.toISOString().slice(0, 10);
+    if (typeof input === 'number' && Number.isInteger(input)) return String(input);
+    return input;
+  },
+  z
+    .string({
+      error: () => 'release_date가 없습니다. 최소한 발매 연도는 필요합니다 — 연도가 없으면 리스트 귀속이 불가능합니다 (예: "2026" 또는 "2026-05-03").',
+    })
+    .regex(RELEASE_DATE_PATTERN, {
+      error: (iss) =>
+        `release_date "${String(iss.input)}"은(는) YYYY·YYYY-MM·YYYY-MM-DD 중 하나가 아닙니다 (예: "2026-05-03").`,
+    }),
+);

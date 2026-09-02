@@ -1,0 +1,7 @@
+# Site-wide configuration (api-contracts §3.8 SiteConfig).
+# site_name: final name undecided (open item) — single replacement point.
+# base_url: GitHub Pages project URL until a custom domain is registered.
+site_name: "undernote"
+base_url: "https://fgda114.github.io/undernote"
+active_year: 2026
+og_use_cover: true

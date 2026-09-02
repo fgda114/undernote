@@ -1,0 +1,7 @@
+title: 픽스처 앨범
+artists: [fixture-artist]
+release_date: "2026-05-01"
+bucket: pop
+tags: [city-pop]
+listen_links:
+  - { service: spotify, url: "https://open.spotify.com/album/fixture" }

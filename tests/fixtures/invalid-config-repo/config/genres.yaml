@@ -1,0 +1,5 @@
+years:
+  - year: 2026
+    buckets:
+      - { id: "etc", label: "기타", order: 1 }
+    min_reviews_to_publish: 3
