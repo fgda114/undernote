@@ -1,0 +1,87 @@
+---
+/**
+ * ListRankRow (components.md §6) — list-page rows (top10 · monthly recap ·
+ * finalized annual). BoardRow extended: 64px cover, serif 700 title, score
+ * shown. Variant "champion" (finalized #1) upgrades the cover to 160px.
+ * Invariant: display order = score order — guaranteed by the derive layer
+ * (SS-8); this component provides no reordering UI.
+ */
+import CoverImage from './CoverImage.astro';
+
+interface Props {
+  rank: number;
+  title: string;
+  artistsLabel: string;
+  score: string;
+  reviewUrl: string;
+  cover: import('../lib/covers.ts').CoverSet | null;
+  champion?: boolean;
+}
+
+const { rank, title, artistsLabel, score, reviewUrl, cover, champion = false } = Astro.props;
+---
+
+<li class:list={['rank-row', { champion, first: rank === 1 }]}>
+  <a href={reviewUrl} class="row-link">
+    <span class="rank tnum" aria-hidden="true">{rank}</span>
+    <CoverImage cover={cover} size={champion ? 160 : 64} albumTitle={title} />
+    <span class="titles">
+      <span class="title">{title}</span>
+      <span class="artists">{artistsLabel}</span>
+    </span>
+    <span class="score tnum">{score}</span>
+  </a>
+</li>
+
+<style>
+  .rank-row {
+    border-left: 2px solid transparent;
+  }
+  .rank-row.first {
+    border-left-color: var(--seal);
+  }
+  .rank-row.first .rank {
+    color: var(--seal);
+  }
+  .row-link {
+    display: flex;
+    align-items: center;
+    gap: var(--s-16);
+    min-height: 64px;
+    padding: var(--s-8);
+    transition: background var(--t-micro);
+  }
+  .row-link:hover {
+    background: var(--wash);
+  }
+  .rank {
+    width: 28px;
+    font-size: var(--fs-17);
+    font-weight: 700;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .titles {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex-grow: 1;
+  }
+  .title {
+    font-family: var(--serif);
+    font-size: var(--fs-17);
+    font-weight: 700;
+  }
+  .champion .title {
+    font-size: var(--fs-21);
+  }
+  .artists {
+    font-size: var(--fs-15);
+    color: var(--muted);
+  }
+  .score {
+    font-size: var(--fs-16);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+</style>

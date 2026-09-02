@@ -142,7 +142,29 @@ export function resolveRepo(data: RepoData): CheckResult {
     checkTags(story.data.tags, story.file, data, warnings);
   }
 
-  // ── Snapshots — duplicate year (E-114; schema shape is covered upstream) ─
+  // ── Snapshots ────────────────────────────────────────────────────────
+  // E-110 — USP-A's core check: every list entry, INCLUDING frozen snapshot
+  // entries, must resolve to an existing review page. Derived lists satisfy
+  // this by construction; snapshots reference reviews that could since have
+  // been deleted, so they get the explicit check.
+  const reviewSlugs = new Set(data.reviews.map((r) => r.slug));
+  for (const snap of data.snapshots) {
+    const referenced = [
+      ...snap.data.top10.map((t) => t.album),
+      ...snap.data.buckets.flatMap((b) => [...(b.winner ? [b.winner] : []), ...(b.nominees ?? []).map((n) => n.album)]),
+    ];
+    for (const slug of new Set(referenced)) {
+      if (!reviewSlugs.has(slug)) {
+        failures.push({
+          code: 'E-110',
+          message: `E-110: 스냅샷 항목 "${slug}"에 해당하는 평론(content/reviews/${slug}.md)이 없습니다. 리스트의 모든 항목은 실존 평론으로 연결돼야 합니다 — 평론을 복구하거나 잘못된 확정이면 스냅샷을 삭제 후 finalize를 다시 실행하세요.`,
+          file: snap.file,
+        });
+      }
+    }
+  }
+
+  // Duplicate year (E-114; schema shape is covered upstream)
   const seenYears = new Map<number, string>();
   for (const snap of data.snapshots) {
     const prev = seenYears.get(snap.data.year);

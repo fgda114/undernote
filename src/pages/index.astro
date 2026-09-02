@@ -1,39 +1,270 @@
 ---
 /**
- * Home — W5.1 keeps this as the pre-launch empty state (ui-spec §1.5 last
- * variant: no reviews published yet → about-gist + one honest line). The full
- * nominate board (일반/극초기/확정 variants) is W5.2's story.
- * No Date(), no client JS — deterministic output is a product promise.
+ * Home `/` — the nominate board (D5) with the 3+1 states of ui-spec §1:
+ *   normal        — board panel (bucket grid) + latest articles
+ *   early         — progress banner + latest review hero (board too thin)
+ *   post-finalize — finalized-list link card + fresh (empty-ish) new board
+ *   empty         — pre-launch line (no reviews at all)
+ * Variant selection is clock-free (derive layer). The board caption date is
+ * REPO-DERIVED (latest publication date) — the build clock never reaches the
+ * page output (R-10; a wall-clock caption would break the hash gate).
+ * Board rows animate once on load (240ms/60ms stagger, CSS only) and the
+ * stagger disappears under prefers-reduced-motion.
  */
+import ArticleCard from '../components/ArticleCard.astro';
+import BoardPanel from '../components/BoardPanel.astro';
+import CoverImage from '../components/CoverImage.astro';
+import FormatLabel from '../components/FormatLabel.astro';
 import Base from '../layouts/Base.astro';
-import { getSiteConfig } from '../lib/site.ts';
+import { getSiteData } from '../lib/derive/site-data.ts';
+import { toListEntry, compareR1 } from '../lib/derive/lists.ts';
+import { formatReleaseDate } from '../lib/derive/review-page.ts';
 
-const site = getSiteConfig();
+const { site, board, latestArticles, latestPubDate, homeVariant, joined, data } = getSiteData();
+const nominateTotal = board.buckets.reduce((n, b) => n + b.entries.length, 0);
+
+// Latest review hero for the early variant — newest by publication date
+// (tie → R-1 keys via compareR1 on equal dates is score-based; use date desc
+// then slug asc through the derive comparator chain).
+const latestReview = [...joined].sort(
+  (a, b) => (a.review.date < b.review.date ? 1 : a.review.date > b.review.date ? -1 : compareR1(a, b)),
+)[0];
+const heroEntry = latestReview ? toListEntry(latestReview) : null;
+
+const previousYear = site.active_year - 1;
+const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear);
 ---
 
 <Base title={site.site_name} description="이 리스트의 모든 앨범에는 이미 평론이 씌어 있다." path="/">
   <main class="home">
-    <p class="lede">여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</p>
-    <p class="status">첫 평론을 준비하고 있습니다.</p>
+    {
+      homeVariant === 'empty' && (
+        <section class="empty-state">
+          <p class="lede">여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</p>
+          <p class="status">첫 평론을 준비하고 있습니다.</p>
+        </section>
+      )
+    }
+
+    {
+      homeVariant === 'post-finalize' && previousSnapshot && (
+        <section class="finalized-card">
+          <FormatLabel text={`${previousYear} 올해의 앨범`} />
+          <a class="finalized-link" href={`/list/${previousYear}/`}>
+            <span class="finalized-title">{previousYear} 올해의 앨범 — 확정</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </section>
+      )
+    }
+
+    {
+      homeVariant === 'early' && heroEntry && (
+        <>
+          <section class="progress-banner">
+            <FormatLabel text={`${site.active_year} 올해의 앨범`} />
+            <p class="banner-line">
+              올해의 앨범 후보가 여기서 자랍니다 — 지금까지 평론 {data.reviews.length}편
+              <a class="banner-link" href={`/list/${site.active_year}/`}>전체 보기 →</a>
+            </p>
+          </section>
+          <section class="review-hero">
+            <a href={heroEntry.review_url} class="hero-link">
+              <CoverImage cover={heroEntry.cover} size={320} albumTitle={heroEntry.title} loading="eager" />
+              <span class="hero-text">
+                <FormatLabel text="평론" />
+                <span class="hero-title">{heroEntry.title}</span>
+                <span class="hero-artists">{heroEntry.artists_label}</span>
+              </span>
+            </a>
+          </section>
+        </>
+      )
+    }
+
+    {
+      (homeVariant === 'normal' || homeVariant === 'post-finalize') && (
+        <section class="board" aria-label="현재 노미네이트">
+          <FormatLabel text={`${site.active_year} 올해의 앨범`} />
+          <h1 class="board-title">현재 노미네이트</h1>
+          <p class="board-caption">
+            평론이 쌓일 때마다 바뀝니다 · 12월에 확정됩니다{latestPubDate && ` · ${formatReleaseDate(latestPubDate)} 기준`}
+          </p>
+          <div class="bucket-grid stagger">
+            {board.buckets.map((bucket) => (
+              <BoardPanel bucket={bucket} />
+            ))}
+          </div>
+          <a class="board-more" href={`/list/${site.active_year}/`}>올해의 앨범 전체 보기 →</a>
+        </section>
+      )
+    }
+
+    {
+      latestArticles.length > 0 && homeVariant !== 'empty' && (
+        <section class="latest" aria-label="최신 글">
+          <h2 class="latest-title">최신 글</h2>
+          <ul class="cards">
+            {latestArticles.map((item) => (
+              <ArticleCard item={item} />
+            ))}
+          </ul>
+        </section>
+      )
+    }
   </main>
 </Base>
 
 <style>
   .home {
-    max-width: var(--column);
+    max-width: 960px;
     margin: 0 auto;
-    padding: var(--s-96) 20px 0;
+    padding: var(--s-48) 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-64);
   }
-  .lede {
+  .empty-state .lede {
     font-family: var(--serif);
     font-size: var(--fs-21);
     font-weight: 700;
     line-height: 1.5;
     text-wrap: balance;
   }
-  .status {
+  .empty-state .status {
     margin-top: var(--s-16);
     color: var(--muted);
     font-size: var(--fs-15);
+  }
+
+  .finalized-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+  }
+  .finalized-link {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    min-height: 44px;
+    font-family: var(--serif);
+    font-size: var(--fs-21);
+    font-weight: 700;
+  }
+  .finalized-link:hover {
+    color: var(--seal);
+  }
+  .arrow {
+    color: var(--seal);
+  }
+
+  .progress-banner .banner-line {
+    margin-top: var(--s-12);
+    font-size: var(--fs-15);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: var(--s-16);
+    flex-wrap: wrap;
+  }
+  .banner-link {
+    color: var(--ink);
+    font-weight: 600;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .banner-link:hover {
+    color: var(--seal);
+  }
+  .hero-link {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--s-32);
+    align-items: center;
+  }
+  .hero-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+  }
+  .hero-title {
+    font-family: var(--serif);
+    font-size: var(--fs-34);
+    font-weight: 700;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+  .hero-link:hover .hero-title {
+    color: var(--seal);
+  }
+  .hero-artists {
+    font-size: var(--fs-17);
+    color: var(--muted);
+  }
+
+  .board-title {
+    font-family: var(--serif);
+    font-size: var(--fs-34);
+    font-weight: 700;
+    margin-top: var(--s-12);
+  }
+  .board-caption {
+    margin-top: var(--s-8);
+    font-size: var(--fs-15);
+    color: var(--muted);
+  }
+  .bucket-grid {
+    margin-top: var(--s-24);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--s-24);
+  }
+  .board-more {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-top: var(--s-16);
+    font-size: var(--fs-15);
+    font-weight: 600;
+  }
+  .board-more:hover {
+    color: var(--seal);
+  }
+
+  .latest-title {
+    font-family: var(--serif);
+    font-size: var(--fs-21);
+    font-weight: 700;
+  }
+  .cards {
+    list-style: none;
+    margin: var(--s-16) 0 0;
+    padding: 0;
+  }
+
+  /* Board load orchestration — the site's ONE entrance animation:
+     opacity+8px rise, 240ms per panel, 60ms stagger, max 5 slots. */
+  .stagger > :global(*) {
+    animation: board-in 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+  .stagger > :global(*:nth-child(2)) { animation-delay: 60ms; }
+  .stagger > :global(*:nth-child(3)) { animation-delay: 120ms; }
+  .stagger > :global(*:nth-child(4)) { animation-delay: 180ms; }
+  .stagger > :global(*:nth-child(5)) { animation-delay: 240ms; }
+  @keyframes board-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stagger > :global(*) {
+      animation: none;
+    }
   }
 </style>

@@ -1,0 +1,49 @@
+---
+/**
+ * /archive/ — C-2 shell (W5.2): fixes the preset URLs (/archive/reviews/ ·
+ * /archive/stories/) and renders an honest empty state. W5.3 replaces this
+ * with the real 4-axis archive. Exists now because E-112 is active and the
+ * Masthead links here from every page.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="아카이브" description="연도·장르·태그·아티스트로 찾아보는 전체 글." path="/archive/" current="archive">
+  <main class="archive">
+    <h1 class="page-title">아카이브</h1>
+    <ul class="presets">
+      <li><a href="/archive/reviews/">평론</a></li>
+      <li><a href="/archive/stories/">이야기</a></li>
+    </ul>
+  </main>
+</Base>
+
+<style>
+  .archive {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: var(--s-48) 20px 0;
+  }
+  .page-title {
+    font-family: var(--serif);
+    font-size: var(--fs-27);
+    font-weight: 700;
+  }
+  .presets {
+    list-style: none;
+    margin: var(--s-24) 0 0;
+    padding: 0;
+    display: flex;
+    gap: var(--s-24);
+  }
+  .presets a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--fs-15);
+    font-weight: 600;
+  }
+  .presets a:hover {
+    color: var(--seal);
+  }
+</style>

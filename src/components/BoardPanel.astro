@@ -1,0 +1,49 @@
+---
+/**
+ * BoardPanel (components.md §5) — one bucket column: label + BoardRow×0~5.
+ * Empty bucket shows the exact copy (never hidden — the annual structure
+ * being visible IS the point of the board, D5); 1~4 rows show as-is with no
+ * placeholder padding (R-4).
+ * The <ol> is semantic ranking: markup order = rank order.
+ */
+import type { Board } from '../lib/derive/lists.ts';
+import BoardRow from './BoardRow.astro';
+
+interface Props {
+  bucket: Board['buckets'][number];
+}
+
+const { bucket } = Astro.props;
+---
+
+<section class="panel">
+  <h3 class="bucket-label">{bucket.label}</h3>
+  {
+    bucket.entries.length > 0 ? (
+      <ol class="rows">
+        {bucket.entries.map((entry, i) => (
+          <BoardRow entry={entry} rank={i + 1} />
+        ))}
+      </ol>
+    ) : (
+      <p class="empty">아직 이 장르의 후보가 없습니다.</p>
+    )
+  }
+</section>
+
+<style>
+  .bucket-label {
+    font-size: var(--fs-15);
+    font-weight: 700;
+    margin-bottom: var(--s-8);
+  }
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .empty {
+    font-size: var(--fs-15);
+    color: var(--muted);
+  }
+</style>

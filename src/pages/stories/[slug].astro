@@ -1,0 +1,79 @@
+---
+/**
+ * /stories/{slug}/ — MINIMAL story shell.
+ *
+ * W5.4 owns the full story page (AlbumBox/lineage, in-body album links).
+ * This shell exists in W5.2 for the same reason as the C-2 shells: E-112
+ * (internal link integrity) is active and home/archive ArticleCards link to
+ * story URLs — without a page here, any committed story breaks the build.
+ * Tone: sans-serif head/body (ui-spec §0 — the story voice).
+ */
+import { getCollection, render } from 'astro:content';
+import FormatLabel from '../../components/FormatLabel.astro';
+import Base from '../../layouts/Base.astro';
+import { excerptFrom } from '../../lib/derive/excerpt.ts';
+
+export async function getStaticPaths() {
+  const stories = await getCollection('stories');
+  return stories.map((story) => ({ params: { slug: story.id }, props: { story } }));
+}
+
+const { story } = Astro.props;
+const { Content } = await render(story);
+const description = excerptFrom(story.body ?? '');
+---
+
+<Base
+  title={story.data.title}
+  description={description}
+  ogType="article"
+  path={`/stories/${story.id}/`}
+  current="stories"
+>
+  <main>
+    <article>
+      <header class="hero">
+        <FormatLabel text="음악 이야기" />
+        <h1 class="title">{story.data.title}</h1>
+        <time class="date tnum" datetime={story.data.date}>{story.data.date}</time>
+      </header>
+      <div class="prose story-body">
+        <Content />
+      </div>
+    </article>
+  </main>
+</Base>
+
+<style>
+  .hero {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: var(--s-48) 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+  }
+  .title {
+    font-family: var(--sans);
+    font-size: var(--fs-27);
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.4;
+    text-wrap: balance;
+  }
+  .date {
+    font-size: var(--fs-13);
+    color: var(--muted);
+  }
+  .story-body {
+    max-width: var(--column);
+    margin: var(--s-32) auto 0;
+    padding: 0 20px;
+    font-family: var(--sans);
+    font-size: var(--fs-17);
+    line-height: 1.75;
+  }
+  .story-body :global(p) {
+    margin: 0 0 var(--s-24);
+  }
+</style>

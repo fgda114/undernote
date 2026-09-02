@@ -1,0 +1,45 @@
+---
+/**
+ * /about/ — C-2 minimal shell (W5.2): the three mandatory statements (US-8),
+ * serif page. W5.5 replaces this with the full editor-written version — the
+ * shell exists NOW because E-112 (internal link integrity) is active and the
+ * Masthead/Footer link here from every page.
+ */
+import Base from '../layouts/Base.astro';
+import { getSiteConfig } from '../lib/site.ts';
+
+const site = getSiteConfig();
+---
+
+<Base title="소개/기준" description="이 매체의 기준 — 안 들으면 손해 문턱을 통과한 앨범만 싣습니다." path="/about/" current="about">
+  <main class="about">
+    <h1 class="page-title">소개/기준</h1>
+    <section class="statements">
+      <p>여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</p>
+      <p>다루지 않았다는 것은, 아직 추천하지 않는다는 뜻입니다.</p>
+      <p>점수는 들을까 말까가 아니라, 이미 검증된 것들 사이의 순위입니다.</p>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .about {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: var(--s-48) 20px 0;
+  }
+  .page-title {
+    font-family: var(--serif);
+    font-size: var(--fs-27);
+    font-weight: 700;
+  }
+  .statements {
+    margin-top: var(--s-32);
+    font-family: var(--serif);
+    font-size: var(--fs-17);
+    line-height: 1.8;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-24);
+  }
+</style>
