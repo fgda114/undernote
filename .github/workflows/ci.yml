@@ -1,0 +1,100 @@
+# undernote CI — the build IS the product's runtime, so this pipeline is the
+# only gate between content and readers:
+#   verify:  tests → "violation must fail" proof → double build → determinism hash
+#   deploy:  GitHub Pages, main branch only, and only after every gate passed.
+# A failed run deploys nothing; the site keeps serving the last successful
+# deployment (static-hosting property relied on by the failure design).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# R-10: all date attribution (monthly recap cutoff etc.) is computed in
+# Asia/Seoul. Runners are UTC — this line is non-negotiable.
+env:
+  TZ: Asia/Seoul
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # Lockfile-pinned install only (supply-chain rule) — never `npm install` here.
+      - name: Install
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Type check
+        run: npm run check
+
+      # Gate existence proof (W5.0 DoD): an intentional schema violation
+      # (score: 8.35, unquoted) must make `astro build` exit nonzero.
+      # If this build SUCCEEDS, the validation gate is dead and we fail loudly.
+      - name: Schema violation must fail the build (E-105)
+        run: |
+          cp tests/fixtures/invalid/review-score-two-decimals.md content/reviews/
+          if npm run build; then
+            echo "::error::의도적 스키마 위반(score 8.35)이 빌드를 통과했습니다 — 검증 게이트가 작동하지 않습니다"
+            exit 1
+          fi
+          rm content/reviews/review-score-two-decimals.md
+          rm -rf dist .astro node_modules/.astro
+
+      - name: Build (1st)
+        run: |
+          npm run build
+          mv dist dist-1
+
+      # Second build from a cold cache — same input must give the same output.
+      - name: Build (2nd — determinism)
+        run: |
+          rm -rf .astro node_modules/.astro
+          npm run build
+          mv dist dist-2
+
+      # Hash scope is dist/ ONLY (story AC4): reports/ contains built_at,
+      # which is inherently non-deterministic and lives outside dist by design.
+      - name: Determinism gate — identical input ⇒ identical dist hash
+        run: |
+          hash_dir() { (cd "$1" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1); }
+          h1=$(hash_dir dist-1)
+          h2=$(hash_dir dist-2)
+          echo "dist-1: $h1"
+          echo "dist-2: $h2"
+          if [ "$h1" != "$h2" ]; then
+            echo "::error::결정성 위반 — 동일 입력 2회 빌드의 dist/ 해시가 다릅니다"
+            diff -r dist-1 dist-2 | head -50 || true
+            exit 1
+          fi
+
+      # dist-1 is the artifact every gate above actually verified — deploy
+      # exactly these bytes, never a rebuild.
+      - name: Upload site artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist-1
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

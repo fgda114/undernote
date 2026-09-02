@@ -1,0 +1,11 @@
+# Genre bucket blocks per year (api-contracts §3.5 GenresConfig — D1: config is data).
+# 2026 block uses the default "plan B" 3 buckets (open question Q1 — swap values,
+# not code, when the editor answers). Past year blocks must never be edited (R-8).
+# "etc" is a reserved bucket id and must not appear here (E-109).
+years:
+  - year: 2026
+    buckets:
+      - { id: "hiphop-rnb", label: "힙합/R&B", order: 1 }
+      - { id: "pop", label: "팝", order: 2 }
+      - { id: "rock", label: "록", order: 3 }
+    min_reviews_to_publish: 3

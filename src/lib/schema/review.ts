@@ -1,0 +1,48 @@
+/**
+ * Review frontmatter schema — api-contracts §3.2 (minimal W5.0 skeleton;
+ * Album/Story/Artist/Snapshot schemas arrive in W5.1).
+ *
+ * This is the build gate that makes "잘못된 콘텐츠는 배포될 수 없다" true:
+ * Astro's content sync runs this schema over every content/reviews/*.md file
+ * and a single violation fails the whole build (E-1xx policy — no partial
+ * publish, SS-1).
+ *
+ * Note the score field: it must be a quoted STRING in YAML. An unquoted
+ * `score: 8.35` arrives here as a JS number and is rejected by the type
+ * check below — that is intentional, not an inconvenience (see lib/score.ts
+ * for why float storage would silently break validation).
+ */
+import { z } from 'astro/zod';
+import { SCORE_PATTERN } from '../score';
+import { isoDateSchema, slugSchema } from './common';
+
+export const scoreSchema = z
+  .string({
+    error: (iss) =>
+      iss.input === undefined
+        ? 'E-105: score가 없습니다. "0.0"~"10.0" 소수 1자리 문자열로 적으세요 (예: score: "8.3").'
+        : `E-105: score ${String(iss.input)}은(는) 따옴표로 감싼 문자열이 아닙니다. YAML은 숫자 8.30을 8.3으로 접어버려 검증이 불가능해지므로 반드시 score: "${String(iss.input)}" 처럼 문자열로 적으세요.`,
+  })
+  .regex(SCORE_PATTERN, {
+    error: (iss) =>
+      `E-105: score ${String(iss.input)}은(는) 소수 1자리 형식이 아닙니다. "0.0"~"10.0" 범위에서 소수 1자리로 수정하세요 (예: "8.3" 또는 "8.4").`,
+  });
+
+export const reviewSchema = z
+  .object({
+    // Must reference an existing album (E-102) and match the file name (E-108)
+    // — both are cross-file checks done by the checker (W5.1), not by Zod.
+    album: slugSchema,
+    score: scoreSchema,
+    date: isoDateSchema,
+    // The editor's "안 들으면 손해" gate (USP-C): literal true or the build fails.
+    editorial_check: z.literal(true, {
+      error: () =>
+        'E-106: editorial_check가 true가 아닙니다. "안 들으면 손해" 확인 후 editorial_check: true로 적어야 발행됩니다.',
+    }),
+  })
+  // additionalProperties: false — typos like "socre" must fail loudly,
+  // not silently pass as unknown extra keys.
+  .strict();
+
+export type ReviewFrontmatter = z.infer<typeof reviewSchema>;
