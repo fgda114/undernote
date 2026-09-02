@@ -1,0 +1,84 @@
+/**
+ * Design tokens — the CSS translation of 07-design/design-system/tokens.md
+ * (the single source of truth; every component references these variables,
+ * hardcoded values are a review reject).
+ *
+ * Identity: "잉크와 낙관" — warm-biased neutrals (paper/ink), one accent
+ * (--seal) reserved for exactly five editorial-judgement slots: verdict
+ * score, #1 rank, nominate badge, format overline, body links.
+ *
+ * Dark mode is prefers-color-scheme only — no toggle, zero client JS.
+ */
+:root {
+  /* ── Color (light) — contrast figures verified in tokens.md §2 ── */
+  --paper: #faf9f7;
+  --surface: #ffffff;
+  --wash: #f3f1ec;
+  --ink: #201e1b;
+  --muted: #6e6a63;
+  --line: #e7e4de;
+  --seal: #b23a2f;
+  --seal-deep: #9a2f25;
+  --good: #2e6b4f;
+  --warn: #8a6d1f;
+  --critical: #8f2b21;
+
+  /* ── Type ── */
+  --sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --serif: 'Noto Serif KR', 'Apple SD Gothic Neo', serif;
+  /* Scale ratio 1.26: 13 · 15 · 17 · 21 · 27 · 34 · 42 */
+  --fs-13: 0.8125rem;
+  --fs-15: 0.9375rem;
+  --fs-16: 1rem;
+  --fs-17: 1.0625rem;
+  --fs-21: 1.3125rem;
+  --fs-27: 1.6875rem;
+  --fs-34: 2.125rem;
+  --fs-42: 2.625rem;
+
+  /* ── Spacing (8pt) ── */
+  --s-4: 4px;
+  --s-8: 8px;
+  --s-12: 12px;
+  --s-16: 16px;
+  --s-24: 24px;
+  --s-32: 32px;
+  --s-48: 48px;
+  --s-64: 64px;
+  --s-96: 96px;
+
+  /* ── Radius — print flatness is the default; not everything gets rounded ── */
+  --r-2: 2px;
+  --r-4: 4px;
+  --r-8: 8px;
+
+  /* ── Elevation — hairlines (--line) do the separating; one shadow level ── */
+  --e-1: 0 1px 2px rgba(32, 30, 27, 0.04), 0 8px 24px rgba(32, 30, 27, 0.05);
+
+  /* ── Motion — the site's entire motion vocabulary is these two ── */
+  --t-micro: 120ms ease-out;                       /* hover color/underline only */
+  --t-board-row: 240ms;                            /* home board load stagger */
+  --t-board-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --t-board-stagger: 60ms;
+
+  /* ── Layout ── */
+  --column: 660px;                                 /* reading column ≈ 38 Korean chars */
+  --masthead-h: 64px;
+  --masthead-h-mobile: 56px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #191817;
+    --surface: #201f1d;
+    --wash: #242320;
+    --ink: #eceae6;
+    --muted: #a8a49c;
+    --line: #34322e;
+    --seal: #e06a5b;
+    --seal-deep: #ea8072;
+    --good: #6fbf97;
+    --warn: #d4b45a;
+    --critical: #e06a5b;
+  }
+}

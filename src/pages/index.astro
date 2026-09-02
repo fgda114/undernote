@@ -1,21 +1,39 @@
 ---
-// Empty-state home shell — W5.0 only proves the pipeline builds and deploys.
-// The real front page (board, monthly recap, layouts, design tokens) is W5.2.
-// Deliberately static markup: no Date(), no client JS — byte-identical output
-// for identical input is a product promise (determinism gate in CI).
-// "undernote" is the provisional wordmark (site name undecided); W5.2's
-// masthead replaces this with config/site.yaml#site_name.
+/**
+ * Home — W5.1 keeps this as the pre-launch empty state (ui-spec §1.5 last
+ * variant: no reviews published yet → about-gist + one honest line). The full
+ * nominate board (일반/극초기/확정 variants) is W5.2's story.
+ * No Date(), no client JS — deterministic output is a product promise.
+ */
+import Base from '../layouts/Base.astro';
+import { getSiteConfig } from '../lib/site.ts';
+
+const site = getSiteConfig();
 ---
-<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>undernote</title>
-  </head>
-  <body>
-    <main>
-      <h1>undernote</h1>
-    </main>
-  </body>
-</html>
+
+<Base title={site.site_name} description="이 리스트의 모든 앨범에는 이미 평론이 씌어 있다." path="/">
+  <main class="home">
+    <p class="lede">여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</p>
+    <p class="status">첫 평론을 준비하고 있습니다.</p>
+  </main>
+</Base>
+
+<style>
+  .home {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: var(--s-96) 20px 0;
+  }
+  .lede {
+    font-family: var(--serif);
+    font-size: var(--fs-21);
+    font-weight: 700;
+    line-height: 1.5;
+    text-wrap: balance;
+  }
+  .status {
+    margin-top: var(--s-16);
+    color: var(--muted);
+    font-size: var(--fs-15);
+  }
+</style>
