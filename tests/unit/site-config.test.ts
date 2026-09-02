@@ -22,3 +22,16 @@ describe('early_stage_threshold (§7 가산 필드)', () => {
     expect(siteConfigSchema.safeParse({ ...base, early_stage_threshold: 6.5 }).success).toBe(false);
   });
 });
+
+describe('goatcounter_code (§7 가산 필드 — JS 0 옵트인 예외)', () => {
+  it('부재 허용 (기본 = 계측 미설치·스크립트 0)', () => {
+    expect(siteConfigSchema.parse(base).goatcounter_code).toBeUndefined();
+  });
+
+  it('유효 코드 통과, 형식 위반은 한국어 메시지로 거부', () => {
+    expect(siteConfigSchema.parse({ ...base, goatcounter_code: 'my-site1' }).goatcounter_code).toBe('my-site1');
+    const bad = siteConfigSchema.safeParse({ ...base, goatcounter_code: 'My_Site!' });
+    expect(bad.success).toBe(false);
+    if (!bad.success) expect(bad.error.issues[0].message).toContain('goatcounter_code');
+  });
+});
