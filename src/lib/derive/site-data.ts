@@ -29,10 +29,9 @@ import {
 import type { SiteConfig } from '../schema/index.ts';
 
 /**
- * Early-stage threshold (ui-spec §1.5: board becomes a progress banner while
- * nominate total is below this). Single definition — a site.yaml optional
- * field is pending the api-contracts §7 additive procedure (lead/James);
- * when approved this constant becomes the schema default.
+ * Early-stage threshold default (ui-spec §1.5) — the schema default for
+ * site.yaml#early_stage_threshold (§7-approved optional field). The config
+ * value wins; this constant only backs non-config consumers/tests.
  */
 export const EARLY_STAGE_THRESHOLD = 6;
 
@@ -89,7 +88,7 @@ export function getSiteData(): SiteData {
     homeVariant: deriveHomeVariant({
       reviewCount: data.reviews.length,
       nominateTotal,
-      threshold: EARLY_STAGE_THRESHOLD,
+      threshold: data.site.early_stage_threshold ?? EARLY_STAGE_THRESHOLD,
       hasPreviousSnapshot: data.snapshots.some((s) => s.data.year === data.site!.active_year - 1),
     }),
     snapshotYears: data.snapshots.map((s) => s.data.year).sort((a, b) => a - b),
