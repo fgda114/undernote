@@ -1,0 +1,48 @@
+---
+/**
+ * 404 — one serif line, two links, zero decoration (ui-spec §9). The only
+ * error state a reader can ever reach: everything else is blocked at build
+ * time (SS-1·8 — zero broken states shipped is the design goal).
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="이 주소에는 글이 없습니다" description="이 주소에는 글이 없습니다." path="/404/">
+  <main class="notfound">
+    <h1 class="line">이 주소에는 글이 없습니다.</h1>
+    <ul class="links">
+      <li><a href="/">홈</a></li>
+      <li><a href="/archive/">아카이브</a></li>
+    </ul>
+  </main>
+</Base>
+
+<style>
+  .notfound {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: var(--s-96) 20px 0;
+  }
+  .line {
+    font-family: var(--serif);
+    font-size: var(--fs-27);
+    font-weight: 700;
+  }
+  .links {
+    list-style: none;
+    margin: var(--s-24) 0 0;
+    padding: 0;
+    display: flex;
+    gap: var(--s-24);
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--fs-15);
+    font-weight: 600;
+  }
+  .links a:hover {
+    color: var(--seal);
+  }
+</style>

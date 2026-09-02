@@ -1,11 +1,14 @@
 ---
 /**
- * /about/ — C-2 minimal shell (W5.2): the three mandatory statements (US-8),
- * serif page. W5.5 replaces this with the full editor-written version — the
- * shell exists NOW because E-112 (internal link integrity) is active and the
- * Masthead/Footer link here from every page.
+ * /about/ — 소개/기준 (CF-8 · US-8): the written form of "실림 = 추천".
+ * The three mandatory statements are fixed subheading anchors; the body copy
+ * around them belongs to the editor + lead (W5.5 협의) — until that lands,
+ * this page stands on the three statements alone (a designed minimal page,
+ * never a "준비 중" apology, R-4). Also carries the cover-art rights contact
+ * line (ADR-0008 removal process endpoint).
  */
 import Base from '../layouts/Base.astro';
+import FormatLabel from '../components/FormatLabel.astro';
 import { getSiteConfig } from '../lib/site.ts';
 
 const site = getSiteConfig();
@@ -13,12 +16,28 @@ const site = getSiteConfig();
 
 <Base title="소개/기준" description="이 매체의 기준 — 안 들으면 손해 문턱을 통과한 앨범만 싣습니다." path="/about/" current="about">
   <main class="about">
-    <h1 class="page-title">소개/기준</h1>
-    <section class="statements">
-      <p>여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</p>
-      <p>다루지 않았다는 것은, 아직 추천하지 않는다는 뜻입니다.</p>
-      <p>점수는 들을까 말까가 아니라, 이미 검증된 것들 사이의 순위입니다.</p>
+    <header>
+      <FormatLabel text="소개/기준" />
+      <h1 class="page-title">실림 = 추천</h1>
+    </header>
+
+    <section class="statement">
+      <h2 class="statement-line">여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</h2>
     </section>
+
+    <section class="statement">
+      <h2 class="statement-line">다루지 않았다는 것은, 아직 추천하지 않는다는 뜻입니다.</h2>
+    </section>
+
+    <section class="statement">
+      <h2 class="statement-line">점수는 들을까 말까가 아니라, 이미 검증된 것들 사이의 순위입니다.</h2>
+    </section>
+
+    <footer class="contact">
+      {/* ADR-0008 §4: rights holders reach us here; removal = file deletion,
+          nothing else breaks (placeholder publishing is a normal path). */}
+      <p>앨범 커버 등 권리 관련 문의는 <a href="https://github.com/fgda114/undernote/issues" rel="noopener">저장소 이슈</a>로 연락해 주세요. 요청 시 해당 이미지는 지체 없이 내립니다.</p>
+    </footer>
   </main>
 </Base>
 
@@ -27,19 +46,32 @@ const site = getSiteConfig();
     max-width: var(--column);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-32);
   }
   .page-title {
     font-family: var(--serif);
     font-size: var(--fs-27);
     font-weight: 700;
+    margin-top: var(--s-12);
   }
-  .statements {
-    margin-top: var(--s-32);
+  .statement-line {
     font-family: var(--serif);
-    font-size: var(--fs-17);
-    line-height: 1.8;
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-24);
+    font-size: var(--fs-21);
+    font-weight: 700;
+    line-height: 1.5;
+    text-wrap: balance;
+  }
+  .contact {
+    border-top: 1px solid var(--line);
+    padding-top: var(--s-16);
+    font-size: var(--fs-15);
+    color: var(--muted);
+  }
+  .contact a {
+    color: var(--seal);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 </style>
