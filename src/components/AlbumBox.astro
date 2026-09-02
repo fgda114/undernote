@@ -1,0 +1,101 @@
+---
+/**
+ * AlbumBox (components.md §12 — lineage plan A, the confirmed default):
+ * "이 글에 나온 앨범" at the end of a story. Row states:
+ *   reviewed     → "평론 읽기 →" (seal 600, row links to the review)
+ *   not-reviewed → "평론 준비 중" (muted, NOT a link — US-4 AC2 forbids
+ *                  pseudo-link styling; a later review upgrades the row
+ *                  automatically on the next build)
+ * Zero references → the CALLER renders nothing (never an empty box, R-4).
+ */
+import type { AlbumBoxRow } from '../lib/derive/links.ts';
+import CoverImage from './CoverImage.astro';
+
+interface Props {
+  rows: AlbumBoxRow[];
+}
+
+const { rows } = Astro.props;
+---
+
+<aside class="album-box" aria-label="이 글에 나온 앨범">
+  <h2 class="box-title">이 글에 나온 앨범</h2>
+  <ul class="rows">
+    {
+      rows.map((row) => (
+        <li class="row">
+          <CoverImage cover={row.cover} size={44} albumTitle={row.title} />
+          <span class="titles">
+            <span class="album-title">{row.title}</span>
+            {row.meta && <span class="meta">{row.meta}</span>}
+          </span>
+          {row.reviewUrl ? (
+            <a class="action" href={row.reviewUrl} aria-label={`${row.title} 평론 읽기`}>
+              평론 읽기 <span aria-hidden="true">→</span>
+            </a>
+          ) : (
+            <span class="pending">평론 준비 중</span>
+          )}
+        </li>
+      ))
+    }
+  </ul>
+</aside>
+
+<style>
+  .album-box {
+    border-top: 2px solid var(--ink);
+    padding-top: var(--s-16);
+    margin-top: var(--s-48);
+  }
+  .box-title {
+    font-size: var(--fs-15);
+    font-weight: 700;
+  }
+  .rows {
+    list-style: none;
+    margin: var(--s-12) 0 0;
+    padding: 0;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    min-height: 44px;
+    padding: var(--s-8) 0;
+  }
+  .titles {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex-grow: 1;
+  }
+  .album-title {
+    font-size: var(--fs-16);
+    font-weight: 700;
+  }
+  .meta {
+    font-size: var(--fs-14);
+    color: var(--muted);
+  }
+  .action {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-4);
+    min-height: 44px;
+    color: var(--seal);
+    font-size: var(--fs-15);
+    font-weight: 600;
+  }
+  .action:hover {
+    color: var(--seal-deep);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .pending {
+    flex-shrink: 0;
+    font-size: var(--fs-13);
+    color: var(--muted);
+  }
+</style>

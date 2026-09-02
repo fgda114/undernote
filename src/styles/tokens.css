@@ -36,6 +36,8 @@
   --fs-17: 1.0625rem;
   --fs-21: 1.3125rem;
   --fs-27: 1.6875rem;
+  /* Story H1 is contract-fixed at 29/1.4/800 (tokens.md §3 type table). */
+  --fs-29: 1.8125rem;
   --fs-34: 2.125rem;
   --fs-42: 2.625rem;
 

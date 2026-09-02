@@ -4,21 +4,21 @@
  * Sans-serif on purpose: the block speaks in the story voice, inviting the
  * reader across the tone bridge (charter §4).
  *
- * Variants: direct (직접 참조 전부, 발행 역순 — supplied pre-sorted by
- * derive) / fallback (같은 버킷 1~2편, different lead copy) / none → the
- * CALLER renders nothing (this component never draws an empty shell).
- * Data supply arrives with the backlinks derive (W5.2/W5.4).
+ * Lead copy per mode (W3 decision, Thomas N-8): direct AND tag reuse the
+ * "이 점수가 낯설다면" line ("이 앨범이 놓인 흐름" holds for tag matches
+ * too); only bucket gets the genre line. mode none → the CALLER renders
+ * nothing (this component never draws an empty shell).
  */
 interface Props {
-  mode: 'direct' | 'fallback';
-  /** Needed for fallback lead copy: "이 장르가 낯설다면 — {버킷} 이야기". */
+  mode: 'direct' | 'tag' | 'bucket';
+  /** Needed for the bucket lead copy: "이 장르가 낯설다면 — {버킷} 이야기". */
   bucketLabel?: string;
   stories: { url: string; title: string; excerpt: string }[];
 }
 
 const { mode, bucketLabel = '', stories } = Astro.props;
 const leadCopy =
-  mode === 'direct' ? '이 점수가 낯설다면 — 이 앨범이 놓인 흐름 이야기' : `이 장르가 낯설다면 — ${bucketLabel} 이야기`;
+  mode === 'bucket' ? `이 장르가 낯설다면 — ${bucketLabel} 이야기` : '이 점수가 낯설다면 — 이 앨범이 놓인 흐름 이야기';
 ---
 
 <aside class="ladder">
