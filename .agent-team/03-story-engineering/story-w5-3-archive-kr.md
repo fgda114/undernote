@@ -3,7 +3,7 @@ status: ready-for-dev
 story_key: w5-3-archive
 epic: E3 — 탐색 (CF-7 아카이브 · CF-6 아티스트)
 owner: Andrew (W5 단독 구현)
-source_hash: e6503e3ee0304562b8a41a4fdfe0a606053766108f45fc48e28e1c3bb7709b67
+source_hash: 2768bb719646d116b9c6080098e5c7f2562da472193b029b7ef5f893f2cda427
 depends_on: w5-2-list-engine
 compiled_by: Matthew (#17) · 2026-09-02
 ---
@@ -39,9 +39,10 @@ so that **관심 축을 따라 글로 앨범을 고를 수 있다 (점수가 아
 - [ ] 작업 2 — checker 확장 (AC: #4)
   - [ ] E-113 고아 검사를 4축 인덱스 완성본 기준으로 확정 (W5.2의 준비분 대체)
 - [ ] 작업 3 — 지면 (AC: #5~8)
-  - [ ] `/archive/…` 4축 탭 + 유형 필터 프리셋. 버킷 = 굵은 라벨, 태그 = muted 소문자 칩(`--r-2`) 시각 구분
-  - [ ] ArticleCard (형식 라벨·제목·부제·`<time>` — 점수 프로퍼티 없음)
+  - [ ] `/archive/…` 4축 탭 + 유형 필터 프리셋 — **W5.2의 C-2 셸(`archive/index.astro`)을 실구현으로 대체**. 버킷 = 굵은 라벨, 태그 = muted 소문자 칩(`--r-2`) 시각 구분
+  - [ ] ArticleCard는 **W5.2 산출 재사용** (신규 구현 아님 — Thomas N-4 이관. 형식 라벨·제목·부제·`<time>`·점수 프로퍼티 없음 계약 그대로)
   - [ ] `/artists/[slug].astro` — 이름(세리프 27px)·소개글(산세리프)·집계 섹션 `{이름}을 다룬 글`
+  - [ ] **평론 히어로 아티스트명의 링크 승격 — 이 스토리 소유** (Thomas C-2 부수 배정): W5.1이 플레인 텍스트로 둔 아티스트명을 `/artists/{slug}/` 링크로 교체 (`src/pages/reviews/[slug].astro` 수정) + US-9 AC1 검증
   - [ ] Masthead "평론/이야기" 프리셋 연결
 
 ---
@@ -55,7 +56,7 @@ so that **관심 축을 따라 글로 앨범을 고를 수 있다 (점수가 아
 - 아카이브 연도 축은 **발행 연도** 기준이다 — 리스트의 발매 연도 기준과 의도적으로 다르다. "통일"하지 말 것 [Source: 04-architecture/exceptions.md#R-3].
 - 아티스트 표시명의 유일한 정의처는 `content/artists/<slug>.md`의 `name` — 앨범에 이름을 중복 저장하지 않는다 (표기 드리프트 방지) [Source: 04-architecture/data-model-erd.md#2-모델링-결정-근거].
 - 아티스트 페이지는 아티스트가 처음 참조될 때 생성 — 소개글 없어도 성립 (빈 본문 허용이 스키마 사양) [Source: 04-architecture/api-contracts.md#3.4].
-- 인덱스는 전 글 유형 포함 (평론·이야기·소개). 이야기는 W5.4 전이므로 이 시점 픽스처는 평론·소개 중심 + 이야기 픽스처 1개를 미리 넣어 유형 처리를 검증할 것 (이야기 스키마는 W5.1에서 이미 확정됨).
+- 인덱스는 전 글 유형 포함 (평론·이야기·소개). 이야기 유형 처리 검증은 **유닛 테스트 한정** — 이야기 픽스처를 **통합 빌드 픽스처에 넣지 말 것.** `/stories/` 라우트는 W5.4 산출이라, 통합 빌드에 들어가는 순간 아카이브 지면의 스토리 링크가 E-112(내부 링크 깨짐 = 실패) 대상이 된다 (Thomas C-2 부수). 통합 편입은 W5.4에서 (이야기 스키마 자체는 W5.1 확정이므로 유닛 검증엔 문제 없음).
 - 태그 축은 canonical slug 기준 (등록부 정규화 — E-201은 W5.1 기구현) [Source: 04-architecture/adr/ADR-0007-genre-two-tier.md].
 
 ### 해서는 안 되는 것
@@ -86,12 +87,14 @@ so that **관심 축을 따라 글로 앨범을 고를 수 있다 (점수가 아
   src/lib/derive/archive.ts        # 4축 역인덱스 + 아티스트 집계 (또는 links.ts에 병합 — W5.1 파일 구성 관례 따름)
   src/pages/archive/…              # 4축 라우팅 (구체 하위 경로 설계는 Andrew 재량 — /archive/{year|genre|tag|artist}/… 패턴 준수)
   src/pages/artists/[slug].astro
-  src/components/ArticleCard.astro
   tests/fixtures/orphan/           # 의도적 고아 글 (E-113 실증)
   tests/unit/{derive-archive,artist-agg}.test.ts
 수정:
+  src/pages/archive/index.astro    # W5.2 C-2 셸 → 실구현 대체
+  src/pages/reviews/[slug].astro   # 아티스트명 링크 승격 (C-2 부수 배정)
   src/lib/checker/                 # E-113 확정판
   src/components/Masthead.astro    # 프리셋 연결
+(ArticleCard는 W5.2 산출 재사용 — 신규 아님, N-4)
 ```
 [Source: 04-architecture/code-structure.md#1-저장소-트리] [Source: 07-design/ux-flow-map.md#1-정보구조]
 

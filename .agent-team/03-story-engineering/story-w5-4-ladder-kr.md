@@ -3,7 +3,7 @@ status: ready-for-dev
 story_key: w5-4-ladder
 epic: E4 — 이해의 사다리 (CF-5 음악 이야기 + 자동 상호 링크)
 owner: Andrew (W5 단독 구현)
-source_hash: e6503e3ee0304562b8a41a4fdfe0a606053766108f45fc48e28e1c3bb7709b67
+source_hash: 2768bb719646d116b9c6080098e5c7f2562da472193b029b7ef5f893f2cda427
 depends_on: w5-3-archive
 compiled_by: Matthew (#17) · 2026-09-02
 ---
@@ -31,7 +31,7 @@ As a **필자 원**, I want **글에 이미 등장하는 앨범 이름 외의 �
 5. Given 이야기의 `ref`가 불실존 slug / Then E-204 경고(오타 탐지), 실패 아님 — 의도적 미등록 참조는 `text` 항목이 규약. Given 참조 앨범 0개 / Then E-203 경고 + 발행 진행. [Source: 04-architecture/api-contracts.md#3.3]
 6. Given 이야기 지면 / Then 산세리프 톤(17/1.75) + 말미 AlbumBox(안 A): `평론 읽기 →`(있을 때) / `평론 준비 중`(링크 아님). 참조 0 → 상자 미출력. [Source: 07-design/ui-spec.md#3-음악-이야기]
 7. Given `role: lead|follow` 태그가 있는 글 + 원이 안 B를 선택한 경우 / Then LineageBlock 렌더 (lead ≥1 필수), 태그 없으면 자동으로 안 A만. **원 무응답 시 기본 = 안 A — LineageBlock은 예비 계약 상태로 두고 활성화하지 않는다.** [Source: 07-design/design-system/components.md#12b-lineageblock] [Source: 07-design/design-handoff.md#2-원-결정-대기-항목]
-8. Given 사다리 리드 카피 / Then 직접 참조 시 `이 점수가 낯설다면 — 이 앨범이 놓인 흐름 이야기`, 장르 폴백 시 `이 장르가 낯설다면 — {버킷} 이야기`. [Source: 07-design/ui-spec.md#2.6]
+8. Given 사다리 리드 카피 / Then mode별로: **direct** = `이 점수가 낯설다면 — 이 앨범이 놓인 흐름 이야기` / **tag** = direct 카피 재사용 (`이 앨범이 놓인 흐름`은 세부 태그 일치에도 참 — **W3 결정** (Thomas N-8): ui-spec §2.6은 카피 2종만 정의해 mode=tag가 미정의였고, `{버킷}` 카피는 태그 매칭에 부정확하다. Jonnathan 이의 시 문자열 1곳 교체) / **bucket** = `이 장르가 낯설다면 — {버킷} 이야기`. **표시 상한: direct = 전부(발행 역순) / tag·bucket = 최대 2편** [Source: 07-design/design-system/components.md#11-ladderblock] [Source: 07-design/ui-spec.md#2.6]
 
 ## 작업/하위작업(Tasks / Subtasks)
 
@@ -112,7 +112,7 @@ USP-B의 구현체 전부다 — 그리고 그것은 **자동 양방향 링크�
 
 - DoD: SS-9·10 + US-3·4·11 AC + 소급 링크 테스트 [Source: 04-architecture/build-plan.md#W5.4]
 - 계보 시각화는 **이 단계에 없다** — 시안 → 원 선택 → 실측 후 별도 판단 [Source: 04-architecture/build-plan.md#W5.4]
-- 이야기가 4축 아카이브·고아 검사에 잡히는지 확인 (W5.3에서 이야기 픽스처 1개를 미리 넣었다면 이미 검증됨).
+- **W5.3이 유닛 한정으로 격리해 둔 이야기 픽스처를 이 스토리에서 통합 빌드에 편입**하고 (이제 `/stories/` 라우트가 실존 — E-112 충돌 소멸), 이야기가 4축 아카이브·고아 검사에 잡히는지 통합으로 확인 (Thomas C-2 부수의 마감).
 
 ### 이전 스토리 인텔리전스 (previous_story_intelligence)
 - **착수 전 `story-w5-3-archive-kr.md`의 Dev Agent Record를 읽을 것.** 특히: ① derive 파일 구성 관례 (links를 어디 두는지) ② 아티스트 집계 인터페이스 ("아티스트의 다른 글" 재사용 — 재발명 금지) ③ W5.1 LadderBlock 자리의 실제 형태 (교체 방식) ④ 태그 canonical 처리 위치.

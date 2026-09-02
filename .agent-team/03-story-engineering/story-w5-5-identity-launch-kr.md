@@ -3,8 +3,8 @@ status: ready-for-dev
 story_key: w5-5-identity-launch
 epic: E5 — 정체성 지면 + 공개 게이트 (CF-8)
 owner: Andrew (W5 단독 구현) · 카피는 원+리드 협의
-source_hash: e6503e3ee0304562b8a41a4fdfe0a606053766108f45fc48e28e1c3bb7709b67
-depends_on: w5-2-list-engine   # 최소 공개 단위 = E1+E2+E5. E3·E4는 공개 후 순차 가능
+source_hash: 2768bb719646d116b9c6080098e5c7f2562da472193b029b7ef5f893f2cda427
+depends_on: w5-4-ladder   # 조기 실행 경로(w5-2 직후) 제거 — 리드 확정 2026-09-02. E3·E4 생략 공개는 Masthead의 /archive/·/stories/ 계열 링크가 E-112와 충돌해 검증 불가 (Thomas C-2·N-3 · Matthias N-5). 공개 게이트는 전 에픽 완료 후
 compiled_by: Matthew (#17) · 2026-09-02
 ---
 
@@ -33,8 +33,8 @@ so that **"없음 = 문턱 미달"이라는 이 매체의 신호를 읽을 수 �
 
 ## 작업/하위작업(Tasks / Subtasks)
 
-- [ ] 작업 1 — `/about/` 지면 (AC: #1, #2, #4)
-  - [ ] 세리프 본문 지면 + 필수 3문 소제목 구조 (틀 먼저, 카피는 원+리드 협의분 수급 — 협의 지연 시 3문 + 자리 표시가 아닌 **3문만으로 성립하는 최소 지면**으로 공개 가능)
+- [ ] 작업 1 — `/about/` 지면 완성 (AC: #1, #2, #4)
+  - [ ] **W5.2의 C-2 최소 셸(3문만)을 완성본으로 대체**: 세리프 본문 지면 + 필수 3문 소제목 구조 + 원+리드 협의 카피 (협의 지연 시 셸 그대로의 **3문만으로 성립하는 최소 지면**으로 공개 가능 — 자리 표시 문구 금지)
   - [ ] 권리자 연락 경로 1줄
 - [ ] 작업 2 — 404 (AC: #3)
 - [ ] 작업 3 — 성능 예산 실측 (AC: #5)
@@ -50,14 +50,14 @@ so that **"없음 = 문턱 미달"이라는 이 매체의 신호를 읽을 수 �
 ## Developer Context (개발자 컨텍스트) — developer_context
 
 ### 이 스토리에서 무엇을 구현하는가
-개발량은 최소(지면 2개 + 계측 1스니펫)지만 **공개 판정이 이 스토리의 본체**다. E1+E2+E5 = 최소 공개 단위 — "평론 몇 편 + 진행형 보드 + 기준 지면"이 첫 얼굴이다. E3(탐색)·E4(사다리)는 공개 후 순차 가능하므로, 리드·User 판단에 따라 이 스토리는 W5.2 직후에 앞당겨 실행될 수 있다 (depends_on이 w5-2인 이유) [Source: 03-service-planning/core-features.md#4-에픽과-릴리스-순서].
+개발량은 최소(about 완성 + 404 + 계측 1스니펫)지만 **공개 판정이 이 스토리의 본체**다. Joshua의 최소 공개 단위는 E1+E2+E5였으나 [Source: 03-service-planning/core-features.md#4-에픽과-릴리스-순서], **조기 실행 경로는 게이트 리뷰에서 제거됐다** (리드 확정 2026-09-02): E3·E4 생략 공개는 Masthead 링크가 E-112(내부 링크 깨짐 = 빌드 실패)와 충돌해 그 구성의 빌드 성립 자체가 미정의였다 — 검증 불가능한 경로를 남기느니 공개를 늦춘다. **이 스토리는 W5.4 완료 후 실행하며, AC7의 US-1~15 전수는 조건 없이 전부 검증 가능하다.**
 
 ### 중요한 제약·전제
 - USP-C는 기능이 아니라 규칙이다 — 만들 것은 지면 1개와 (이미 W5.1에 있는) 체크 1문항의 기록뿐. 점수 루브릭·평가 기준표는 만들지 않는다 (Non-goals — "척도는 원의 것, 문서화가 오히려 족쇄") [Source: 03-service-planning/core-features.md#3-non-goals].
 - about 카피의 소유는 원+리드 (개발 최소·콘텐츠 위주 에픽) — Andrew는 틀과 필수 3문 위치만 고정 [Source: 07-design/ui-spec.md#8-소개-기준].
 - 계측 후보의 무료 한도는 **미확인**이 현재 상태다 — 지어내지 말고 실확인 (ADR-0009 확인 작업과 같은 규율) [Source: 04-architecture/architecture-overview.md#6-관측-가능성].
 - 500KB는 측정치가 아니라 **설계 예산**이다 — 초과 시 "실패"가 아니라 조정 협의 (폰트 서브셋 재검토 등) [Source: 04-architecture/architecture-overview.md#4-nfr].
-- E3·E4를 건너뛰고 공개하는 경우: 내비 "아카이브"·이야기 관련 링크가 깨진 채 노출되면 안 된다 — 해당 지면 부재 시 내비 항목 처리 방식을 리드와 확인 (고아·링크 검사 E-112·113과의 정합 포함). 이는 릴리스 순서의 함의이며 코드 문제가 아니다.
+- (구 조기 공개 경로 관련 확인 항목은 삭제됨 — depends_on 주석 참조. 전 에픽 완료 후 공개이므로 내비 전 항목이 실라우트다.)
 
 ### 해서는 안 되는 것
 - 카피 협의가 늦어진다고 임시 문구("준비 중입니다")로 공개 (R-4 — 사과하는 지면 금지. 3문만으로 성립하는 최소 지면이 대안).
@@ -84,8 +84,9 @@ so that **"없음 = 문턱 미달"이라는 이 매체의 신호를 읽을 수 �
 ## File Structure Requirements — file_structure_requirements
 
 ```
+수정:
+  src/pages/about.astro            # W5.2 C-2 셸 → 완성본 대체
 신규:
-  src/pages/about.astro
   src/pages/404.astro
   (계측 스니펫 — 선정 도구에 따라 layouts/Base.astro 수정 1곳)
 수정:
@@ -103,11 +104,11 @@ so that **"없음 = 문턱 미달"이라는 이 매체의 신호를 읽을 수 �
 
 ## Dev Notes (개발 노트)
 
-- DoD: E1+E2+E5 완성 = 최소 공개 단위. E3·E4는 공개 후 순차 가능 [Source: 04-architecture/build-plan.md#W5.5]
+- DoD: 전 에픽(E1~E5) 완료 상태에서 공개 게이트 통과 (build-plan의 "E3·E4 공개 후 순차 가능" 경로는 게이트 리뷰에서 제거 — depends_on 주석) [Source: 04-architecture/build-plan.md#W5.5]
 - 사이트 이름이 공개 전 확정되면 `config/site.yaml#site_name` 문자열 1곳 치환이 전부 (워드마크 = 텍스트 로고) [Source: 07-design/design-handoff.md#2-원-결정-대기-항목]
 
 ### 이전 스토리 인텔리전스 (previous_story_intelligence)
-- **착수 전, 실행 시점까지 완료된 모든 W5 스토리의 Dev Agent Record를 읽을 것** (이 스토리는 W5.2 직후로 앞당겨질 수 있어 직전 스토리가 유동적이다). 특히: ① 확정 호스팅 (계측 후보 중 "호스트 내장 분석"의 실체가 이것으로 정해진다) ② W5.2 완료 노트의 미해결 항목 ③ 폰트 실측치 (500KB 예산의 최대 변수).
+- **착수 전 `story-w5-4-ladder-kr.md`를 포함한 전 W5 스토리의 Dev Agent Record를 읽을 것** (공개 게이트는 전체 상태 점검이다). 특히: ① 확정 호스팅 (계측 후보 중 "호스트 내장 분석"의 실체가 이것으로 정해진다) ② 각 완료 노트의 미해결 항목 ③ 폰트 실측치 (500KB 예산의 최대 변수) ④ W5.2가 만든 about 셸의 현재 상태.
 
 ### Git Intelligence (git_intelligence)
 - 착수 시 최근 커밋에서 완료 스토리 범위 확인. 공개 직전이므로 **전체 테스트 + 결정성 게이트 통과 상태**가 전제.

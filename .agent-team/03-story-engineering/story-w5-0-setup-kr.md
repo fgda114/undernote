@@ -3,7 +3,7 @@ status: ready-for-dev
 story_key: w5-0-setup
 epic: 셋업 (E1~E5 전제 — build-plan W5.0)
 owner: Andrew (W5 단독 구현 — Phillip·Stephen 미스폰)
-source_hash: e6503e3ee0304562b8a41a4fdfe0a606053766108f45fc48e28e1c3bb7709b67
+source_hash: 2768bb719646d116b9c6080098e5c7f2562da472193b029b7ef5f893f2cda427
 compiled_by: Matthew (#17) · 2026-09-02
 ---
 
@@ -24,7 +24,7 @@ so that **이후 전 에픽(E1~E5)이 "검증이 먼저 있는" 파이프라인 
 1. **Given** 빈 `content/` + 유효한 `config/` 3종 / **When** 빌드 / **Then** 빌드·배포가 성공한다 (빈 상태 홈이 렌더됨 — 완성도는 W5.2에서). [Source: 04-architecture/build-plan.md#W5.0]
 2. **Given** 의도적 스키마 위반 픽스처 1개(예: `score: 8.35`) / **When** 빌드 / **Then** 빌드가 실패하고 한국어 오류 메시지(파일 경로 + 수정 방법)가 출력된다. [Source: 04-architecture/build-plan.md#W5.0] [Source: 04-architecture/exceptions.md#2부-오류-코드-전수]
 3. **Given** git push / **Then** CI가 검증→테스트→빌드를 실행하고, 실패 시 배포가 일어나지 않으며 기존 사이트는 마지막 성공 상태로 유지된다. [Source: 04-architecture/exceptions.md#3부-장애-부분-실패-설계]
-4. **Given** CI 환경 / **Then** `TZ=Asia/Seoul`이 명시돼 있고, 동일 입력 2회 빌드의 산출 해시가 동일하다 (결정성 게이트의 골격 — 본격 픽스처는 W5.2). [Source: 04-architecture/exceptions.md#R-10] [Source: 04-architecture/build-plan.md#3-테스트-전략]
+4. **Given** CI 환경 / **Then** `TZ=Asia/Seoul`이 명시돼 있고, 동일 입력 2회 빌드의 산출 해시가 동일하다 (결정성 게이트의 골격 — 본격 픽스처는 W5.2). **해시 범위 = `dist/` 한정** — `reports/`는 제외한다 (BuildReport의 `built_at`은 본질적 비결정 값이며 dist 밖이 설계 [Source: 04-architecture/api-contracts.md#4-빌드-도출-데이터-구조]; 포함 시 게이트 상시 오탐 — Thomas N-7ⓑ). [Source: 04-architecture/exceptions.md#R-10] [Source: 04-architecture/build-plan.md#3-테스트-전략]
 5. **Given** 호스팅 후보 3종(Cloudflare Pages·Netlify·GitHub Pages) / **When** W5.0 착수일에 공식 문서로 무료 한도 실확인 / **Then** 1개를 확정하고 git 연동 자동 빌드가 동작한다. 확인 내용(날짜·출처 URL·한도 수치)을 커밋 메시지 또는 `08-impl-notes/`에 기록한다. [Source: 04-architecture/adr/ADR-0009-hosting.md]
 6. **Given** Astro 설치 / **Then** **현행 메이저 7.x**(ADR-0002 개정판 확정 — User 승인 기존재·로컬 Node v24.14.0 검증 완료)에서 **정확한 마이너 핀 + Zod v4 breaking change를 npm·공식 문서로 실확인**하고 기록한다. 메이저 선택은 더 이상 미결이 아니다. [Source: 04-architecture/adr/ADR-0002-ssg-astro.md]
 

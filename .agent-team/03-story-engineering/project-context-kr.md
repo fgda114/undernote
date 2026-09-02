@@ -4,7 +4,7 @@
 |---|---|
 | 작성 | Matthew (역할 #17 · Story Engineer) · 2026-09-02 |
 | 성격 | **W5 구현(Andrew 1인)의 팀 공통 기술 규칙.** 모든 스토리 파일이 이 문서를 `project_context_reference`로 참조한다. 스토리와 충돌 시 이 문서가 아니라 **상류 SSOT**(각 조항의 `[Source:]`)가 이긴다 — 이 문서는 응축본이다 |
-| source_hash | `e6503e3ee0304562b8a41a4fdfe0a606053766108f45fc48e28e1c3bb7709b67` (sha256 — 산출 방법은 말미 §12) |
+| source_hash | `2768bb719646d116b9c6080098e5c7f2562da472193b029b7ef5f893f2cda427` (sha256 — 산출 방법은 말미 §12) |
 | 전제 | Timothy의 초안(`09-docs/project-context-draft-kr.md`)은 존재하지 않아(해당 역할 미스폰) 본 문서를 신규 확정본으로 작성 |
 
 ---
@@ -51,9 +51,10 @@
 ## 5. 레이어 경계 (위반 = 코드 리뷰 반려)
 
 ```
-content/·config/ → content.config.ts(Zod) → src/lib/(derive·checker) → pages/·components/
-     데이터            계약 검증                판단 (전부)                렌더 (판단 0)
+content/·config/ → src/lib/schema(Zod 단일 정의) → src/lib/(derive·checker) → pages/·components/
+     데이터           계약 검증 (유일한 정의)         판단 (전부)               렌더 (판단 0)
 ```
+0. **Zod 스키마는 `src/lib/schema/`에 단일 정의한다** (순수 모듈·한국어 메시지). `content.config.ts`는 그것을 감싸기만 하고, checker의 사전 전량 패스(B-1)도 같은 모듈을 소비한다 — code-structure의 "유일한 구현체"는 "유일한 정의"로 읽는다 (리드 확정 2026-09-02, W3 게이트 Thomas N-2. 두 곳 정의는 반드시 갈라진다). [Source: 04-architecture/code-structure.md#3-레이어-경계]
 1. `src/lib/`는 Astro를 import하지 않는다 (순수 TS — 프레임워크 없이 테스트).
 2. `pages/`는 판단하지 않는다 — 정렬·필터·귀속·폴백 선택이 템플릿에 보이면 반려(P1). 템플릿 조건문은 "빈 배열 → 영역 미표시"(R-4)까지만.
 3. `scripts/`는 빌드에 관여하지 않는다 — 파일 생성만. 빌드는 저장소 상태만 읽는다.

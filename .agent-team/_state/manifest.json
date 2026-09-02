@@ -147,6 +147,17 @@
       "report_path": "04-architecture/build-plan.md",
       "facilitator": "Paul",
       "decided": "2026-09-01T16:10:09.394609100Z"
+    },
+    {
+      "gate_id": "gate-2461c79d-0952-442a-9856-8a29b6614112",
+      "wave_id": "W3",
+      "gate_type": "Implementation",
+      "verdict": "CONCERNS",
+      "issues_total": 0,
+      "issues_critical": 0,
+      "report_path": "03-story-engineering/readiness-report-kr.md",
+      "facilitator": "Paul",
+      "decided": "2026-09-02T03:20:28.517675600Z"
     }
   ],
   "risks": [],
