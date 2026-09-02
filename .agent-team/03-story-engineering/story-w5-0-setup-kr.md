@@ -1,5 +1,5 @@
 ---
-status: ready-for-dev
+status: done
 story_key: w5-0-setup
 epic: 셋업 (E1~E5 전제 — build-plan W5.0)
 owner: Andrew (W5 단독 구현 — Phillip·Stephen 미스폰)
@@ -9,7 +9,7 @@ compiled_by: Matthew (#17) · 2026-09-02
 
 # 스토리 W5.0: 저장소 스캐폴드 · CI · 호스팅 — "파이프라인의 존재 증명"
 
-Status: ready-for-dev
+Status: done
 
 ## 스토리(Story) — story_requirements
 
@@ -30,20 +30,20 @@ so that **이후 전 에픽(E1~E5)이 "검증이 먼저 있는" 파이프라인 
 
 ## 작업/하위작업(Tasks / Subtasks)
 
-- [ ] 작업 1 — Astro 7.x 마이너 핀 + Zod v4 확인 (AC: #6)
-  - [ ] npm에서 astro 7.x 최신 마이너 실확인 후 lockfile 핀 (본 스토리 latest_tech는 2026-09-02 기준 — 착수일에 재확인)
-  - [ ] Zod v4 breaking change를 공식 업그레이드 가이드로 확인 (`content.config.ts` 문법에 영향)
-- [ ] 작업 2 — 저장소 스캐폴드 (AC: #1)
-  - [ ] `code-structure.md` §1 트리 그대로 생성 (content/·config/·scripts/·src/·public/·tests/·reports/)
-  - [ ] `config/site.yaml`·`genres.yaml`(2026 블록, B안 3버킷 기본값)·`tags.yaml`(빈 등록부) 초기값
-  - [ ] `reports/` gitignore 등록 (산출물이지 콘텐츠 아님)
-- [ ] 작업 3 — 스키마 최소 골격 (AC: #2)
-  - [ ] `src/content.config.ts` — Review 스키마 1종만 우선 (score 정규식 포함). 전체 스키마는 W5.1
-  - [ ] 위반 픽스처 `tests/fixtures/invalid/` 1개 + 실패 확인 테스트
-- [ ] 작업 4 — CI (AC: #3, #4)
-  - [ ] push → `npm ci` → 검증·테스트·빌드. `TZ=Asia/Seoul` 환경변수 명시
-  - [ ] 동일 입력 2회 빌드 해시 비교 스텝 (초기엔 빈 사이트 대상)
-- [ ] 작업 5 — 호스팅 확정 + 연동 (AC: #5)
+- [x] 작업 1 — Astro 7.x 마이너 핀 + Zod v4 확인 (AC: #6)
+  - [x] npm에서 astro 7.x 최신 마이너 실확인 후 lockfile 핀 (본 스토리 latest_tech는 2026-09-02 기준 — 착수일에 재확인)
+  - [x] Zod v4 breaking change를 공식 업그레이드 가이드로 확인 (`content.config.ts` 문법에 영향)
+- [x] 작업 2 — 저장소 스캐폴드 (AC: #1)
+  - [x] `code-structure.md` §1 트리 그대로 생성 (content/·config/·scripts/·src/·public/·tests/·reports/)
+  - [x] `config/site.yaml`·`genres.yaml`(2026 블록, B안 3버킷 기본값)·`tags.yaml`(빈 등록부) 초기값
+  - [x] `reports/` gitignore 등록 (산출물이지 콘텐츠 아님)
+- [x] 작업 3 — 스키마 최소 골격 (AC: #2)
+  - [x] `src/content.config.ts` — Review 스키마 1종만 우선 (score 정규식 포함). 전체 스키마는 W5.1
+  - [x] 위반 픽스처 `tests/fixtures/invalid/` 1개 + 실패 확인 테스트
+- [x] 작업 4 — CI (AC: #3, #4)
+  - [x] push → `npm ci` → 검증·테스트·빌드. `TZ=Asia/Seoul` 환경변수 명시
+  - [x] 동일 입력 2회 빌드 해시 비교 스텝 (초기엔 빈 사이트 대상)
+- [x] 작업 5 — 호스팅 확정 + 연동 (AC: #5)
 
 ---
 
@@ -139,17 +139,39 @@ satori·resvg는 이 스토리 범위 아님 (W5.1). 신규 의존 추가는 최
 ## Dev Agent Record (구현 기록)
 
 ### 사용 모델(Agent Model Used)
-_(구현 시 기입)_
+Claude (Andrew · 역할 #9) — 2026-09-02 구현
 
 ### 디버그 로그 참조
-_(구현 시 기입)_
+- Windows npm 자식 스크립트가 node를 못 찾는 문제 → `PATH`에 `D:
+odejs` 선행으로 해결 (08-impl-notes/frontend.md 참조)
+- 위반 픽스처 빌드 실패 시 Windows·node 24에서 libuv assertion 잡음 + exit 127 관찰 — 비영 종료라 게이트 판정 무영향 (Linux CI는 exit 1)
 
 ### 완료 노트 목록(Completion Notes List)
-- _(구현 시 기입 — Astro 핀 버전·Zod v4 확인 결과·호스팅 확정 내용 필수)_
+- **Astro 7.2.10 정확 핀** (npm latest 실확인 2026-09-02 — 스토리 리서치 시점 7.2.9에서 패치 +1). engines `>=22.12.0`, 로컬 v24.14.0.
+- **Zod v4 실확인** (공식 v6/v7 업그레이드 가이드): 동봉 zod ^4.3.6 → 4.5.4 잠금. `errorMap` 제거 → 체크별 `error:` 파라미터로 한국어 메시지. `astro/zod`로 import(직접 의존 0). v7 breaking은 Vite 8 내부 중심 — 사용자 코드 영향 없음, Content Layer 유지.
+- **스키마 단일 정의**: `src/lib/schema/{common,review}.ts` (순수 모듈 — vitest에서 Astro 런타임 없이 임포트 실확인). `src/content.config.ts`는 감싸기만.
+- **실측 발견**: Astro 프론트매터 YAML은 따옴표 없는 date를 JS Date 객체로 파싱 → `isoDateSchema`가 Date→"YYYY-MM-DD" 정규화 (UTC 왕복 = 머신 TZ 무관 결정적).
+- **AC2 실증**: `score: 8.35` 픽스처 → 빌드 실패 + E-105 한국어 메시지 + 파일 경로 + 수정 방법 출력. AC1: 빈 콘텐츠 빌드 성공. AC4: 로컬 2회 빌드 dist/ 해시 동일(`cb5aa5cf…`) + CI 게이트 스텝 존재. 단위 테스트 28개 통과, astro check 0 오류.
+- **호스팅 확정 = GitHub Pages(Actions 배포)** — 3사 무료 한도 공식 문서 실확인(2026-09-02, 수치·URL은 08-impl-notes/frontend.md): CF Pages 500빌드/월·대역폭 무제한 / Netlify 크레딧 모델(Free 1,000크레딧/월) / GH Pages 1GB·100GB/월 soft. 선택 근거: 저장소가 이미 GitHub → 검증·배포 단일 파이프라인(검증된 dist-1 바이트 그대로 배포), 계정 추가 0. ADR-0009 우선순위 1번(CF)은 계정 연결이 User 작업이라 현시점 '동작' 불가 — 이전 비용 ~0으로 필요 시 이전. **잔여 User 작업 1건: repo Settings → Pages → Source = "GitHub Actions"** (전까지 deploy 잡만 실패, verify 게이트는 동작).
 
 ### 파일 목록(File List)
 <!-- ⚠️ 다음 스토리(W5.1)의 이전 스토리 인텔리전스 입력 — 반드시 채울 것 (D4) -->
 
 | 파일 경로 | 상태 (신규/수정/삭제) |
 |-----------|----------------------|
-| _(구현 시 기입)_ | |
+| package.json · package-lock.json | 신규 (astro 7.2.10 정확 핀 + devDeps: @astrojs/check·typescript~6.0.3·vitest^4·yaml^2·@types/node^24) |
+| astro.config.mjs | 신규 (의도적 최소 — site/base는 W5.2에서) |
+| tsconfig.json · vitest.config.ts | 신규 |
+| config/site.yaml · config/genres.yaml · config/tags.yaml | 신규 (genres 2026 = B안 3버킷 기본값) |
+| content/{albums,reviews,stories,artists,snapshots}/.gitkeep | 신규 (빈 디렉터리) |
+| src/content.config.ts | 신규 (reviews 컬렉션만 — 전체 스키마는 W5.1) |
+| src/lib/score.ts | 신규 (SCORE_PATTERN + scoreToTenths — 유일한 점수 파서) |
+| src/lib/schema/common.ts · src/lib/schema/review.ts | 신규 (Zod 단일 정의 — 한국어 오류 메시지) |
+| src/pages/index.astro | 신규 (빈 상태 홈 셸 — W5.2에서 실지면) |
+| src/lib/{derive,checker,mb,og}/ · src/{layouts,components,styles}/ · scripts/ · public/{covers,fonts}/ | 신규 (빈 디렉터리 골격) |
+| tests/fixtures/valid/fixture-artist-fixture-album.md | 신규 (유효 픽스처 — 시드 데이터 겸용) |
+| tests/fixtures/invalid/review-score-two-decimals.md | 신규 (위반 픽스처 — CI 게이트 실증용) |
+| tests/unit/review-schema.test.ts | 신규 (28 테스트) |
+| .github/workflows/ci.yml | 신규 (TZ=Asia/Seoul · npm ci · test · check · 위반 실패 실증 · 2회 빌드 해시 · Pages 배포) |
+| .gitignore | 수정 (reports/·.astro/ 추가) |
+| .agent-team/08-impl-notes/frontend.md | 신규 (재현 명령·환경변수·결정사항·호스팅 근거) |

@@ -1,0 +1,3 @@
+# Detail-tag registry (api-contracts §3.6 TagRegistry).
+# Content stores canonical slugs only; starts empty (R-4: no fake data).
+tags: []

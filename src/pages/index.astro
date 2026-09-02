@@ -1,0 +1,21 @@
+---
+// Empty-state home shell — W5.0 only proves the pipeline builds and deploys.
+// The real front page (board, monthly recap, layouts, design tokens) is W5.2.
+// Deliberately static markup: no Date(), no client JS — byte-identical output
+// for identical input is a product promise (determinism gate in CI).
+// "undernote" is the provisional wordmark (site name undecided); W5.2's
+// masthead replaces this with config/site.yaml#site_name.
+---
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>undernote</title>
+  </head>
+  <body>
+    <main>
+      <h1>undernote</h1>
+    </main>
+  </body>
+</html>

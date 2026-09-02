@@ -55,3 +55,9 @@ coverage/
 .nyc_output/
 playwright-report/
 test-results/
+
+# ─── undernote 빌드 산출물 (W5.0) ─────────────────────────
+# reports/ = build-report 산출물 — 콘텐츠가 아니므로 커밋 금지 (data-model-erd §4)
+reports/
+# Astro 로컬 캐시·생성 타입
+.astro/
