@@ -1,48 +1,78 @@
 /**
- * Astro configuration + the build-time verification gate.
+ * Astro configuration + the build-time verification gates.
  *
- * The inline integration runs the checker PRE-PASS (sequence B-1) before
- * Astro's own content sync: it loads content/ + config/ from disk, validates
- * everything with the single schema definitions in src/lib/schema, aggregates
- * EVERY finding into one Korean report (never stops at the first), writes
- * reports/build-report.{md,json}, and throws on any E-1xx failure — so
- * nothing invalid can ever deploy and the editor fixes everything in one
- * round trip. It lives here (config layer) because src/lib must stay
- * framework-free. Astro's per-entry schema validation stays on as a second
- * net (same Zod modules — one definition, two consumers).
+ * Two-stage checker (sequence B — same Zod definitions as content.config.ts):
+ *
+ *  1. PRE-PASS at astro:config:done (before Astro's own content sync, so our
+ *     aggregated Korean report wins the race against the first-broken-entry
+ *     error): shape + cross-file integrity (E-100~110·114) and the notice
+ *     pass (E-301~303, sharing the derive code path with the pages). Any
+ *     E-1xx failure throws — nothing invalid can deploy, and the editor gets
+ *     ONE complete list, not n round trips.
+ *
+ *  2. POST-BUILD at astro:build:done: dist-wide OG trio scan (E-111) and
+ *     internal link resolution (E-112). E-115 is NOT a substring scan — it
+ *     is enforced structurally (og input types carry no score field).
  *
  * Build-only on purpose: the dev server must keep running while the editor
- * fixes content, so the gate does not block `astro dev`.
+ * fixes content, so neither gate blocks `astro dev`.
  *
  * `site`/`base` are intentionally not set yet: public domain undecided (site
- * name pending). They land in W5.2 with the OG url wiring.
+ * name pending); og:url derives from config/site.yaml#base_url instead.
  */
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import type { AstroIntegration } from 'astro';
-import { formatReport, runPrePass, writeBuildReport } from './src/lib/checker';
+import {
+  formatReport,
+  readPreviousBoardState,
+  runNoticePass,
+  runPostBuildChecks,
+  runPrePass,
+  writeBuildReport,
+  type CheckResult,
+} from './src/lib/checker';
 
 function undernoteChecker(): AstroIntegration {
   let command = '';
+  let preResult: CheckResult = { failures: [], warnings: [], notices: [] };
+  let boardState: Record<string, string[]> | undefined;
+  const root = fileURLToPath(new URL('.', import.meta.url));
+
   return {
     name: 'undernote-checker',
     hooks: {
       'astro:config:setup': ({ command: cmd }) => {
         command = cmd;
       },
-      // config:done fires before content sync — our aggregated report must
-      // win the race against Astro's first-broken-entry error.
       'astro:config:done': ({ logger }) => {
         if (command !== 'build') return;
-        const root = fileURLToPath(new URL('.', import.meta.url));
-        const { result } = runPrePass(root);
-        writeBuildReport(root, result);
-        if (result.warnings.length + result.notices.length > 0) {
-          logger.warn('\n' + formatReport({ ...result, failures: [] }));
+        const { data, result } = runPrePass(root);
+        const noticeOutcome = runNoticePass(data, readPreviousBoardState(root));
+        preResult = { ...result, notices: [...result.notices, ...noticeOutcome.notices] };
+        boardState = noticeOutcome.boardState;
+        writeBuildReport(root, preResult, boardState);
+        if (preResult.warnings.length + preResult.notices.length > 0) {
+          logger.warn('\n' + formatReport({ ...preResult, failures: [] }));
         }
-        if (result.failures.length > 0) {
-          throw new Error('콘텐츠 검증 실패 — 배포되지 않습니다.\n' + formatReport({ ...result, warnings: [], notices: [] }));
+        if (preResult.failures.length > 0) {
+          throw new Error(
+            '콘텐츠 검증 실패 — 배포되지 않습니다.\n' + formatReport({ ...preResult, warnings: [], notices: [] }),
+          );
         }
+      },
+      'astro:build:done': ({ dir, logger }) => {
+        if (command !== 'build') return;
+        const postFailures = runPostBuildChecks(fileURLToPath(dir));
+        const finalResult: CheckResult = { ...preResult, failures: postFailures };
+        writeBuildReport(root, finalResult, boardState);
+        if (postFailures.length > 0) {
+          throw new Error(
+            '산출물 무결성 검사 실패 — 배포되지 않습니다.\n' +
+              formatReport({ failures: postFailures, warnings: [], notices: [] }),
+          );
+        }
+        logger.info('무결성 검사 통과 (OG 3요소 · 내부 링크).');
       },
     },
   };
