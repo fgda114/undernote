@@ -15,7 +15,10 @@ import CoverImage from '../../components/CoverImage.astro';
 import FormatLabel from '../../components/FormatLabel.astro';
 import ScoreVerdict from '../../components/ScoreVerdict.astro';
 import Base from '../../layouts/Base.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import LadderBlock from '../../components/LadderBlock.astro';
 import { excerptFrom } from '../../lib/derive/excerpt.ts';
+import { deriveBacklinks } from '../../lib/derive/links.ts';
 import { buildReviewPageData } from '../../lib/derive/review-page.ts';
 import { getSiteConfig } from '../../lib/site.ts';
 import { getSiteData } from '../../lib/derive/site-data.ts';
@@ -51,8 +54,25 @@ const description = excerptFrom(review.body ?? '');
 
 // Nominate badge (SS-4 derive): present only while this album sits on the
 // active board — the verdict block hides the row otherwise (R-4).
-const badge = getSiteData().badgeMap.get(review.id) ?? null;
+const siteData = getSiteData();
+const badge = siteData.badgeMap.get(review.id) ?? null;
 const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, year: badge.year } : null;
+
+// Follow blocks (§2.5 fixed order): ① the ladder ② "{artist}'s other work".
+const backlinks = deriveBacklinks(
+  { slug: review.id, tags: album.data.tags, bucket: album.data.bucket },
+  siteData.ladder.stories,
+  siteData.ladder.refIndex,
+  siteData.ladder.albumBuckets,
+);
+const otherByArtist = [
+  ...new Map(
+    album.data.artists
+      .flatMap((slug) => siteData.archive.by_artist.get(slug) ?? [])
+      .filter((item) => item.url !== `/reviews/${review.id}/`)
+      .map((item) => [item.url, item] as const),
+  ).values(),
+].map((item) => siteData.articleByUrl.get(item.url)!).filter(Boolean);
 ---
 
 <Base
@@ -94,11 +114,26 @@ const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, yea
         <ScoreVerdict score={page.score} listenLinks={page.listenLinks} nominate={nominate} />
       </div>
 
-      {/*
-        Conditional follow blocks (ladder · "아티스트의 다른 글") render only
-        when their derive data exists — supply lands in W5.2/W5.4, so nothing
-        is drawn here yet (no empty shells, R-4).
-      */}
+      {/* ── Follow blocks — fixed order (§2.5); each renders only with data (R-4) ── */}
+      {
+        backlinks.mode !== 'none' && (
+          <div class="column">
+            <LadderBlock mode={backlinks.mode} bucketLabel={page.bucketLabel} stories={backlinks.stories} />
+          </div>
+        )
+      }
+      {
+        otherByArtist.length > 0 && (
+          <section class="column other-articles" aria-label={`${page.artistsLabel}의 다른 글`}>
+            <h2 class="other-title">{page.artistsLabel}의 다른 글</h2>
+            <ul class="other-cards">
+              {otherByArtist.map((item) => (
+                <ArticleCard item={item} />
+              ))}
+            </ul>
+          </section>
+        )
+      }
     </article>
   </main>
 </Base>
@@ -164,6 +199,19 @@ const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, yea
     padding-left: var(--s-16);
     border-left: 2px solid var(--line);
     color: var(--muted);
+  }
+  .other-articles {
+    margin-top: var(--s-48);
+  }
+  .other-title {
+    font-size: var(--fs-17);
+    font-weight: 700;
+    margin-bottom: var(--s-8);
+  }
+  .other-cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
   @media (max-width: 640px) {
     .hero {

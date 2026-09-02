@@ -1,17 +1,23 @@
 ---
 /**
- * /stories/{slug}/ — MINIMAL story shell.
+ * /stories/{slug}/ — music story page, full form (ui-spec §3 · CF-5).
+ * Sans-serif head (29/800) and body (17/1.75) — the tone split from reviews
+ * is typographic, not chromatic (§0).
  *
- * W5.4 owns the full story page (AlbumBox/lineage, in-body album links).
- * This shell exists in W5.2 for the same reason as the C-2 shells: E-112
- * (internal link integrity) is active and home/archive ArticleCards link to
- * story URLs — without a page here, any committed story breaks the build.
- * Tone: sans-serif head/body (ui-spec §0 — the story voice).
+ * In-body album links: the body is pure markdown the editor wrote — links
+ * already present render as-is; there is NO automatic name-matching
+ * (mismatch risk, and US-4 AC1 is satisfied by the AlbumBox links — W3
+ * interpretation recorded in the story file). Ends with AlbumBox (plan A —
+ * the confirmed default; LineageBlock stays a standby contract until the
+ * editor picks plan B).
  */
 import { getCollection, render } from 'astro:content';
+import AlbumBox from '../../components/AlbumBox.astro';
 import FormatLabel from '../../components/FormatLabel.astro';
 import Base from '../../layouts/Base.astro';
 import { excerptFrom } from '../../lib/derive/excerpt.ts';
+import { deriveAlbumBoxRows } from '../../lib/derive/links.ts';
+import { getSiteData } from '../../lib/derive/site-data.ts';
 
 export async function getStaticPaths() {
   const stories = await getCollection('stories');
@@ -21,6 +27,7 @@ export async function getStaticPaths() {
 const { story } = Astro.props;
 const { Content } = await render(story);
 const description = excerptFrom(story.body ?? '');
+const albumRows = deriveAlbumBoxRows(story.data, getSiteData().data);
 ---
 
 <Base
@@ -40,6 +47,13 @@ const description = excerptFrom(story.body ?? '');
       <div class="prose story-body">
         <Content />
       </div>
+      {
+        albumRows.length > 0 && (
+          <div class="column">
+            <AlbumBox rows={albumRows} />
+          </div>
+        )
+      }
     </article>
   </main>
 </Base>
@@ -55,7 +69,7 @@ const description = excerptFrom(story.body ?? '');
   }
   .title {
     font-family: var(--sans);
-    font-size: var(--fs-27);
+    font-size: var(--fs-29);
     font-weight: 800;
     letter-spacing: -0.015em;
     line-height: 1.4;
@@ -65,15 +79,31 @@ const description = excerptFrom(story.body ?? '');
     font-size: var(--fs-13);
     color: var(--muted);
   }
+  .column,
   .story-body {
     max-width: var(--column);
-    margin: var(--s-32) auto 0;
+    margin: 0 auto;
     padding: 0 20px;
+  }
+  .story-body {
+    margin-top: var(--s-32);
     font-family: var(--sans);
     font-size: var(--fs-17);
     line-height: 1.75;
   }
   .story-body :global(p) {
     margin: 0 0 var(--s-24);
+  }
+  .story-body :global(h2) {
+    font-family: var(--sans);
+    font-size: var(--fs-21);
+    font-weight: 700;
+    margin: var(--s-32) 0 var(--s-16);
+  }
+  .story-body :global(blockquote) {
+    margin: 0 0 var(--s-24);
+    padding-left: var(--s-16);
+    border-left: 2px solid var(--line);
+    color: var(--muted);
   }
 </style>

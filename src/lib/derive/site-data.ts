@@ -7,6 +7,7 @@
 import { loadRepo, type RepoData } from '../checker/load.ts';
 import { deriveArchiveIndex, type ArchiveIndex } from './archive.ts';
 import { excerptFrom } from './excerpt.ts';
+import { prepareLadder } from './links.ts';
 import {
   currentYearMonthSeoul,
   deriveBadgeMap,
@@ -50,6 +51,9 @@ export interface SiteData {
   latestArticles: ArticleItem[];
   latestPubDate: string | null;
   archive: ArchiveIndex;
+  /** Prepared ladder inputs (story list + reverse index) — review pages call
+   * deriveBacklinks with these. */
+  ladder: ReturnType<typeof prepareLadder>;
   homeVariant: HomeVariant;
   /** Snapshot years present in content (for /list/[year] static paths). */
   snapshotYears: number[];
@@ -81,6 +85,7 @@ export function getSiteData(): SiteData {
     latestArticles: allArticles.slice(0, 8),
     latestPubDate: latestPublicationDate(data),
     archive: deriveArchiveIndex(data),
+    ladder: prepareLadder(data, excerptFrom),
     homeVariant: deriveHomeVariant({
       reviewCount: data.reviews.length,
       nominateTotal,

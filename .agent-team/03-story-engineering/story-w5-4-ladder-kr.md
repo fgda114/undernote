@@ -1,5 +1,5 @@
 ---
-status: ready-for-dev
+status: done
 story_key: w5-4-ladder
 epic: E4 — 이해의 사다리 (CF-5 음악 이야기 + 자동 상호 링크)
 owner: Andrew (W5 단독 구현)
@@ -10,7 +10,7 @@ compiled_by: Matthew (#17) · 2026-09-02
 
 # 스토리 W5.4: 이해의 사다리 — 이야기 지면 + 양방향 자동 링크
 
-Status: ready-for-dev
+Status: done
 
 ## 스토리(Story) — story_requirements
 
@@ -35,20 +35,20 @@ As a **필자 원**, I want **글에 이미 등장하는 앨범 이름 외의 �
 
 ## 작업/하위작업(Tasks / Subtasks)
 
-- [ ] 작업 1 — `src/lib/derive/links.ts` (AC: #1~5)
-  - [ ] 참조 해석: ref→평론 실존 여부 (P4 역인덱스 Map<albumSlug,story[]>)
-  - [ ] 역링크 폴백 사슬: ① 직접 참조(발행 역순) ② tags 교집합 ③ 버킷 일치(이야기의 참조 앨범 중 X.bucket과 같은 버킷 앨범 존재) ④ none — mode 필드로 반환 (Backlinks 계약 §4.5)
-  - [ ] E-203·204 경고 산출
-- [ ] 작업 2 — 이야기 지면 (AC: #6, #7)
-  - [ ] `/stories/[slug].astro` — 산세리프 헤드(29/800)/본문, 660px
-  - [ ] AlbumBox 컴포넌트 (2px 잉크 룰·행 44px·두 행 상태·0개 미출력)
-  - [ ] 본문 내 앨범 언급 링크 처리 — **W3 해석 명시:** ui-spec §3은 "본문 내 앨범 언급 링크"를 적었으나, 규범인 US-4 AC1은 "본문 **또는** 참조 목록에서 링크"다 [Source: 03-service-planning/user-stories.md#US-4]. 본문은 순수 Markdown이고(P6) 원은 링크 작업을 하지 않으므로(US-11), **AlbumBox 링크로 AC1을 충족**한다. 본문 자동 이름 매칭 링크는 만들지 않는다 (오매칭 리스크 + 사양 부재). 원 글에 링크가 이미 있으면 그대로 렌더
-  - [ ] LineageBlock 예비 구현 여부는 안 B 확정 시에만 (기본: 스킵 — AC7)
-- [ ] 작업 3 — 평론 페이지 결선 (AC: #2~4, #8)
-  - [ ] W5.1에서 자리만 잡은 LadderBlock에 Backlinks 데이터 연결 (변이: direct/fallback/none)
-  - [ ] "{아티스트}의 다른 글" 부속 결선 (W5.3 아티스트 집계 재사용)
-- [ ] 작업 4 — 소급 링크 테스트 (AC: #1)
-  - [ ] 픽스처: 이야기 발행 → 참조 앨범 평론 추가 → 재빌드 → 링크 생성 확인
+- [x] 작업 1 — `src/lib/derive/links.ts` (AC: #1~5)
+  - [x] 참조 해석: ref→평론 실존 여부 (P4 역인덱스 Map<albumSlug,story[]>)
+  - [x] 역링크 폴백 사슬: ① 직접 참조(발행 역순) ② tags 교집합 ③ 버킷 일치(이야기의 참조 앨범 중 X.bucket과 같은 버킷 앨범 존재) ④ none — mode 필드로 반환 (Backlinks 계약 §4.5)
+  - [x] E-203·204 경고 산출
+- [x] 작업 2 — 이야기 지면 (AC: #6, #7)
+  - [x] `/stories/[slug].astro` — 산세리프 헤드(29/800)/본문, 660px
+  - [x] AlbumBox 컴포넌트 (2px 잉크 룰·행 44px·두 행 상태·0개 미출력)
+  - [x] 본문 내 앨범 언급 링크 처리 — **W3 해석 명시:** ui-spec §3은 "본문 내 앨범 언급 링크"를 적었으나, 규범인 US-4 AC1은 "본문 **또는** 참조 목록에서 링크"다 [Source: 03-service-planning/user-stories.md#US-4]. 본문은 순수 Markdown이고(P6) 원은 링크 작업을 하지 않으므로(US-11), **AlbumBox 링크로 AC1을 충족**한다. 본문 자동 이름 매칭 링크는 만들지 않는다 (오매칭 리스크 + 사양 부재). 원 글에 링크가 이미 있으면 그대로 렌더
+  - [x] LineageBlock 예비 구현 여부는 안 B 확정 시에만 (기본: 스킵 — AC7)
+- [x] 작업 3 — 평론 페이지 결선 (AC: #2~4, #8)
+  - [x] W5.1에서 자리만 잡은 LadderBlock에 Backlinks 데이터 연결 (변이: direct/fallback/none)
+  - [x] "{아티스트}의 다른 글" 부속 결선 (W5.3 아티스트 집계 재사용)
+- [x] 작업 4 — 소급 링크 테스트 (AC: #1)
+  - [x] 픽스처: 이야기 발행 → 참조 앨범 평론 추가 → 재빌드 → 링크 생성 확인
 
 ---
 
@@ -132,17 +132,29 @@ USP-B의 구현체 전부다 — 그리고 그것은 **자동 양방향 링크�
 ## Dev Agent Record (구현 기록)
 
 ### 사용 모델(Agent Model Used)
-_(구현 시 기입)_
+Claude (Andrew · 역할 #9) — 2026-09-02 구현
 
 ### 디버그 로그 참조
-_(구현 시 기입)_
+- 08-impl-notes/frontend.md W5.4 절
 
 ### 완료 노트 목록(Completion Notes List)
-- _(구현 시 기입 — 계보 선택 상태(A/B/C/무응답)와 LineageBlock 처리 방식 필수)_
+- **계보 선택 상태 = 원 무응답 → 안 A 기본 구현.** AlbumBox(안 A)만 렌더, LineageBlock은 예비 계약 유지·미활성 (role 필드는 W5.1 스키마에 존재, 소비만 조건부 — 안 B 확정 시 derive 그룹핑+컴포넌트 신작 반나절 규모).
+- 폴백 사슬 derive/links.ts: ①직접(전부·발행 역순) ②태그(≤2) ③버킷(≤2) ④none — 첫 비지 않는 단계만, 혼합 금지 테스트 고정. 리드 카피 3모드(tag=direct 카피 재사용 — N-8).
+- AlbumBox 2행 상태(평론 읽기→ / 평론 준비 중 비링크) + 미등록 text 플레인 렌더. 본문 자동 이름 매칭 없음(스토리 해석 그대로 — AlbumBox가 US-4 AC1 충족).
+- 소급 링크 테스트: 평론 추가 → 이야기 행 승격 + 평론 쪽 direct 백링크 동시 생성 (양방향 검증).
+- "{아티스트}의 다른 글" 결선 (W5.3 집계 재사용·현 평론 제외). 이야기 지면 완성(산세리프 29/800 — --fs-29 토큰 추가).
+- 이야기 픽스처는 W5.3에서 이미 통합 편입됨 (리드 해소 주석) — 4축·고아 검사 포함 확인. 테스트 125개·check 0오류·2회 빌드 해시 동일.
 
 ### 파일 목록(File List)
 <!-- ⚠️ 다음 스토리(W5.5)의 이전 스토리 인텔리전스 입력 — 반드시 채울 것 (D4) -->
 
 | 파일 경로 | 상태 (신규/수정/삭제) |
 |-----------|----------------------|
-| _(구현 시 기입)_ | |
+| src/lib/derive/links.ts | 신규 (역인덱스·폴백 사슬·AlbumBox 행) |
+| src/lib/derive/site-data.ts | 수정 (ladder 준비물 노출) |
+| src/components/AlbumBox.astro | 신규 (안 A) |
+| src/components/LadderBlock.astro | 수정 (3모드 리드 카피) |
+| src/pages/stories/[slug].astro | 수정 (셸 → 완성: 29/800·AlbumBox) |
+| src/pages/reviews/[slug].astro | 수정 (사다리·아티스트의 다른 글 결선) |
+| src/styles/tokens.css | 수정 (--fs-29) |
+| tests/unit/derive-links.test.ts | 신규 (10 테스트 — 계 125) |
