@@ -1,0 +1,87 @@
+---
+/**
+ * LadderBlock (components.md §11) — the review→story bridge (US-3).
+ * Sans-serif on purpose: the block speaks in the story voice, inviting the
+ * reader across the tone bridge (charter §4).
+ *
+ * Variants: direct (직접 참조 전부, 발행 역순 — supplied pre-sorted by
+ * derive) / fallback (같은 버킷 1~2편, different lead copy) / none → the
+ * CALLER renders nothing (this component never draws an empty shell).
+ * Data supply arrives with the backlinks derive (W5.2/W5.4).
+ */
+interface Props {
+  mode: 'direct' | 'fallback';
+  /** Needed for fallback lead copy: "이 장르가 낯설다면 — {버킷} 이야기". */
+  bucketLabel?: string;
+  stories: { url: string; title: string; excerpt: string }[];
+}
+
+const { mode, bucketLabel = '', stories } = Astro.props;
+const leadCopy =
+  mode === 'direct' ? '이 점수가 낯설다면 — 이 앨범이 놓인 흐름 이야기' : `이 장르가 낯설다면 — ${bucketLabel} 이야기`;
+---
+
+<aside class="ladder">
+  <p class="lead">{leadCopy}</p>
+  <ul class="stories">
+    {
+      stories.map((story) => (
+        <li>
+          <a href={story.url}>
+            <span class="story-title">{story.title}</span>
+            {story.excerpt && <span class="excerpt">{story.excerpt}</span>}
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</aside>
+
+<style>
+  .ladder {
+    margin-top: var(--s-48);
+    background: var(--wash);
+    border-radius: var(--r-4);
+    padding: var(--s-24);
+    font-family: var(--sans);
+  }
+  .lead {
+    font-size: var(--fs-15);
+    color: var(--muted);
+  }
+  .stories {
+    list-style: none;
+    margin: var(--s-12) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-8);
+  }
+  .stories a {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-8);
+    min-height: 44px;
+    align-items: center;
+  }
+  .story-title {
+    font-size: var(--fs-17);
+    font-weight: 700;
+  }
+  .excerpt {
+    font-size: var(--fs-15);
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .arrow {
+    color: var(--seal);
+  }
+  .stories a:hover .story-title {
+    color: var(--seal);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

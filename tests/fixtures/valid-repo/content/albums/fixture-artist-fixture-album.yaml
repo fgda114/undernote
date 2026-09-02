@@ -2,6 +2,8 @@ title: 픽스처 앨범
 artists: [fixture-artist]
 release_date: "2026-05-01"
 bucket: pop
+cover: covers/fixture-artist-fixture-album.jpg
+cover_source: "fixture (generated placeholder art)"
 tags: [city-pop]
 listen_links:
   - { service: spotify, url: "https://open.spotify.com/album/fixture" }
