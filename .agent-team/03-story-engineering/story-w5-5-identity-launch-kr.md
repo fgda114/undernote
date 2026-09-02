@@ -138,6 +138,17 @@ Claude (Andrew · 역할 #9) — 2026-09-02 구현
 - **게이트 잔여 (AC7)**: Matthias US-1~15 전수 수동 QA — 리드 배정 대기. 실콘텐츠 스테이징은 원의 첫 평론 투입 후 (픽스처 제거 목록 launch-gate §5).
 - 운영 수칙 5+1항 정리 (09-docs 승계용 — launch-gate §4).
 
+### 중단 기록 (일시정지 — 리드 지시, 2026-09-02)
+
+**중단 지점**: 안전 경계에서 정지. w5-0~w5-4 done, w5-5 개발분(작업 1~4 + §5 자가 점검) 완료·커밋·푸시(def6d8f). 작성 중이던 파일 없음, 빌드·테스트 통과 상태(13지면 · 125테스트 · 2회 빌드 해시 12426efe… 동일), 미커밋 작업물 0.
+
+**재개 시 시작 순서** (이것만 읽고 이어갈 수 있게):
+1. **early_stage_threshold Zod 필드 켜기** — 리드 §7 승인·api-contracts §3.8 반영 완료(커밋 89f866a)인데 **코드 반영이 아직 안 됨**. 할 일: `src/lib/schema/config.ts` siteConfigSchema에 `early_stage_threshold: z.int().default(6).optional()`(기본값 6) 추가 + `src/lib/derive/site-data.ts`가 `site.early_stage_threshold ?? EARLY_STAGE_THRESHOLD`를 쓰도록 1곳 수정 + 유닛 테스트 1개. 15분 규모.
+2. **픽스처 잔존 빌드 게이트** — 리드 w5-1 승인 시 지시(사람 기억 대신 빌드 검사): 공개 게이트에서 `content/` 내 `fixture-` 접두 slug 잔존 시 빌드 실패. 미구현. 설계 메모: 상시 실패로 하면 현 개발 픽스처가 빌드를 막으므로, ①환경 플래그(예: CI의 릴리스 잡에서만) 또는 ②config/site.yaml의 공개 모드 필드(§7 추가 필요)로 게이트화해야 함 — **방식은 리드와 협의 후 결정** (새 오류 코드 필요 시 §7 문서 먼저).
+3. 공개 게이트 잔여는 launch-gate.md §5 체크리스트 그대로 (Matthias QA 전수 · User 작업 4건 · 성능 예산 협의 · about 카피 협의 · 픽스처→실콘텐츠 교체).
+
+**진행 중이던 판단/미해결**: 성능 예산(500KB 초과 — 수용 vs unicode-range 분할)은 리드 결정 대기. 계측(GoatCounter) 설치는 User 계정 + goatcounter_code §7 필드 대기. E-101 문구 결함은 리드가 W6 이관 처리.
+
 ### 파일 목록(File List)
 
 | 파일 경로 | 상태 (신규/수정/삭제) |
