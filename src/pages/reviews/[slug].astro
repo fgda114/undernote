@@ -1,0 +1,155 @@
+---
+/**
+ * Review page /reviews/{slug}/ (ui-spec §2 · CF-1 · D2).
+ *
+ * The frontmatter here only LOADS data and calls the derive layer — every
+ * judgment (labels, cover set, listen links, formatting) lives in
+ * src/lib/derive/review-page.ts (P1: templates render, they don't decide).
+ *
+ * D2 placement: hero = 4 fields, NO score/badge; the verdict block renders
+ * after the body. The hero artist name is PLAIN TEXT in this story —
+ * /artists/ routes are W5.3 output; the link promotion is explicitly W5.3's
+ * task (linking now would break against E-112 in W5.2).
+ */
+import { getCollection, getEntry, render } from 'astro:content';
+import CoverImage from '../../components/CoverImage.astro';
+import FormatLabel from '../../components/FormatLabel.astro';
+import ScoreVerdict from '../../components/ScoreVerdict.astro';
+import Base from '../../layouts/Base.astro';
+import { excerptFrom } from '../../lib/derive/excerpt.ts';
+import { buildReviewPageData } from '../../lib/derive/review-page.ts';
+import { getSiteConfig } from '../../lib/site.ts';
+import { genresConfigSchema } from '../../lib/schema/index.ts';
+import { readFileSync } from 'node:fs';
+import { parse as parseYaml } from 'yaml';
+
+export async function getStaticPaths() {
+  const reviews = await getCollection('reviews');
+  return reviews.map((review) => ({ params: { slug: review.id }, props: { review } }));
+}
+
+const { review } = Astro.props;
+
+// Cross-references — existence is guaranteed by the checker gate (E-102/103);
+// a miss here would be a build bug, so the non-null assertions are safe.
+const album = (await getEntry('albums', review.data.album))!;
+const artistEntries = await Promise.all(album.data.artists.map((slug) => getEntry('artists', slug)));
+const artists = new Map(artistEntries.filter((e) => e != null).map((e) => [e.id, e.data]));
+const genres = genresConfigSchema.parse(parseYaml(readFileSync('config/genres.yaml', 'utf8')));
+
+const page = buildReviewPageData({
+  slug: review.id,
+  review: review.data,
+  album: album.data,
+  artists,
+  genres,
+  site: getSiteConfig(),
+});
+
+const { Content } = await render(review);
+const description = excerptFrom(review.body ?? '');
+---
+
+<Base
+  title={`${page.title} — ${page.artistsLabel}`}
+  description={description}
+  ogType="article"
+  ogImage={`/og/reviews/${page.slug}.png`}
+  path={`/reviews/${page.slug}/`}
+  current="reviews"
+>
+  <main>
+    <article>
+      {/* ── Hero: exactly 4 fields, no score, no badge (D2) ── */}
+      <header class="hero">
+        <div class="hero-text">
+          <FormatLabel text="평론" />
+          <h1 class="hero-title">{page.title}</h1>
+          <p class="hero-sub">{page.artistsLabel} · {page.bucketLabel} · {page.releaseDateText}</p>
+        </div>
+        <div class="hero-cover">
+          <CoverImage cover={page.cover} size={320} albumTitle={page.title} loading="eager" />
+        </div>
+      </header>
+
+      {/* ── Body: serif 17/1.8, 660px column — the product itself ── */}
+      <div class="prose review-body">
+        <Content />
+      </div>
+
+      {/* ── Verdict after the body only (D2). Nominate data arrives in W5.2. ── */}
+      <div class="column">
+        <ScoreVerdict score={page.score} listenLinks={page.listenLinks} nominate={null} />
+      </div>
+
+      {/*
+        Conditional follow blocks (ladder · "아티스트의 다른 글") render only
+        when their derive data exists — supply lands in W5.2/W5.4, so nothing
+        is drawn here yet (no empty shells, R-4).
+      */}
+    </article>
+  </main>
+</Base>
+
+<style>
+  .hero {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--s-48) 20px 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--s-32);
+    align-items: end;
+  }
+  .hero-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+  }
+  .hero-title {
+    font-family: var(--serif);
+    font-size: var(--fs-34);
+    font-weight: 700;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+  .hero-sub {
+    font-size: var(--fs-17);
+    color: var(--muted);
+  }
+  .column,
+  .review-body {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+  .review-body {
+    margin-top: var(--s-48);
+    font-family: var(--serif);
+    font-size: var(--fs-17);
+    line-height: 1.8;
+  }
+  .review-body :global(p) {
+    margin: 0 0 var(--s-24);
+  }
+  .review-body :global(h2) {
+    font-family: var(--serif);
+    font-size: var(--fs-21);
+    font-weight: 700;
+    margin: var(--s-32) 0 var(--s-16);
+  }
+  .review-body :global(blockquote) {
+    margin: 0 0 var(--s-24);
+    padding-left: var(--s-16);
+    border-left: 2px solid var(--line);
+    color: var(--muted);
+  }
+  @media (max-width: 640px) {
+    .hero {
+      grid-template-columns: 1fr;
+    }
+    .hero-cover {
+      order: -1; /* cover on top for mobile (ui-spec §2.1) */
+    }
+  }
+</style>

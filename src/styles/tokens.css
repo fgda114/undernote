@@ -28,6 +28,9 @@
   --serif: 'Noto Serif KR', 'Apple SD Gothic Neo', serif;
   /* Scale ratio 1.26: 13 · 15 · 17 · 21 · 27 · 34 · 42 */
   --fs-13: 0.8125rem;
+  /* 14/16 are not on the 1.26 scale but are fixed by component contracts
+     (components.md §4·§10: BoardRow meta 14, title 16, badge 14). */
+  --fs-14: 0.875rem;
   --fs-15: 0.9375rem;
   --fs-16: 1rem;
   --fs-17: 1.0625rem;

@@ -1,0 +1,68 @@
+---
+/**
+ * CoverImage (components.md §8) — CoverSet or null.
+ *
+ * Display size → source mapping targets 2x pixel density:
+ *   44/48px → w96 · 64px → w320 (w96 is short at 2x) · 160px → w320 · 320px → w640
+ *
+ * null → placeholder: ink background + first letter of the album title in
+ * serif paper (SS-14/E-202 — a designed state, not an error). Width/height
+ * are always set: zero CLS is a hard rule.
+ */
+import type { CoverSet } from '../lib/covers.ts';
+
+interface Props {
+  cover: CoverSet | null;
+  size: 44 | 48 | 64 | 160 | 320;
+  /** Album title — placeholder letter + accessible name. */
+  albumTitle: string;
+  loading?: 'lazy' | 'eager';
+}
+
+const { cover, size, albumTitle, loading = 'lazy' } = Astro.props;
+
+const sourceBySize: Record<number, keyof Pick<CoverSet, 'w96' | 'w320' | 'w640'>> = {
+  44: 'w96',
+  48: 'w96',
+  64: 'w320',
+  160: 'w320',
+  320: 'w640',
+};
+const src = cover ? cover[sourceBySize[size]] : null;
+// Array.from = code-point safe first letter (astral chars, e.g. rare CJK).
+const letter = Array.from(albumTitle.trim())[0] ?? '';
+---
+
+{
+  cover && src ? (
+    <picture>
+      <source type="image/webp" srcset={src} />
+      <img class="cover" src={cover.fallback} alt={cover.alt} width={size} height={size} loading={loading} decoding="async" />
+    </picture>
+  ) : (
+    <span class="cover placeholder" style={`--cover-size:${size}px`} role="img" aria-label={`${albumTitle} 커버`}>
+      <span aria-hidden="true">{letter}</span>
+    </span>
+  )
+}
+
+<style>
+  .cover {
+    border-radius: var(--r-4);
+    background: var(--wash); /* paints while the image streams in */
+    object-fit: cover;
+  }
+  .placeholder {
+    width: var(--cover-size);
+    height: var(--cover-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: calc(var(--cover-size) * 0.42);
+    user-select: none;
+  }
+</style>

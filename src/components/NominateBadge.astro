@@ -1,0 +1,43 @@
+---
+/**
+ * NominateBadge (components.md §10) — "● 지금 {버킷} 노미네이트 {n}위",
+ * linking to the year list (the review→board reverse path, D6-3).
+ *
+ * Lives ONLY inside ScoreVerdict: the badge is derived from the score
+ * (SS-4), so surfacing it in the hero would leak the verdict early (D2).
+ * Not nominated → the caller simply doesn't render this (no empty shell).
+ * Color-independence: the text says everything; seal is reinforcement.
+ */
+interface Props {
+  bucketLabel: string;
+  rank: number;
+  year: number;
+}
+
+const { bucketLabel, rank, year } = Astro.props;
+---
+
+<a class="badge" href={`/list/${year}/`}>
+  <span aria-hidden="true">●</span>
+  지금 {bucketLabel} 노미네이트 {rank}위 → 보드 보기
+</a>
+
+<style>
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-8);
+    min-height: 44px;
+    padding: var(--s-4) var(--s-12);
+    background: var(--wash);
+    border-radius: var(--r-2);
+    color: var(--seal);
+    font-family: var(--sans);
+    font-size: var(--fs-14);
+    font-weight: 600;
+    transition: color var(--t-micro);
+  }
+  .badge:hover {
+    color: var(--seal-deep);
+  }
+</style>
