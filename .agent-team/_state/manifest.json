@@ -99,9 +99,10 @@
       "wave_id": "W5",
       "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
       "name": "Implementation",
-      "status": "pending",
+      "status": "active",
       "active_roles": [],
-      "entry_gate": "Implementation"
+      "entry_gate": "Implementation",
+      "started": "2026-09-02T03:22:55.718191100Z"
     },
     {
       "wave_id": "W6",

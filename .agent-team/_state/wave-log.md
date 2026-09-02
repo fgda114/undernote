@@ -647,3 +647,65 @@ US 15/15 · SS 15/15 (Matthias 실측) · 빌드 게이트 5종 전부 음성 �
 - [x] `/wave3-story-gate` — Implementation Readiness **CONCERNS**
 - [ ] Matthew·Thomas·Matthias shutdown (한도 중단 상태 — 리셋 후 정리)
 - [ ] `/wave5-implement` — Andrew 1인. **첫 행동은 w5-0 작업 1(Astro 마이너 핀·Zod v4 실확인)**
+
+---
+
+## 2026-09-02 — W5.0 완료 (Andrew)
+
+커밋 `798c70d`. 스토리 `status: done`, File List 기재.
+
+### 리드 검수 — 결정성 불변식 직접 실측
+
+| 항목 | 결과 |
+|---|---|
+| 빌드 시계 누수 | **0** — `src/`·`scripts/` 전체에 `new Date()`·`Date.now()`·`getFullYear()` 없음 |
+| 점수 표현 | 문자열 저장 + 십분위 정수. `src/lib/score.ts` 단일 파서 |
+| 시크릿 유출 | 없음 (35파일 전수 확인) |
+| source_hash | Andrew가 착수 전 검증, `2768bb71…` 일치 확인 후 진행 |
+
+**`score.ts` 주석이 리드 지시("결정성 결정에는 이유를 주석으로 — 없으면 나중에 개선이라며
+되돌려진다")를 정확히 이행했다:**
+
+> *Never change this to a float: YAML parsers fold the number 8.30 into 8.3, which makes
+> the SS-3 acceptance rule undetectable. (…) Float comparison would contaminate the total
+> ordering R-1, which must be exact.*
+
+### 기술 실확인 (지어낸 값 0 — 전부 출처·확인일 명기)
+
+- **Astro 7.2.10** 정확 핀 (스토리 시점 7.2.9에서 패치 +1, npm 실확인)
+- **Zod 4.5.4** (`astro/zod` 동봉) — `errorMap` 제거에 대응해 체크별 `error:` 파라미터로 전환
+- v7 breaking은 Vite 8 내부 중심, 사용자 코드 영향 없음 (공식 v6/v7 가이드 확인)
+
+### AC 실증
+
+빈 콘텐츠 빌드 성공 · `score: 8.35` 픽스처 → **E-105 실패**(한국어 메시지 + 파일 경로 +
+수정법) · 로컬 2회 빌드 `dist/` 해시 동일(`cb5aa5cf…`) · 단위 테스트 28개 · `astro check` 0오류 ·
+CI에 `TZ=Asia/Seoul` · 위반 게이트 · 해시 비교 스텝.
+
+### ADR-0009 벤더 확정 — GitHub Pages (리드 승인)
+
+본 ADR은 요건만 확정하고 **벤더 선택을 W5로 위임**했으므로 이탈이 아니다. 우선순위 ①은
+Cloudflare Pages였으나 계정 연결이 User 대시보드 작업이라 현시점 착수 불가.
+
+**핵심 근거:** 검증 게이트를 통과한 **dist-1 바이트를 재빌드 없이 그대로 배포**한다.
+다른 플랫폼에서 재빌드하면 "검증한 산출물"과 "배포된 산출물"이 달라질 수 있다 —
+결정성이 제품 약속인 이 프로젝트에서 이 원자성은 부수 효과가 아니라 정합이다.
+3사 무료 한도를 공식 문서로 실확인(`08-impl-notes/frontend.md`에 수치·URL·확인일).
+
+> ⚠️ **제약: GitHub Pages는 상업적 이용 금지.** charter §5가 유료화를 비범위로 두어
+> 현재 충돌 없으나, **원이 향후 수익화를 원하면 벤더를 바꿔야 한다.** 전환 비용은 낮다
+> (정적 산출물이라 코드 변경 0).
+
+### 🔴 User 작업 1건 — 배포 차단 중
+
+**저장소 Settings → Pages → Source = `GitHub Actions`**
+이 설정 전까지 deploy 잡만 실패한다. **verify 게이트는 정상 동작**하므로 W5 진행은 무관.
+`gh` CLI 부재로 API 활성화 불가.
+
+### 실측 발견 1건 (스토리 사양과 충돌 아님)
+
+Astro 프론트매터 YAML이 따옴표 없는 date를 **JS Date 객체로 파싱**한다 →
+`isoDateSchema`에 `Date → "YYYY-MM-DD"` 정규화 추가(UTC 왕복이라 결정성 무해).
+스키마 내부 처리로 흡수, 상류 수정 불요.
+
+**w5-1 착수.**
