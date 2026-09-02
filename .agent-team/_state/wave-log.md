@@ -941,3 +941,84 @@ enum에서 `artist-intro`를 제거하지 않고 남긴다 — 향후 소개글 
 단위(E1+E2+E5)를 넘어 전 에픽 완료 상태로 공개 게이트에 진입한다.
 
 w5-5 착수.
+
+---
+
+# ⏸️ 일시정지 — 2026-09-02 (User 요청)
+
+## 재개 브리핑 (다음 세션이 이것만 읽고 이어갈 수 있어야 한다)
+
+### 현재 위치
+
+**W5 구현 중 · w5-5가 마지막 스토리.** 개발분은 끝났고 **공개 게이트만 남았다.**
+
+| 스토리 | status |
+|---|---|
+| w5-0 setup | ✅ done |
+| w5-1 review-pipeline | ✅ done |
+| w5-2 list-engine | ✅ done |
+| w5-3 archive | ✅ done |
+| w5-4 ladder | ✅ done |
+| **w5-5 identity-launch** | **`review`** — 개발분 완료, 공개 게이트 잔여 |
+
+**E1~E4 에픽 완료.** 테스트 125개+ · 시계 누수 0 · 매 스토리 2회 빌드 해시 동일.
+
+### 게이트 이력 (전부 CONCERNS, FAIL 없음)
+
+`Usp W1` ×2 (재실행) · `Plan W2` · `Implementation W3`
+
+### 재개 시 첫 할 일
+
+1. **`.agent-team/03-story-engineering/story-w5-5-identity-launch-kr.md`의 Dev Agent Record**
+   — Andrew가 중단 지점과 다음 시작점을 기록해 뒀다. 이것이 재개의 입력이다
+2. **`.agent-team/08-impl-notes/w5-5-launch-gate.md`** — 공개 게이트 자가 점검 문서
+3. `git log --oneline -20`으로 최근 커밋 확인
+
+### w5-5 잔여 3건 (Andrew 기록)
+
+- **Matthias QA 전수** — 공개 게이트가 QA 검증을 요구한다
+- **User 작업** — 아래 참조
+- **성능 예산 협의** — 리드/User 판단 필요 항목
+
+### 🔴 User 작업 (누적 · 미완)
+
+1. **저장소 Settings → Pages → Source = `GitHub Actions`** — deploy 잡 차단 중.
+   verify 게이트는 정상 동작하므로 개발엔 무관하나 **공개는 불가**
+2. **Actions 탭 1회 확인** — 비공개 저장소 + `gh` CLI 부재로 원격 CI 결과 확인 불가.
+   로컬 CI 전 스텝 동등 검증은 통과. (`winget install GitHub.cli` 후 `gh auth login`이면 자동화됨)
+
+### 원(제품 소유자) 미결 3건 — 전부 비차단, 단 공개 전 확정 권장
+
+| 항목 | 현재 처리 |
+|---|---|
+| **사이트 이름** | 미확정. `site_name` 설정값 + 워드마크 텍스트 로고라 **문자열 1곳 교체**. 공개 게이트에서 미정이면 어정쩡하게 나간다 |
+| **계보 A/B/C** | 무응답 → **안 A로 확정 구현 완료.** 안 B 원하면 반나절 규모(`LineageBlock` 예비 계약 존재) |
+| **Q1 장르 칸 수** | 무응답 → `config/genres.yaml` 2026 블록에 **B안 3버킷** 기본값. 값 교체만으로 변경 가능 |
+
+### W6 이월 — 상류 문서 정정 2건 (구현이 찾아낸 계약 결함)
+
+1. **E-101 문구** — `exceptions.md:124`가 아티스트 빈 본문을 실패로 잡으나 `api-contracts` §3.4가 명시 허용. 아티스트 제외 구현이 옳음
+2. **`ArchiveItem` / `artist-intro`** — 해소 주석은 `api-contracts` §4.4에 기록됨. enum은 미사용 상태로 보존
+
+> 둘 다 W1~W3 세 겹 검증을 통과한 문서에 있었다. **문서 대조로는 안 잡히고 구현해 봐야
+> 드러나는 종류**다.
+
+### 알아 둘 성질 1건 (W6에서 결함으로 오인하지 말 것)
+
+`derive/lists.ts`의 **종료월 판정은 월 경계에서만 산출이 바뀌어 같은 달 2회 빌드로는
+검출되지 않는다.** Thomas가 Footer ©에서 지적한 잠복 성질과 같아 보이나, **Footer ©는
+사양 위반이었고 이것은 R-10이 명시 허용한 제품 행동**(월말정산은 월이 끝나야 나온다)이다.
+
+### 살아 있는 팀원 (idle)
+
+W1~W3 팀원 다수가 idle 상태로 남아 있다(John·Caleb·Caleb2·Joshua·James·Jonnathan·
+James2·Jonnathan2·Matthew·Thomas·Matthias). 지시 없이는 아무것도 하지 않으므로 무해하나,
+**재개 시 `/team-cleanup`으로 정리하는 것이 깔끔하다.**
+
+> ⚠️ **재스폰 주의:** 팀원의 `failed`(세션 한도)는 종료가 아니다. 재스폰 전
+> `ListAgents`로 생존을 확인할 것 — 이 세션에서 이중 가동 사고를 겪었다.
+
+### 다음 단계
+
+1. w5-5 공개 게이트 마감 (Matthias QA · User 작업 · 성능 예산)
+2. `/wave6-verify-report` — Thomas·Timothy·Matthias → Michael(보안) → Hananiah(리팩터) → Martin(리포트)
