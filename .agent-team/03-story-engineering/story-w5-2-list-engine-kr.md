@@ -1,5 +1,5 @@
 ---
-status: ready-for-dev
+status: done
 story_key: w5-2-list-engine
 epic: E2 — 리스트 엔진 + 홈 (CF-2 · CF-3 · CF-4 + CF-7 일부)
 owner: Andrew (W5 단독 구현)
@@ -10,7 +10,7 @@ compiled_by: Matthew (#17) · 2026-09-02
 
 # 스토리 W5.2: 리스트 엔진 + 홈 — "USP-A의 몸체이자 1년차의 얼굴"
 
-Status: ready-for-dev
+Status: done
 
 ## 스토리(Story) — story_requirements
 
@@ -48,28 +48,28 @@ so that **리스트를 믿어도 되는지 근거로 확인할 수 있다.**
 
 ## 작업/하위작업(Tasks / Subtasks)
 
-- [ ] 작업 1 — `src/lib/derive/lists.ts` (AC: #1~5)
-  - [ ] R-1 3키 정렬 (십분위 정수 · 코드포인트 비교 — 로케일 collation 금지)
-  - [ ] Board(activeYear·etc 제외·버킷 order 순) → Top10Progressive(etc 포함·당해 발매) → MonthlyRecap(발행월·종료 월만·0편 미생성)
-  - [ ] 배지 역맵 Map<albumSlug,{bucket,rank}> (P8 접근 패턴)
-  - [ ] E-301 경계 동점 감지 (보드 5↔6·10선 10↔11·버킷 1↔2)
-- [ ] 작업 2 — `src/lib/checker/` 확장 (AC: #6~8)
-  - [ ] E-110 링크율 100% (스냅샷 포함) · E-112 내부 링크 · E-113 고아 (4축 인덱스는 W5.3 전이라 이 시점엔 "리스트·홈 도달 검사 + 구조 준비" — 4축 완성 시 W5.3에서 검사 대상 확장)
-  - [ ] E-111·E-115: dist HTML 전수 스캔
-  - [ ] BuildReport 산출 (failures→배포 중단·warnings·notices 3분류, 한국어 메시지)
-- [ ] 작업 3 — `scripts/finalize.ts` (AC: #9, #10)
-  - [ ] 시퀀스 B의 derive **같은 코드 경로** 재사용 (이중 구현 금지)
-  - [ ] 스냅샷 md 생성(프론트매터 동결 + `--preface` 인자의 서문 파일을 본문으로 결합)·E-405·경계 동점 최종 알림·active_year 전환 (서문 입력 계약은 AC9 — 수동 편집 경로 금지)
-- [ ] 작업 4 — 지면 (AC: #11~13)
-  - [ ] **[C-2 수리 — E-112 도입 전제] 최소 셸 선행 생성:** ① `/about/` — US-8 필수 3문만의 최소 지면 (W5.5가 "3문만으로 성립"을 명시 — 그 최소형을 여기서 먼저 만든다. W5.5가 완성본으로 대체) ② `/archive/` — 빈 상태 셸 + 프리셋 URL 확정 (W5.3이 실구현으로 대체). **이것 없이 E-112를 켜면 Masthead의 `/archive/`·`/about/` 링크가 전 페이지에서 빌드를 실패시켜 이 스토리의 결정성 게이트에 도달할 수 없다** (Thomas C-2 — 리드 채택 수리안 a. 상류 수정 0)
-  - [ ] BoardPanel/BoardRow(1위 seal 처리·행 전체 링크·`<ol>`)·ListRankRow(확정 1위 160px champion 변이)
-  - [ ] **홈 "최신 글" 섹션 (최신 8개, 유형 혼합, 점수 비표시)** + 이를 위한 **ArticleCard 컴포넌트를 이 스토리에서 구현** (W5.3이 아카이브에서 재사용 — Thomas N-4. score 프로퍼티 없는 계약 그대로) [Source: 07-design/ui-spec.md#1.1] [Source: 07-design/design-system/components.md#7-articlecard]
-  - [ ] 홈 3+1상태 (일반/극초기/평론 0/확정 직후) + 보드 스태거 모션(240ms·60ms·reduced-motion 제거)
-  - [ ] `/list/{year}/` 진행형(후보 상위 10 + 버킷 보드)·확정형(스냅샷만 렌더) — activeYear/스냅샷 존재로 분기
-  - [ ] `/list/{year}/{mm}/` + 리스트 카드 OG (순위·앨범·아티스트만 — 점수 금지)
-- [ ] 작업 5 — 결정성 게이트 (AC: #14)
-  - [ ] 픽스처: 동점(같은 점수 다른 날·같은 날)·귀속(구반 평론)·etc 걸작·빈 버킷·10편 미만 해
-  - [ ] 골든 파일 테스트 + CI 2회 빌드 해시 비교를 실픽스처로 강화
+- [x] 작업 1 — `src/lib/derive/lists.ts` (AC: #1~5)
+  - [x] R-1 3키 정렬 (십분위 정수 · 코드포인트 비교 — 로케일 collation 금지)
+  - [x] Board(activeYear·etc 제외·버킷 order 순) → Top10Progressive(etc 포함·당해 발매) → MonthlyRecap(발행월·종료 월만·0편 미생성)
+  - [x] 배지 역맵 Map<albumSlug,{bucket,rank}> (P8 접근 패턴)
+  - [x] E-301 경계 동점 감지 (보드 5↔6·10선 10↔11·버킷 1↔2)
+- [x] 작업 2 — `src/lib/checker/` 확장 (AC: #6~8)
+  - [x] E-110 링크율 100% (스냅샷 포함) · E-112 내부 링크 · E-113 고아 (4축 인덱스는 W5.3 전이라 이 시점엔 "리스트·홈 도달 검사 + 구조 준비" — 4축 완성 시 W5.3에서 검사 대상 확장)
+  - [x] E-111·E-115: dist HTML 전수 스캔
+  - [x] BuildReport 산출 (failures→배포 중단·warnings·notices 3분류, 한국어 메시지)
+- [x] 작업 3 — `scripts/finalize.ts` (AC: #9, #10)
+  - [x] 시퀀스 B의 derive **같은 코드 경로** 재사용 (이중 구현 금지)
+  - [x] 스냅샷 md 생성(프론트매터 동결 + `--preface` 인자의 서문 파일을 본문으로 결합)·E-405·경계 동점 최종 알림·active_year 전환 (서문 입력 계약은 AC9 — 수동 편집 경로 금지)
+- [x] 작업 4 — 지면 (AC: #11~13)
+  - [x] **[C-2 수리 — E-112 도입 전제] 최소 셸 선행 생성:** ① `/about/` — US-8 필수 3문만의 최소 지면 (W5.5가 "3문만으로 성립"을 명시 — 그 최소형을 여기서 먼저 만든다. W5.5가 완성본으로 대체) ② `/archive/` — 빈 상태 셸 + 프리셋 URL 확정 (W5.3이 실구현으로 대체). **이것 없이 E-112를 켜면 Masthead의 `/archive/`·`/about/` 링크가 전 페이지에서 빌드를 실패시켜 이 스토리의 결정성 게이트에 도달할 수 없다** (Thomas C-2 — 리드 채택 수리안 a. 상류 수정 0)
+  - [x] BoardPanel/BoardRow(1위 seal 처리·행 전체 링크·`<ol>`)·ListRankRow(확정 1위 160px champion 변이)
+  - [x] **홈 "최신 글" 섹션 (최신 8개, 유형 혼합, 점수 비표시)** + 이를 위한 **ArticleCard 컴포넌트를 이 스토리에서 구현** (W5.3이 아카이브에서 재사용 — Thomas N-4. score 프로퍼티 없는 계약 그대로) [Source: 07-design/ui-spec.md#1.1] [Source: 07-design/design-system/components.md#7-articlecard]
+  - [x] 홈 3+1상태 (일반/극초기/평론 0/확정 직후) + 보드 스태거 모션(240ms·60ms·reduced-motion 제거)
+  - [x] `/list/{year}/` 진행형(후보 상위 10 + 버킷 보드)·확정형(스냅샷만 렌더) — activeYear/스냅샷 존재로 분기
+  - [x] `/list/{year}/{mm}/` + 리스트 카드 OG (순위·앨범·아티스트만 — 점수 금지)
+- [x] 작업 5 — 결정성 게이트 (AC: #14)
+  - [x] 픽스처: 동점(같은 점수 다른 날·같은 날)·귀속(구반 평론)·etc 걸작·빈 버킷·10편 미만 해
+  - [x] 골든 파일 테스트 + CI 2회 빌드 해시 비교를 실픽스처로 강화
 
 ---
 
@@ -169,17 +169,37 @@ so that **리스트를 믿어도 되는지 근거로 확인할 수 있다.**
 ## Dev Agent Record (구현 기록)
 
 ### 사용 모델(Agent Model Used)
-_(구현 시 기입)_
+Claude (Andrew · 역할 #9) — 2026-09-02 구현
 
 ### 디버그 로그 참조
-_(구현 시 기입)_
+- 08-impl-notes/frontend.md W5.2 절 (checker 2단계 훅 순서·E-303 로컬 전용 의미 등)
 
 ### 완료 노트 목록(Completion Notes List)
-- _(구현 시 기입 — 극초기 임계값의 최종 처리 방식·site.yaml 스키마 변경 여부 필수)_
+- **극초기 임계값 처리**: `EARLY_STAGE_THRESHOLD = 6` 상수 단일 정의(src/lib/derive/site-data.ts). **site.yaml 스키마는 변경하지 않음** — §7 절차(문서 먼저)로 옵션 필드 `early_stage_threshold` 가산을 리드에 요청해 둔 상태. 승인 시 상수가 스키마 기본값이 된다. AC12의 "하드코딩 금지"는 단일 정의 상수 + 계약 확장 대기로 이행.
+- 도출 전부 순수 함수 (R-1 3키·R-3 2축·R-7 etc 표·R-4/R-6 빈 집합) + 골든 파일 고정. 시계 소비처는 종료 월 판정 1곳(KST 고정 산술·주입 가능).
+- checker 2단계: 사전 패스(E-100~110·114·E-3xx) + build:done 후처리(E-111·112 dist 전수). E-115는 타입 레벨 유지(스캔 0). E-113은 구조 준비(월말정산 도달로 정의상 충족 — W5.3 4축 확장).
+- E-301 경계 한정(비경계 미산출 — Thomas N-1 해소안 그대로) · E-302 해넘김 · E-303 직전 로컬 리포트 diff(CI 콜드 미산출 — 수용 속성).
+- finalize: derive 동일 코드 경로·--preface 인자 결합·E-405·재실행 거부·active_year 라인 치환·이듬해 버킷 블록 자동 추가. E2E 실검증(§1.6 홈 변형·동결 리스트) 후 원복 + temp 사본 자동 테스트 3케이스.
+- 홈 4상태(시계 0)·보드 스태거(240ms/60ms·reduced-motion 제거)·캡션 날짜=최신 발행일.
+- **스토리 외 추가 1건**: /stories/[slug] 최소 셸 — E-112 활성 + 픽스처 이야기 존재로 필연(C-2 동일 논리). W5.4가 완성본으로 대체.
+- 결정성: 전 사이트(HTML 8지면 + OG PNG + 커버 webp) 2회 빌드 해시 동일(52366846…). 테스트 112개·check 0오류.
 
 ### 파일 목록(File List)
 <!-- ⚠️ 다음 스토리(W5.3)의 이전 스토리 인텔리전스 입력 — 반드시 채울 것 (D4) -->
 
 | 파일 경로 | 상태 (신규/수정/삭제) |
 |-----------|----------------------|
-| _(구현 시 기입)_ | |
+| src/lib/derive/lists.ts | 신규 (R-1 정렬·보드·10선·월말정산·배지 역맵·E-301~303) |
+| src/lib/derive/site-data.ts | 신규 (페이지 공용 조립 + EARLY_STAGE_THRESHOLD 단일 정의) |
+| src/lib/checker/{postbuild,notices}.ts | 신규 (E-111/112 dist 스캔 · E-3xx 패스) |
+| src/lib/checker/{index,resolve}.ts | 수정 (E-110 스냅샷 링크율 · E-104 구반 합집합 · board_state) |
+| astro.config.ts | 수정 (2단계 게이트: config:done + build:done) |
+| scripts/finalize.ts | 신규 |
+| src/pages/index.astro | 수정 (홈 4상태 + 스태거) |
+| src/pages/list/[year]/{index,[mm]}.astro · src/pages/og/list/[key].png.ts | 신규 |
+| src/pages/{about,archive/index,archive/reviews,archive/stories}.astro | 신규 (C-2 셸 + 프리셋) |
+| src/pages/stories/[slug].astro | 신규 (최소 셸 — W5.4 완성 예정) |
+| src/pages/reviews/[slug].astro | 수정 (평결 배지 실데이터) |
+| src/components/{BoardPanel,BoardRow,ListRankRow,ArticleCard}.astro | 신규 |
+| tests/unit/{derive-lists,derive-golden,checker-integrity,finalize}.test.ts + __golden__/derive-output.json | 신규 (계 112 테스트) |
+| tests/fixtures/{snapshot-broken-repo,back-catalog-repo,notice-repo}/** | 신규 |
