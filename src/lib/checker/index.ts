@@ -11,6 +11,8 @@ import { mergeResults, type CheckResult, type Finding } from './types.ts';
 
 export type { CheckResult, Finding } from './types.ts';
 export type { RepoData, Entry } from './load.ts';
+export { runNoticePass, readPreviousBoardState } from './notices.ts';
+export { runPostBuildChecks } from './postbuild.ts';
 
 export function runPrePass(root: string): LoadOutcome {
   const { data, result } = loadRepo(root);
@@ -38,12 +40,13 @@ export function formatReport(result: CheckResult): string {
  * dist/ on purpose: built_at is inherently non-deterministic and would
  * permanently break the determinism hash gate if it shipped with the site.
  */
-export function writeBuildReport(root: string, result: CheckResult): void {
+export function writeBuildReport(root: string, result: CheckResult, boardState?: Record<string, string[]>): void {
   const reportsDir = join(root, 'reports');
   mkdirSync(reportsDir, { recursive: true });
   const builtAt = new Date().toISOString();
 
-  const json = { built_at: builtAt, ...result };
+  // board_state feeds the NEXT build's E-303 entry/exit diff.
+  const json = { built_at: builtAt, ...result, ...(boardState ? { board_state: boardState } : {}) };
   writeFileSync(join(reportsDir, 'build-report.json'), JSON.stringify(json, null, 2) + '\n', 'utf8');
 
   const md: string[] = [`# 빌드 리포트`, ``, `생성: ${builtAt}`, ``];

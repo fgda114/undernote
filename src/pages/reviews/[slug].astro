@@ -19,6 +19,7 @@ import Base from '../../layouts/Base.astro';
 import { excerptFrom } from '../../lib/derive/excerpt.ts';
 import { buildReviewPageData } from '../../lib/derive/review-page.ts';
 import { getSiteConfig } from '../../lib/site.ts';
+import { getSiteData } from '../../lib/derive/site-data.ts';
 import { genresConfigSchema } from '../../lib/schema/index.ts';
 import { readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
@@ -48,6 +49,11 @@ const page = buildReviewPageData({
 
 const { Content } = await render(review);
 const description = excerptFrom(review.body ?? '');
+
+// Nominate badge (SS-4 derive): present only while this album sits on the
+// active board — the verdict block hides the row otherwise (R-4).
+const badge = getSiteData().badgeMap.get(review.id) ?? null;
+const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, year: badge.year } : null;
 ---
 
 <Base
@@ -77,9 +83,9 @@ const description = excerptFrom(review.body ?? '');
         <Content />
       </div>
 
-      {/* ── Verdict after the body only (D2). Nominate data arrives in W5.2. ── */}
+      {/* ── Verdict after the body only (D2) — badge fed by the board derive ── */}
       <div class="column">
-        <ScoreVerdict score={page.score} listenLinks={page.listenLinks} nominate={null} />
+        <ScoreVerdict score={page.score} listenLinks={page.listenLinks} nominate={nominate} />
       </div>
 
       {/*

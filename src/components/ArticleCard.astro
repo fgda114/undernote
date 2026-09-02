@@ -1,0 +1,69 @@
+---
+/**
+ * ArticleCard (components.md §7) — browsing rows (home latest, archive in
+ * W5.3). NO score property exists on this interface — that is the contract
+ * (D2: browsing surfaces never receive score data at all).
+ */
+import type { ArticleItem } from '../lib/derive/lists.ts';
+
+interface Props {
+  item: ArticleItem;
+}
+
+const { item } = Astro.props;
+---
+
+<li class="article-card">
+  <a href={item.url} class="card-link">
+    <span class="format">{item.formatLabel}</span>
+    <span class="title">{item.title}</span>
+    {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
+    <time class="date tnum" datetime={item.date}>{item.date}</time>
+  </a>
+</li>
+
+<style>
+  .card-link {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'format date'
+      'title title'
+      'subtitle subtitle';
+    gap: var(--s-4) var(--s-16);
+    padding: var(--s-12) var(--s-8);
+    min-height: 44px;
+    border-bottom: 1px solid var(--line);
+  }
+  .format {
+    grid-area: format;
+    font-size: var(--fs-13);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--seal);
+  }
+  .title {
+    grid-area: title;
+    font-size: var(--fs-17);
+    font-weight: 700;
+    transition: color var(--t-micro);
+  }
+  .card-link:hover .title {
+    color: var(--seal);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .subtitle {
+    grid-area: subtitle;
+    font-size: var(--fs-15);
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .date {
+    grid-area: date;
+    font-size: var(--fs-13);
+    color: var(--muted);
+  }
+</style>

@@ -1,0 +1,210 @@
+---
+/**
+ * /list/{year}/ — annual list (ui-spec §4).
+ *
+ * Two mutually exclusive renders decided by data, not by clock:
+ *  - FINALIZED: a snapshot for {year} exists → render ONLY the frozen
+ *    snapshot (titles/labels/scores denormalized at finalize time — later
+ *    config or score edits cannot reach this page, R-8). Preface (editor's
+ *    markdown) above the list (US-1 AC3). Title never hardcodes a count —
+ *    the caption carries "{n}장의 앨범" automatically (R-6).
+ *  - PROGRESSIVE: {year} is the active year → live top10 + bucket boards.
+ * Covers are display-time lookups by slug (covers aren't frozen data).
+ */
+import { getEntry, render } from 'astro:content';
+import FormatLabel from '../../../components/FormatLabel.astro';
+import BoardPanel from '../../../components/BoardPanel.astro';
+import ListRankRow from '../../../components/ListRankRow.astro';
+import Base from '../../../layouts/Base.astro';
+import { coverSetFor } from '../../../lib/covers.ts';
+import { getSiteData } from '../../../lib/derive/site-data.ts';
+
+export async function getStaticPaths() {
+  const { site, snapshotYears } = getSiteData();
+  const years = [...new Set([site.active_year, ...snapshotYears])];
+  return years.map((year) => ({ params: { year: String(year) } }));
+}
+
+const year = Number(Astro.params.year);
+const { site, board, top10, data } = getSiteData();
+const snapshot = data.snapshots.find((s) => s.data.year === year);
+
+const albumCovers = new Map(data.albums.map((a) => [a.slug, a.data.cover]));
+const coverFor = (slug: string, title: string, artistsLabel: string) =>
+  coverSetFor({ slug, title, artistsLabel, cover: albumCovers.get(slug) });
+
+// Finalized page data (frozen strings straight from the snapshot).
+let Preface: Awaited<ReturnType<typeof render>>['Content'] | null = null;
+if (snapshot) {
+  const entry = await getEntry('snapshots', String(year));
+  if (entry && (entry.body ?? '').trim().length > 0) {
+    Preface = (await render(entry)).Content;
+  }
+}
+const publishedBuckets = snapshot ? snapshot.data.buckets.filter((b) => b.published) : [];
+const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
+---
+
+<Base
+  title={`${year} 올해의 앨범`}
+  description={snapshot ? `${snapshot.data.finalized_at}에 확정된 ${year} 올해의 앨범.` : `${year} 올해의 앨범 — 현재 노미네이트.`}
+  path={`/list/${year}/`}
+  ogImage={`/og/list/${year}.png`}
+  current="list"
+>
+  <main class="list-page">
+    <header class="head">
+      <FormatLabel text={snapshot ? `${year} 올해의 앨범 — 확정` : `${year} 올해의 앨범`} />
+      <h1 class="title">{snapshot ? `${year} 올해의 앨범` : '진행 중인 한 해'}</h1>
+      <p class="caption">
+        {
+          snapshot
+            ? `${snapshot.data.finalized_at}에 확정된 리스트입니다. 이후의 평론·수정은 여기 반영되지 않습니다. ${snapshot.data.top10.length}장의 앨범.`
+            : '이 리스트는 평론이 쌓일 때마다 바뀝니다. 12월에 확정됩니다.'
+        }
+      </p>
+    </header>
+
+    {
+      snapshot ? (
+        <>
+          {Preface && (
+            <section class="preface prose">
+              <Preface />
+            </section>
+          )}
+          <section aria-label={`${year} 올해의 앨범`}>
+            <ol class="rows">
+              {snapshot.data.top10.map((entry) => (
+                <ListRankRow
+                  rank={entry.rank}
+                  title={entry.title}
+                  artistsLabel={entry.artists_label}
+                  score={entry.score}
+                  reviewUrl={`/reviews/${entry.album}/`}
+                  cover={coverFor(entry.album, entry.title, entry.artists_label)}
+                  champion={entry.rank === 1}
+                />
+              ))}
+            </ol>
+          </section>
+          {publishedBuckets.length > 0 && (
+            <section class="buckets" aria-label="장르별 선정">
+              <h2 class="section-title">장르별 선정</h2>
+              {publishedBuckets.map((bucket) => (
+                <div class="bucket">
+                  <h3 class="bucket-label">{bucket.label}</h3>
+                  <ol class="rows">
+                    {(bucket.nominees ?? []).map((n, i) => (
+                      <ListRankRow
+                        rank={i + 1}
+                        title={n.title}
+                        artistsLabel={n.artists_label}
+                        score={n.score}
+                        reviewUrl={`/reviews/${n.album}/`}
+                        cover={coverFor(n.album, n.title, n.artists_label)}
+                      />
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </section>
+          )}
+        </>
+      ) : (
+        <>
+          {top10.entries.length > 0 && (
+            <section aria-label="올해의 앨범 후보">
+              <h2 class="section-title">올해의 앨범 후보 — 현재 상위 {top10.entries.length}</h2>
+              <ol class="rows">
+                {top10.entries.map((entry, i) => (
+                  <ListRankRow
+                    rank={i + 1}
+                    title={entry.title}
+                    artistsLabel={entry.artists_label}
+                    score={entry.score}
+                    reviewUrl={entry.review_url}
+                    cover={entry.cover}
+                  />
+                ))}
+              </ol>
+            </section>
+          )}
+          <section class="buckets" aria-label="장르별 노미네이트">
+            <h2 class="section-title">장르별 노미네이트</h2>
+            <div class="bucket-grid">
+              {board.buckets.map((bucket) => (
+                <BoardPanel bucket={bucket} />
+              ))}
+            </div>
+          </section>
+          {previousSnapshot && (
+            <a class="tail-link" href={`/list/${year - 1}/`}>지난해 확정 리스트 →</a>
+          )}
+        </>
+      )
+    }
+  </main>
+</Base>
+
+<style>
+  .list-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--s-48) 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-48);
+  }
+  .title {
+    font-family: var(--serif);
+    font-size: var(--fs-34);
+    font-weight: 700;
+    margin-top: var(--s-12);
+  }
+  .caption {
+    margin-top: var(--s-8);
+    font-size: var(--fs-15);
+    color: var(--muted);
+  }
+  .preface {
+    max-width: var(--column);
+    font-family: var(--serif);
+    font-size: var(--fs-17);
+    line-height: 1.8;
+  }
+  .section-title {
+    font-family: var(--serif);
+    font-size: var(--fs-21);
+    font-weight: 700;
+    margin-bottom: var(--s-16);
+  }
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .bucket {
+    margin-top: var(--s-24);
+  }
+  .bucket-label {
+    font-size: var(--fs-15);
+    font-weight: 700;
+    margin-bottom: var(--s-8);
+  }
+  .bucket-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--s-24);
+  }
+  .tail-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--fs-15);
+    font-weight: 600;
+  }
+  .tail-link:hover {
+    color: var(--seal);
+  }
+</style>

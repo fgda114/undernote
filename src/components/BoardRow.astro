@@ -1,0 +1,84 @@
+---
+/**
+ * BoardRow (components.md §4) — home/annual board rows. The whole <li> is
+ * one link (US-2: one click to the review). Variant "first" (#1) gets the
+ * seal rank + 2px left border — reinforced by the rank NUMBER, never color
+ * alone (WCAG 1.4.1). Score renders the stored string verbatim, tabular.
+ */
+import type { ListEntry } from '../lib/derive/lists.ts';
+import CoverImage from './CoverImage.astro';
+
+interface Props {
+  entry: ListEntry;
+  rank: number;
+}
+
+const { entry, rank } = Astro.props;
+---
+
+<li class:list={['board-row', { first: rank === 1 }]}>
+  <a href={entry.review_url} class="row-link">
+    <span class="rank tnum" aria-hidden="true">{rank}</span>
+    <CoverImage cover={entry.cover} size={48} albumTitle={entry.title} />
+    <span class="titles">
+      <span class="title">{entry.title}</span>
+      <span class="artists">{entry.artists_label}</span>
+    </span>
+    <span class="score tnum">{entry.score}</span>
+  </a>
+</li>
+
+<style>
+  .board-row {
+    border-left: 2px solid transparent;
+  }
+  .board-row.first {
+    border-left-color: var(--seal);
+  }
+  .board-row.first .rank {
+    color: var(--seal);
+  }
+  .row-link {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    min-height: 56px;
+    padding: var(--s-4) var(--s-8);
+    transition: background var(--t-micro);
+  }
+  .row-link:hover {
+    background: var(--wash);
+  }
+  .rank {
+    width: 20px;
+    font-size: var(--fs-15);
+    font-weight: 700;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .titles {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex-grow: 1;
+  }
+  .title {
+    font-size: var(--fs-16);
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .artists {
+    font-size: var(--fs-14);
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .score {
+    font-size: var(--fs-15);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+</style>
