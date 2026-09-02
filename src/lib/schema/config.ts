@@ -58,6 +58,9 @@ export const siteConfigSchema = z
     base_url: z.url({ error: (iss) => `base_url "${String(iss.input)}"은(는) 유효한 URL이 아닙니다.` }),
     active_year: z.int({ error: () => 'active_year가 없습니다. 진행형 보드 대상 연도를 정수로 적으세요.' }),
     og_use_cover: z.boolean().default(true),
+    // Home early-stage switch threshold (ui-spec §1.5) — api-contracts §3.8
+    // optional field, added via the §7 additive procedure (lead-approved).
+    early_stage_threshold: z.int().min(1).default(6),
     placeholder_cover: z.string().optional(),
     listen_link_patterns: z.record(z.string(), z.string()).optional(),
   })

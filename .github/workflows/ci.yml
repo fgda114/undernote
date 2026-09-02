@@ -96,5 +96,19 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Release-only fixture gate (lead decision): fixture content may drive
+      # dev/tests forever, but must never DEPLOY. Checked here — not in
+      # verify — so dev builds stay green; and checked against the repo, not
+      # via a rebuild, so the verified dist-1 bytes still deploy untouched
+      # (atomicity argument of the pipeline is preserved).
+      - uses: actions/checkout@v7
+      - name: Fixture content must not deploy
+        run: |
+          leftovers=$(find content public/covers -name 'fixture-*' -not -name '.gitkeep' 2>/dev/null || true)
+          if [ -n "$leftovers" ]; then
+            echo "::error::픽스처 콘텐츠가 남아 있어 배포를 중단합니다. 공개 전 다음 파일을 제거하세요:"
+            echo "$leftovers"
+            exit 1
+          fi
       - id: deployment
         uses: actions/deploy-pages@v5
