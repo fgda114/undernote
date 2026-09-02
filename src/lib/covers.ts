@@ -4,8 +4,10 @@
  * The stored master is public/covers/<slug>.jpg (longest side <=640px — the
  * legal/performance ceiling). The build generates 96/320/640 WebP derivatives
  * through static endpoints (src/pages/covers/derived/), so URLs here must
- * stay in lockstep with that route. null = no cover (E-202 warning path;
- * the renderer substitutes the placeholder — never a broken image).
+ * stay in lockstep with that route. null = no cover: the renderer substitutes
+ * the placeholder (never a broken image) and the checker emits the E-202
+ * warning (src/lib/checker/resolve.ts — build-report is how the editor
+ * learns about missing covers).
  */
 
 export const COVER_WIDTHS = [96, 320, 640] as const;

@@ -19,8 +19,9 @@ describe('유효 저장소 — 실패 0', () => {
     expect(result.failures).toEqual([]);
   });
 
-  it('커버 미확보는 이 단계의 실패가 아니다 (E-202는 W5.2 커버 파이프라인)', () => {
+  it('커버가 있는 앨범은 E-202 경고가 없다', () => {
     expect(result.failures.map((f) => f.code)).not.toContain('E-202');
+    expect(result.warnings.map((f) => f.code)).not.toContain('E-202');
   });
 });
 
@@ -46,6 +47,7 @@ describe('무효 저장소 — 전 코드가 한 번의 패스로 모인다 (B-1
 
   it.each([
     ['E-201', '미등록/별칭 태그'],
+    ['E-202', '커버 미확보 — 플레이스홀더 발행 + 원 통지 (M-1)'],
     ['E-203', '참조 0개 이야기'],
     ['E-204', '불실존 ref'],
   ])('%s (%s)가 경고로 잡힌다', (code) => {

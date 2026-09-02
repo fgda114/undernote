@@ -102,6 +102,18 @@ export function resolveRepo(data: RepoData): CheckResult {
 
     checkTags(album.data.tags, album.file, data, warnings);
 
+    // E-202: no cover secured — publishing proceeds with the placeholder and
+    // the text OG fallback (a designed state for READERS), but the EDITOR
+    // must hear about it: E-2xx warnings are the notification line to 원,
+    // who only ever sees build-report (D7 minimizes contact, not awareness).
+    if (!album.data.cover) {
+      warnings.push({
+        code: 'E-202',
+        message: 'E-202: 커버가 없습니다. 플레이스홀더로 발행되고 공유 카드는 텍스트 기본형이 됩니다. album-add 재실행 또는 수기 확보(레이블 보도자료 등) 후 cover 필드를 채우면 다음 빌드에 반영됩니다.',
+        file: album.file,
+      });
+    }
+
     // E-205: no listen links at all — publish with the row hidden, but warn.
     if ((album.data.listen_links?.length ?? 0) === 0) {
       const patterns = data.site?.listen_link_patterns ?? defaultListenLinks;
