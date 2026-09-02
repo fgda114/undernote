@@ -36,9 +36,9 @@ import {
   type Snapshot,
   type Story,
   type TagRegistry,
-} from '../schema';
-import type { CheckResult, Finding } from './types';
-import { emptyResult } from './types';
+} from '../schema/index.ts';
+import type { CheckResult, Finding } from './types.ts';
+import { emptyResult } from './types.ts';
 
 export interface Entry<T> {
   /** File stem — doubles as the slug (file name = slug = URL segment). */

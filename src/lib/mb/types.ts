@@ -34,11 +34,13 @@ export interface MbSearchResponse {
 export type MbErrorKind = 'timeout' | 'network' | 'server';
 
 export class MbError extends Error {
-  constructor(
-    public kind: MbErrorKind,
-    message: string,
-  ) {
+  kind: MbErrorKind;
+
+  // Plain field assignment (no TS parameter properties): scripts/ runs this
+  // through Node's native type-stripping, which rejects TS-only runtime syntax.
+  constructor(kind: MbErrorKind, message: string) {
     super(message);
     this.name = 'MbError';
+    this.kind = kind;
   }
 }

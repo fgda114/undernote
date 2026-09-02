@@ -9,7 +9,7 @@
  * space requests 1100ms apart to stay safely under. No retry loops beyond
  * the single retry the CLI offers (P9 — a human is at the keyboard).
  */
-import { MbError, type MbReleaseGroup, type MbSearchResponse } from './types';
+import { MbError, type MbReleaseGroup, type MbSearchResponse } from './types.ts';
 
 const MB_ROOT = 'https://musicbrainz.org/ws/2';
 const CAA_ROOT = 'https://coverartarchive.org';

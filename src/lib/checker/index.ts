@@ -5,12 +5,12 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadRepo, type LoadOutcome } from './load';
-import { resolveRepo } from './resolve';
-import { mergeResults, type CheckResult, type Finding } from './types';
+import { loadRepo, type LoadOutcome } from './load.ts';
+import { resolveRepo } from './resolve.ts';
+import { mergeResults, type CheckResult, type Finding } from './types.ts';
 
-export type { CheckResult, Finding } from './types';
-export type { RepoData, Entry } from './load';
+export type { CheckResult, Finding } from './types.ts';
+export type { RepoData, Entry } from './load.ts';
 
 export function runPrePass(root: string): LoadOutcome {
   const { data, result } = loadRepo(root);

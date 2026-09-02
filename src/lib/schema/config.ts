@@ -5,7 +5,7 @@
  * schema level (E-109) so a bad config can never reach the derive layer.
  */
 import { z } from 'astro/zod';
-import { slugSchema } from './common';
+import { slugSchema } from './common.ts';
 
 export const genreBucketSchema = z
   .object({

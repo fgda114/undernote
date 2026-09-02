@@ -5,8 +5,8 @@
  * review files must NOT retroactively change a finalized year (SS-6).
  */
 import { z } from 'astro/zod';
-import { isoDateSchema, slugSchema } from './common';
-import { scoreSchema } from './review';
+import { isoDateSchema, slugSchema } from './common.ts';
+import { scoreSchema } from './review.ts';
 
 const top10EntrySchema = z.object({
   rank: z.int().min(1).max(10),

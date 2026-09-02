@@ -7,7 +7,7 @@
  * (P6 — content must outlive the tooling).
  */
 import { z } from 'astro/zod';
-import { releaseDateSchema, slugSchema } from './common';
+import { releaseDateSchema, slugSchema } from './common.ts';
 
 export const listenLinkSchema = z
   .object({

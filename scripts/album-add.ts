@@ -16,8 +16,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { parse as parseYaml } from 'yaml';
-import { MbClient } from '../src/lib/mb/client';
-import { MbError, type MbReleaseGroup } from '../src/lib/mb/types';
+import { MbClient } from '../src/lib/mb/client.ts';
+import { MbError, type MbReleaseGroup } from '../src/lib/mb/types.ts';
 import {
   albumYaml,
   artistMarkdown,
@@ -25,8 +25,8 @@ import {
   isValidSlug,
   releaseDateFrom,
   slugify,
-} from '../src/lib/mb/scaffold';
-import { genresConfigSchema } from '../src/lib/schema';
+} from '../src/lib/mb/scaffold.ts';
+import { genresConfigSchema } from '../src/lib/schema/index.ts';
 
 const root = process.cwd();
 const rl = createInterface({ input: process.stdin, output: process.stdout });

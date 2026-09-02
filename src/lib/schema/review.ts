@@ -13,8 +13,8 @@
  * for why float storage would silently break validation).
  */
 import { z } from 'astro/zod';
-import { SCORE_PATTERN } from '../score';
-import { isoDateSchema, slugSchema } from './common';
+import { SCORE_PATTERN } from '../score.ts';
+import { isoDateSchema, slugSchema } from './common.ts';
 
 export const scoreSchema = z
   .string({

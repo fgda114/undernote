@@ -5,8 +5,8 @@
  * and deterministic across runs.
  */
 import { stringify } from 'yaml';
-import { SLUG_PATTERN } from '../schema';
-import type { MbReleaseGroup } from './types';
+import { SLUG_PATTERN } from '../schema/index.ts';
+import type { MbReleaseGroup } from './types.ts';
 
 /** ASCII-only kebab slug from a display name. Returns '' when nothing
  * survives (e.g. an all-Korean name) — the CLI must then ask the User. */
