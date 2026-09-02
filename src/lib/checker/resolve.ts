@@ -15,6 +15,7 @@
  * and stories, where the body IS the product.
  */
 import { defaultListenLinks } from '../listen-links.ts';
+import { deriveArchiveIndex, detectOrphans } from '../derive/archive.ts';
 import type { RepoData } from './load.ts';
 import type { CheckResult, Finding } from './types.ts';
 import { emptyResult } from './types.ts';
@@ -178,6 +179,11 @@ export function resolveRepo(data: RepoData): CheckResult {
       seenYears.set(snap.data.year, snap.file);
     }
   }
+
+  // ── E-113 — orphan check (final form, W5.3): reachability via the 4-axis
+  // archive index. See derive/archive.ts for why artists are the practical
+  // orphan case (dated content always lands in the year axis).
+  failures.push(...detectOrphans(data, deriveArchiveIndex(data)));
 
   return result;
 }

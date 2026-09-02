@@ -1,0 +1,52 @@
+---
+/**
+ * /archive/genre/{bucket}/ — bucket axis listing. etc renders as "그 외"
+ * (reserved group — every album outside the year's configured buckets).
+ */
+import ArticleCard from '../../../components/ArticleCard.astro';
+import Base from '../../../layouts/Base.astro';
+import { ETC_BUCKET_LABEL } from '../../../lib/derive/archive.ts';
+import { getSiteData } from '../../../lib/derive/site-data.ts';
+
+export async function getStaticPaths() {
+  const { archive } = getSiteData();
+  return [...archive.by_bucket.keys()].map((bucket) => ({ params: { bucket } }));
+}
+
+const { bucket } = Astro.params;
+const { archive, articleByUrl, data } = getSiteData();
+const items = (archive.by_bucket.get(bucket!) ?? []).map((i) => articleByUrl.get(i.url)!).filter(Boolean);
+
+const labels = new Map<string, string>();
+for (const block of data.genres?.years ?? []) {
+  for (const b of block.buckets) if (!labels.has(b.id)) labels.set(b.id, b.label);
+}
+const label = bucket === 'etc' ? ETC_BUCKET_LABEL : (labels.get(bucket!) ?? bucket!);
+---
+
+<Base title={`${label} — 아카이브`} description={`${label} 장르의 전체 글.`} path={`/archive/genre/${bucket}/`} current="archive">
+  <main class="listing">
+    <h1 class="page-title">{label}</h1>
+    <ul class="cards">
+      {items.map((item) => <ArticleCard item={item} />)}
+    </ul>
+  </main>
+</Base>
+
+<style>
+  .listing {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: var(--s-48) 20px 0;
+  }
+  .page-title {
+    font-family: var(--serif);
+    font-size: var(--fs-27);
+    font-weight: 700;
+  }
+  .cards {
+    list-style: none;
+    margin: var(--s-24) 0 0;
+    padding: 0;
+  }
+</style>
