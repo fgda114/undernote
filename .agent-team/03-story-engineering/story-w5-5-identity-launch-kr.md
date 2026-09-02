@@ -1,5 +1,5 @@
 ---
-status: review  # 개발분 완료 — 공개 게이트 잔여 (Matthias QA 전수 · User 작업 · 성능 예산 협의)
+status: done  # 공개 게이트 통과 — Matthias QA blocker 0 (M-1 수정 완료 c702489), 리드 Paul 마감 2026-09-03
 story_key: w5-5-identity-launch
 epic: E5 — 정체성 지면 + 공개 게이트 (CF-8)
 owner: Andrew (W5 단독 구현) · 카피는 원+리드 협의
