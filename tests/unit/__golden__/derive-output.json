@@ -1,0 +1,181 @@
+{
+  "board": {
+    "year": 2026,
+    "buckets": [
+      {
+        "id": "hiphop-rnb",
+        "label": "힙합/R&B",
+        "entries": [
+          {
+            "album": "hiphop-solo",
+            "title": "앨범 hiphop-solo",
+            "artists_label": "아티스트A",
+            "score": "7.9",
+            "review_url": "/reviews/hiphop-solo/",
+            "bucket": "hiphop-rnb",
+            "cover": null
+          }
+        ]
+      },
+      {
+        "id": "pop",
+        "label": "팝",
+        "entries": [
+          {
+            "album": "tie-same-day-a",
+            "title": "앨범 tie-same-day-a",
+            "artists_label": "아티스트A",
+            "score": "8.5",
+            "review_url": "/reviews/tie-same-day-a/",
+            "bucket": "pop",
+            "cover": null
+          },
+          {
+            "album": "tie-same-day-z",
+            "title": "앨범 tie-same-day-z",
+            "artists_label": "아티스트A",
+            "score": "8.5",
+            "review_url": "/reviews/tie-same-day-z/",
+            "bucket": "pop",
+            "cover": null
+          },
+          {
+            "album": "tie-diff-day",
+            "title": "앨범 tie-diff-day",
+            "artists_label": "아티스트A",
+            "score": "8.5",
+            "review_url": "/reviews/tie-diff-day/",
+            "bucket": "pop",
+            "cover": null
+          }
+        ]
+      },
+      {
+        "id": "rock",
+        "label": "록",
+        "entries": []
+      }
+    ]
+  },
+  "top10": {
+    "year": 2026,
+    "entries": [
+      {
+        "album": "etc-masterpiece",
+        "title": "앨범 etc-masterpiece",
+        "artists_label": "아티스트A",
+        "score": "9.1",
+        "review_url": "/reviews/etc-masterpiece/",
+        "bucket": "etc",
+        "cover": null
+      },
+      {
+        "album": "tie-same-day-a",
+        "title": "앨범 tie-same-day-a",
+        "artists_label": "아티스트A",
+        "score": "8.5",
+        "review_url": "/reviews/tie-same-day-a/",
+        "bucket": "pop",
+        "cover": null
+      },
+      {
+        "album": "tie-same-day-z",
+        "title": "앨범 tie-same-day-z",
+        "artists_label": "아티스트A",
+        "score": "8.5",
+        "review_url": "/reviews/tie-same-day-z/",
+        "bucket": "pop",
+        "cover": null
+      },
+      {
+        "album": "tie-diff-day",
+        "title": "앨범 tie-diff-day",
+        "artists_label": "아티스트A",
+        "score": "8.5",
+        "review_url": "/reviews/tie-diff-day/",
+        "bucket": "pop",
+        "cover": null
+      },
+      {
+        "album": "hiphop-solo",
+        "title": "앨범 hiphop-solo",
+        "artists_label": "아티스트A",
+        "score": "7.9",
+        "review_url": "/reviews/hiphop-solo/",
+        "bucket": "hiphop-rnb",
+        "cover": null
+      }
+    ]
+  },
+  "recaps": [
+    {
+      "month": "2026-05",
+      "entries": [
+        {
+          "album": "tie-same-day-a",
+          "title": "앨범 tie-same-day-a",
+          "artists_label": "아티스트A",
+          "score": "8.5",
+          "review_url": "/reviews/tie-same-day-a/",
+          "bucket": "pop",
+          "cover": null
+        },
+        {
+          "album": "tie-same-day-z",
+          "title": "앨범 tie-same-day-z",
+          "artists_label": "아티스트A",
+          "score": "8.5",
+          "review_url": "/reviews/tie-same-day-z/",
+          "bucket": "pop",
+          "cover": null
+        },
+        {
+          "album": "tie-diff-day",
+          "title": "앨범 tie-diff-day",
+          "artists_label": "아티스트A",
+          "score": "8.5",
+          "review_url": "/reviews/tie-diff-day/",
+          "bucket": "pop",
+          "cover": null
+        }
+      ]
+    },
+    {
+      "month": "2026-06",
+      "entries": [
+        {
+          "album": "old-release",
+          "title": "앨범 old-release",
+          "artists_label": "아티스트A",
+          "score": "9.5",
+          "review_url": "/reviews/old-release/",
+          "bucket": "rock",
+          "cover": null
+        },
+        {
+          "album": "etc-masterpiece",
+          "title": "앨범 etc-masterpiece",
+          "artists_label": "아티스트A",
+          "score": "9.1",
+          "review_url": "/reviews/etc-masterpiece/",
+          "bucket": "etc",
+          "cover": null
+        }
+      ]
+    },
+    {
+      "month": "2026-07",
+      "entries": [
+        {
+          "album": "hiphop-solo",
+          "title": "앨범 hiphop-solo",
+          "artists_label": "아티스트A",
+          "score": "7.9",
+          "review_url": "/reviews/hiphop-solo/",
+          "bucket": "hiphop-rnb",
+          "cover": null
+        }
+      ]
+    }
+  ]
+}
