@@ -4,6 +4,52 @@
 
 ---
 
+## W5.1 — 평론 + 발행 파이프라인 (2026-09-02)
+
+### 재현 명령
+
+```bash
+npm ci && npm test && npm run check && npm run build   # 80 테스트 · 타입 0오류
+npm run dev                                            # dev 서버 http://localhost:4321
+node scripts/album-add.ts "아티스트" "앨범명"           # 편집 CLI (Node 22.18+/24 — TS 네이티브)
+python scripts/subset-fonts.py <PretendardVariable.ttf> <NotoSerifKR[wght].ttf>  # 폰트 재서브셋 (pip install fonttools brotli)
+```
+
+- 시드 데이터: **픽스처 콘텐츠 1세트가 content/에 커밋돼 있음** (앨범+아티스트+평론+이야기+커버). E2E·후속 스토리 개발용 — **W5.5 런칭 전 제거 항목**.
+- 실서비스 페이지: `/reviews/fixture-artist-fixture-album/` · `/og/reviews/fixture-artist-fixture-album.png` · `/og/default.png`
+
+### 확정 버전 (착수일 npm 실확인)
+
+satori **0.33.4** · @resvg/resvg-js **2.6.2** (핀). yaml 2.9.0은 dependencies로 승격 (checker가 빌드 경로에서 사용).
+
+### 주요 결정·발견 (다음 스토리 필독)
+
+1. **checker 게이트 훅 = `astro:config:done`** (astro.config.ts 인라인 통합). build:start는 콘텐츠 동기화보다 늦어 Astro의 첫-파일 오류가 선점 — config:done이라야 B-1 집계 보고가 먼저 나온다. build 명령에만 발동 (dev는 수정 중 실행 유지).
+2. **Zod 이슈 코드 → E-코드 매핑**: 스키마 메시지가 "E-105:" 접두를 가지면 그 코드, 아니면 E-100. unrecognized_keys는 load.ts에서 한국어로 번역 (Zod v4는 strict()의 키별 메시지 훅이 없음).
+3. **satori는 가변 TTF를 못 읽음** ("reading '256'" 크래시) — Pretendard는 satori용으로 400 고정 인스턴스를 별도 산출 (`src/assets/fonts/Pretendard-400-sub.ttf`). 웹 woff2는 가변 유지.
+4. **E-115는 타입 레벨**: `src/lib/og/types.ts` 카드 입력에 score 필드 자체가 없음 + assemble 테스트가 runtime 고정. HTML 부분 문자열 스캔 금지 ("1983년" 오탐) — W5.2 checker(E-111·115)도 이 원칙.
+5. **커버 파생 = 정적 엔드포인트** `src/pages/covers/derived/[image].webp.ts` (96/320/640). 원본 640 마스터(public/covers)에서 다운스케일만. sharp는 astro 동봉(0.35.4) — 직접 의존 미추가 (스토리 지시).
+6. **node 네이티브 TS 실행 제약**: 상대 import에 `.ts` 확장자 필수(전 lib 통일), 파라미터 프로퍼티 금지. tsconfig `allowImportingTsExtensions`.
+7. **듣기 링크 패턴 3종 실확인** (2026-09-02, 전부 HTTP 200) — 제거된 서비스 없음. 수기 링크는 서비스 단위 대체.
+8. **MB UA 확정형**: `undernote-album-add/0.1.0 ( https://github.com/fgda114/undernote )` — 공식 Rate_Limiting 문서 형식. 1100ms 간격. 실검색 스모크 1회 통과.
+9. **아티스트명은 히어로에서 플레인 텍스트** — /artists/ 라우트가 W5.3 산출이라 링크 승격은 W5.3 소유 (E-112 충돌 방지, 스토리 명시).
+10. **Masthead 링크 목록** (W5.2 최소 셸 의무 대상): `/archive/reviews/` · `/archive/stories/` · `/list/{active_year}/` · `/archive/` · `/about/` (+Footer의 `/about/`·`/archive/`).
+11. **버킷 etc 표시 라벨 = "그 외"** (설계 문서 미지정 — 구현 결정, 마이크로카피 검수 대상).
+12. 상류 모순 1건 해소: E-101은 "평론·이야기·소개글"이라 쓰나 api-contracts §3.4·US-14는 아티스트 빈 본문 허용 — **아티스트는 E-101 제외**로 구현 (R-4 정신).
+
+### 폰트 산출물
+
+| 파일 | 크기 | 비고 |
+|---|---|---|
+| public/fonts/PretendardVariable-sub.woff2 | 428KB | 가변 유지 |
+| public/fonts/NotoSerifKR-400-sub.woff2 | 313KB | |
+| public/fonts/NotoSerifKR-700-sub.woff2 | 322KB | |
+| 합계 | **1,063KB** | 예산 1,536KB 내 |
+
+서브셋 = KS X 1001 한글 2,350자(cp949 바이트 범위로 판별 — Python euc_kr 코덱은 확장 완성형까지 통과하므로 주의) + ASCII + Latin-1 + UI 기호(↗→●© 등).
+
+---
+
 ## W5.0 — 저장소 스캐폴드 · CI · 호스팅 (2026-09-02)
 
 ### 재현 명령 (Windows · PowerShell/Git Bash 공통)

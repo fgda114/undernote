@@ -1,5 +1,5 @@
 ---
-status: ready-for-dev
+status: done
 story_key: w5-1-review-pipeline
 epic: E1 — 평론 + 발행 파이프라인 (CF-1 · CF-9 · CF-10 · CF-11)
 owner: Andrew (W5 단독 구현)
@@ -10,7 +10,7 @@ compiled_by: Matthew (#17) · 2026-09-02
 
 # 스토리 W5.1: 평론 + 발행 파이프라인 — "모든 것의 원자재" (최대 단계 L)
 
-Status: ready-for-dev
+Status: done
 
 ## 스토리(Story) — story_requirements
 
@@ -48,36 +48,36 @@ so that **글쓰기 외의 노동이 0인 채로 첫 평론부터 유통 가능�
 
 ## 작업/하위작업(Tasks / Subtasks)
 
-- [ ] 작업 1 — 콘텐츠 스키마 전체 (AC: #1~5)
-  - [ ] **`src/lib/schema/`에 Zod 스키마를 단일 정의** (순수 모듈 — Astro import 금지, 한국어 오류 메시지 포함): api-contracts §3의 8스키마 전부 (Album·Review·Story·Artist·GenresConfig·TagRegistry·Snapshot·SiteConfig). `additionalProperties: false` 의미의 strict 스키마. **`src/content.config.ts`는 이 모듈을 감싸기만 하고, checker의 사전 전량 패스(B-1 집계·한국어 보고)도 같은 모듈을 소비한다** — code-structure의 "유일한 구현체"는 "유일한 정의"로 읽는다 (리드 확정 2026-09-02, Thomas N-2. 두 곳 정의는 반드시 갈라지고, 갈라지면 "빌드가 약속을 지킨다"가 무너진다) [Source: 04-architecture/code-structure.md#3-레이어-경계]
-  - [ ] score 정규식 `^(10\.0|[0-9]\.[0-9])$` — **문자열 타입** (number 금지)
-  - [ ] `src/lib/score.ts`: 문자열↔십분위 정수 유일 파서
-  - [ ] resolver: E-102(앨범 실존·발매 연도)·E-103(아티스트 실존)·E-104(버킷)·E-107(slug 형식)·E-108(파일명=album 필드)·E-109(etc 예약어)
-  - [ ] E-201 태그 등록부 대조 (canonical/alias 정규화)
-- [ ] 작업 2 — `album-add` CLI (AC: #7, #8)
-  - [ ] `src/lib/mb/` MB·CAA 클라이언트 (fetch는 여기에만) + `scripts/album-add.ts`
-  - [ ] MB release-group 검색→상세, **1100ms 간격**, 의미 있는 User-Agent (정확한 권장 형식은 MB 문서로 착수 시 재확인 — api-contracts 명시)
-  - [ ] CAA front-500 다운로드 → **장변 640px 이하 재인코딩** → `public/covers/<slug>.jpg` + `cover_source` 기록. 원본 보관 금지
-  - [ ] E-401~404 수기 폴백 대화 흐름 (1회 재시도, 재시도 루프 금지 — P9)
-  - [ ] 앨범 YAML + 아티스트 md(신규 시) 스캐폴드 생성
-- [ ] 작업 3 — 디자인 기반 (AC: #9)
-  - [ ] tokens.md의 CSS 변수화 (라이트/다크 `prefers-color-scheme`) — 하드코딩 0
-  - [ ] 폰트: Pretendard Variable + Noto Serif KR 400/700 **셀프호스팅 한글 서브셋 woff2** (합계 <1.5MB, CDN 금지)
-  - [ ] Masthead(5항목, 스크롤 고정 없음)·Footer·본문 컬럼 660px 레이아웃. **Footer © 연도는 저장소 유래 값**(`active_year` 또는 고정 문자열)으로 — `new Date().getFullYear()` 금지 (R-10 시계 누수, 같은 날 2회 빌드 해시로는 안 잡히는 잠복 결함 — Thomas N-7ⓐ) [Source: 04-architecture/exceptions.md#R-10]
-  - [ ] 파비콘/터치 아이콘: 워드마크 마침표 모티프 (`--seal` 원형 도트 on `--paper`) — SVG 1 + PNG 180px (Thomas N-9) [Source: 07-design/design-handoff.md#3-에셋-체크리스트]
-- [ ] 작업 4 — 평론 지면 (AC: #9, #10, #11)
-  - [ ] 히어로(2컬럼/모바일 상단)·본문(세리프 17/1.8)·ScoreVerdict(순서 고정: 룰→오버라인→점수→배지 조건부→듣기 조건부)
-  - [ ] **히어로 아티스트명은 이 스토리에서 플레인 텍스트로 렌더** — `/artists/` 라우트는 W5.3 산출이라 지금 링크하면 W5.2의 E-112(내부 링크 깨짐 = 실패) 도입과 충돌한다. **링크 승격은 W5.3 소유로 명시 배정** (checker-라우트 순서 결함 방지 — Thomas C-2 부수. ui-spec §2.1의 링크 요구는 W5.3 완료 시점에 충족되며, 공개 게이트가 E3·E4 이후이므로 독자에게 미노출 구간 없음)
-  - [ ] CoverImage 컴포넌트 (WebP+폴백·지연 로드·96/320/640 파생·플레이스홀더 변이)
-  - [ ] `src/lib/listen-links.ts`: 검색형 패턴({q} 치환) + 수기 우선. 패턴 실동작 확인, 깨진 서비스 제거
-  - [ ] NominateBadge·LadderBlock·"아티스트의 다른 글"은 **조건부 미출력 상태로 자리만** — 데이터 공급은 W5.2·W5.4 (빈 껍데기 렌더 금지)
-- [ ] 작업 5 — OG 메타 + 카드 (AC: #12, #13)
-  - [ ] layouts에 OG 메타 주입 지점 (전 페이지 공통)
-  - [ ] `src/lib/og/` 카드 데이터 조립 + satori+resvg 렌더. **구현 순서: 기본형 → 리스트형 → 평론형** (평론형 커버 합성은 ADR-0008 §5 잔여 검토와 무관하게 기본형 폴백 성립)
-  - [ ] **E-115의 강제는 데이터 레벨이다:** og·카드 조립 **입력 타입에 score 필드 자체가 없다** (타입 레벨 배제) + 조립 함수가 score를 참조하지 않음을 단위 테스트로 고정. HTML 부분 문자열 스캔으로 점수를 찾는 방식 금지 — "19**8.3**년" 같은 정상 본문이 오탐 빌드 실패한다 (Thomas N-5·Matthias N-1. checker 측 규정은 W5.2 AC7)
-  - [ ] `og_use_cover` 킬스위치 동작
-- [ ] 작업 6 — 픽스처 통과 (AC: #6, #14)
-  - [ ] 유효 픽스처 1세트(앨범+평론+커버) end-to-end + 무효 픽스처 코드별
+- [x] 작업 1 — 콘텐츠 스키마 전체 (AC: #1~5)
+  - [x] **`src/lib/schema/`에 Zod 스키마를 단일 정의** (순수 모듈 — Astro import 금지, 한국어 오류 메시지 포함): api-contracts §3의 8스키마 전부 (Album·Review·Story·Artist·GenresConfig·TagRegistry·Snapshot·SiteConfig). `additionalProperties: false` 의미의 strict 스키마. **`src/content.config.ts`는 이 모듈을 감싸기만 하고, checker의 사전 전량 패스(B-1 집계·한국어 보고)도 같은 모듈을 소비한다** — code-structure의 "유일한 구현체"는 "유일한 정의"로 읽는다 (리드 확정 2026-09-02, Thomas N-2. 두 곳 정의는 반드시 갈라지고, 갈라지면 "빌드가 약속을 지킨다"가 무너진다) [Source: 04-architecture/code-structure.md#3-레이어-경계]
+  - [x] score 정규식 `^(10\.0|[0-9]\.[0-9])$` — **문자열 타입** (number 금지)
+  - [x] `src/lib/score.ts`: 문자열↔십분위 정수 유일 파서
+  - [x] resolver: E-102(앨범 실존·발매 연도)·E-103(아티스트 실존)·E-104(버킷)·E-107(slug 형식)·E-108(파일명=album 필드)·E-109(etc 예약어)
+  - [x] E-201 태그 등록부 대조 (canonical/alias 정규화)
+- [x] 작업 2 — `album-add` CLI (AC: #7, #8)
+  - [x] `src/lib/mb/` MB·CAA 클라이언트 (fetch는 여기에만) + `scripts/album-add.ts`
+  - [x] MB release-group 검색→상세, **1100ms 간격**, 의미 있는 User-Agent (정확한 권장 형식은 MB 문서로 착수 시 재확인 — api-contracts 명시)
+  - [x] CAA front-500 다운로드 → **장변 640px 이하 재인코딩** → `public/covers/<slug>.jpg` + `cover_source` 기록. 원본 보관 금지
+  - [x] E-401~404 수기 폴백 대화 흐름 (1회 재시도, 재시도 루프 금지 — P9)
+  - [x] 앨범 YAML + 아티스트 md(신규 시) 스캐폴드 생성
+- [x] 작업 3 — 디자인 기반 (AC: #9)
+  - [x] tokens.md의 CSS 변수화 (라이트/다크 `prefers-color-scheme`) — 하드코딩 0
+  - [x] 폰트: Pretendard Variable + Noto Serif KR 400/700 **셀프호스팅 한글 서브셋 woff2** (합계 <1.5MB, CDN 금지)
+  - [x] Masthead(5항목, 스크롤 고정 없음)·Footer·본문 컬럼 660px 레이아웃. **Footer © 연도는 저장소 유래 값**(`active_year` 또는 고정 문자열)으로 — `new Date().getFullYear()` 금지 (R-10 시계 누수, 같은 날 2회 빌드 해시로는 안 잡히는 잠복 결함 — Thomas N-7ⓐ) [Source: 04-architecture/exceptions.md#R-10]
+  - [x] 파비콘/터치 아이콘: 워드마크 마침표 모티프 (`--seal` 원형 도트 on `--paper`) — SVG 1 + PNG 180px (Thomas N-9) [Source: 07-design/design-handoff.md#3-에셋-체크리스트]
+- [x] 작업 4 — 평론 지면 (AC: #9, #10, #11)
+  - [x] 히어로(2컬럼/모바일 상단)·본문(세리프 17/1.8)·ScoreVerdict(순서 고정: 룰→오버라인→점수→배지 조건부→듣기 조건부)
+  - [x] **히어로 아티스트명은 이 스토리에서 플레인 텍스트로 렌더** — `/artists/` 라우트는 W5.3 산출이라 지금 링크하면 W5.2의 E-112(내부 링크 깨짐 = 실패) 도입과 충돌한다. **링크 승격은 W5.3 소유로 명시 배정** (checker-라우트 순서 결함 방지 — Thomas C-2 부수. ui-spec §2.1의 링크 요구는 W5.3 완료 시점에 충족되며, 공개 게이트가 E3·E4 이후이므로 독자에게 미노출 구간 없음)
+  - [x] CoverImage 컴포넌트 (WebP+폴백·지연 로드·96/320/640 파생·플레이스홀더 변이)
+  - [x] `src/lib/listen-links.ts`: 검색형 패턴({q} 치환) + 수기 우선. 패턴 실동작 확인, 깨진 서비스 제거
+  - [x] NominateBadge·LadderBlock·"아티스트의 다른 글"은 **조건부 미출력 상태로 자리만** — 데이터 공급은 W5.2·W5.4 (빈 껍데기 렌더 금지)
+- [x] 작업 5 — OG 메타 + 카드 (AC: #12, #13)
+  - [x] layouts에 OG 메타 주입 지점 (전 페이지 공통)
+  - [x] `src/lib/og/` 카드 데이터 조립 + satori+resvg 렌더. **구현 순서: 기본형 → 리스트형 → 평론형** (평론형 커버 합성은 ADR-0008 §5 잔여 검토와 무관하게 기본형 폴백 성립)
+  - [x] **E-115의 강제는 데이터 레벨이다:** og·카드 조립 **입력 타입에 score 필드 자체가 없다** (타입 레벨 배제) + 조립 함수가 score를 참조하지 않음을 단위 테스트로 고정. HTML 부분 문자열 스캔으로 점수를 찾는 방식 금지 — "19**8.3**년" 같은 정상 본문이 오탐 빌드 실패한다 (Thomas N-5·Matthias N-1. checker 측 규정은 W5.2 AC7)
+  - [x] `og_use_cover` 킬스위치 동작
+- [x] 작업 6 — 픽스처 통과 (AC: #6, #14)
+  - [x] 유효 픽스처 1세트(앨범+평론+커버) end-to-end + 무효 픽스처 코드별
 
 ---
 
@@ -182,17 +182,39 @@ so that **글쓰기 외의 노동이 0인 채로 첫 평론부터 유통 가능�
 ## Dev Agent Record (구현 기록)
 
 ### 사용 모델(Agent Model Used)
-_(구현 시 기입)_
+Claude (Andrew · 역할 #9) — 2026-09-02 구현
 
 ### 디버그 로그 참조
-_(구현 시 기입)_
+- satori가 가변 TTF에서 크래시("reading '256'") → Pretendard 400 고정 인스턴스 별도 산출로 해결
+- node 네이티브 TS 실행: 상대 import `.ts` 확장자 필수 + 파라미터 프로퍼티 금지 (전 lib 정리)
+- checker를 build:start에 걸면 Astro 콘텐츠 동기화가 선점 → `astro:config:done`으로 이동 (B-1 집계 보고가 먼저)
 
 ### 완료 노트 목록(Completion Notes List)
-- _(구현 시 기입 — satori/resvg 확정 버전·Zod 문법 이슈·MB UA 확정 형식 필수)_
+- **satori 0.33.4 · @resvg/resvg-js 2.6.2 확정** (착수일 npm 실확인 핀). 카드 3템플릿(기본형→리스트형→평론형) 구현, 평론형 커버 합성 + 기본형 폴백 + og_use_cover 킬스위치 동작. **E-115는 타입 레벨**: 카드 입력 타입에 score 필드 자체가 없음 + 단위 테스트 고정 (HTML 스캔 아님).
+- **Zod v4 문법 이슈**: strict()의 unrecognized_keys는 키별 메시지 훅이 없어 checker에서 한국어 번역. 스키마 8종 전부 `src/lib/schema` 단일 정의 — content.config.ts와 checker가 공동 소비.
+- **MB UA 확정형**: `undernote-album-add/0.1.0 ( https://github.com/fgda114/undernote )` (공식 Rate_Limiting 문서 형식 재확인). 1100ms 간격, 타임아웃 1회 재시도 후 수기 폴백. 실검색 스모크 1회 통과. CAA front-500 → sharp 장변 640 재인코딩.
+- **AC 검증**: 스키마 위반 각 코드별 실패(checker 테스트 13코드) · 전부 모아 한 번에 보고(무효 저장소 픽스처) · 히어로 4필드/점수 0(D2, HTML 검증) · 평결 블록 본문 후 · 듣기 링크 수기 우선+패턴 3종 실동작 200 · 커버 플레이스홀더 · OG 6요소 전 페이지 · 픽스처 평론 1편 파이프라인 전체 통과(페이지+카드).
+- **결정성**: 전 파이프라인(satori PNG·webp·폰트) 2회 빌드 해시 동일 `e0c50139…` (15파일). 테스트 80개·astro check 0오류.
+- 폰트: 한글 서브셋 woff2 3파일 합계 1,063KB (<1.5MB). 파비콘/터치 아이콘 seal 도트.
+- 잔여: 아티스트명 링크 승격 = W5.3 소유. NominateBadge·LadderBlock 데이터 공급 = W5.2·W5.4. 리스트형 카드 소비 = W5.2. **픽스처 콘텐츠 1세트가 content/에 커밋됨 — W5.5 런칭 전 제거 항목.**
 
 ### 파일 목록(File List)
 <!-- ⚠️ 다음 스토리(W5.2)의 이전 스토리 인텔리전스 입력 — 반드시 채울 것 (D4) -->
 
 | 파일 경로 | 상태 (신규/수정/삭제) |
 |-----------|----------------------|
-| _(구현 시 기입)_ | |
+| src/lib/schema/{index,common,review,album,story,artist,snapshot,config}.ts | 신규/수정 (8스키마 단일 정의·한국어 메시지) |
+| src/lib/checker/{index,load,resolve,types}.ts | 신규 (E-100~109·114 + E-201~205, B-1 집계) |
+| astro.config.ts | 수정 (config:done 검증 게이트 통합 — .mjs→.ts) |
+| src/content.config.ts | 수정 (5컬렉션 wiring — 스키마는 lib 소비) |
+| src/lib/{score,site,covers,listen-links}.ts | 신규/유지 |
+| src/lib/derive/{review-page,excerpt}.ts | 신규 (P1 — 판단 전부 여기) |
+| src/lib/mb/{client,scaffold,types}.ts · scripts/album-add.ts | 신규 (fetch 유일 지점 + CLI) |
+| src/lib/og/{types,template,render,assemble}.ts | 신규 (E-115 타입 레벨) |
+| src/pages/reviews/[slug].astro · src/pages/og/{default,reviews/[slug]}.png.ts · src/pages/covers/derived/[image].webp.ts | 신규 |
+| src/layouts/Base.astro · src/components/{Masthead,Footer,FormatLabel,CoverImage,ScoreVerdict,NominateBadge,LadderBlock}.astro | 신규 |
+| src/styles/{tokens,global}.css · public/fonts/*.woff2(3) · src/assets/fonts/*.ttf(3) · public/{favicon.svg,apple-touch-icon.png} | 신규 |
+| scripts/subset-fonts.py | 신규 (폰트 서브셋 파이프라인) |
+| content/* 픽스처 1세트 + public/covers/fixture-….jpg | 신규 (W5.5 제거 대상) |
+| tests/unit/{checker,mb,derive,og,review-schema}.test.ts · tests/fixtures/{valid-repo,invalid-repo,invalid-config-repo}/** | 신규 (80 테스트) |
+| package.json (satori·resvg 추가, yaml deps 승격) | 수정 |
