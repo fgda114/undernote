@@ -61,3 +61,7 @@ test-results/
 reports/
 # Astro 로컬 캐시·생성 타입
 .astro/
+
+# 폰트 릴리스 조회 등 API 응답 잔여물
+pret-rel.json
+*-rel.json
