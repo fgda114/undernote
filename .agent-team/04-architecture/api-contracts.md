@@ -264,6 +264,7 @@ properties:
     type: object
     additionalProperties: { type: string }        # service → urlTemplate ({q} 치환)
   early_stage_threshold: { type: integer, default: 6 }  # 홈 극초기 변형 전환 임계 (ui-spec §1.5)
+  goatcounter_code: { type: string, pattern: "^[a-z0-9-]+$" }  # 옵션 — GoatCounter 사이트 코드. 부재 = 계측 미설치
 ```
 
 > **`early_stage_threshold` 가산 (W5.2, 2026-09-02 — Andrew 요청 · 리드 Paul 승인).**
@@ -274,6 +275,30 @@ properties:
 >
 > Andrew가 임의 키를 넣지 않고 §7 절차(문서 먼저 → Zod 반영)를 따랐다 — W3 게이트에서
 > 확정한 "임의 키 추가 금지" 규칙이 실제로 작동한 사례다.
+
+> ### `goatcounter_code` 가산 (W5.5, 2026-09-02 — Andrew 요청 · 리드 Paul 승인)
+>
+> 계측 도구를 **GoatCounter**로 확정한다(무료 · 쿠키 0 · GDPR 고지 불요 · 스크립트 1개).
+> **리퍼러로 평론↔이야기 이동률을 측정**할 수 있어 charter §3 체류 지표의 실측 수단이 된다.
+> GitHub Pages에는 내장 분석이 없음이 확인돼 후보에서 소멸했다.
+>
+> **의미론:** 값이 있으면 Base 레이아웃이 스니펫을 **정확히 1개** 출력하고, 부재 시 **0개**다.
+> 패턴은 GoatCounter 서브도메인 코드 형식(소문자·숫자·하이픈).
+>
+> ⚠️ **"클라이언트 JS 0" 약속과의 관계 — 의식적 예외로 기록한다.**
+> ADR-0002 요구 2와 Jonnathan 확정은 *전 지면 정적 HTML+CSS, 클라이언트 JS 0* 이다.
+> 계측을 켜면 **async 스크립트 1개가 들어간다.** 이는 위반이 아니라 **옵트인 예외**이며,
+> 정확히는 다음과 같이 읽어야 한다:
+>
+> > **기본값은 JS 0. 계측을 명시 활성화한 경우에만 async 스크립트 1개.**
+>
+> 대안은 측정을 포기하는 것인데, charter §3이 유입·체류를 실측하도록 요구하고 성능 예산
+> 재설정(1차 공개 수용분)도 이 데이터에 의존한다. **측정 없이는 예산 재검토가 불가능하다.**
+> W6에서 이 예외가 "약속 위반"으로 오인되지 않도록 여기 남긴다.
+>
+> **구현 주의:** Andrew 명세의 `src="//gc.zgo.at/count.js"`는 **프로토콜 상대 URL**이다.
+> 이 사이트는 HTTPS 전용이므로 `https://`를 명시할 것 — 프로토콜 상대 URL은 현재 권장되지
+> 않으며 혼합 콘텐츠 판정을 복잡하게 만든다.
 
 ---
 
