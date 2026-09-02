@@ -61,6 +61,16 @@ export const siteConfigSchema = z
     // Home early-stage switch threshold (ui-spec §1.5) — api-contracts §3.8
     // optional field, added via the §7 additive procedure (lead-approved).
     early_stage_threshold: z.int().min(1).default(6),
+    // GoatCounter site code (api-contracts §3.8, §7-approved optional field).
+    // Absent = no analytics at all — the default IS zero client JS; setting
+    // this opts into exactly one async snippet (see Base.astro).
+    goatcounter_code: z
+      .string()
+      .regex(/^[a-z0-9-]+$/, {
+        error: (iss) =>
+          `goatcounter_code "${String(iss.input)}"은(는) 형식에 맞지 않습니다. GoatCounter 사이트 코드(소문자·숫자·하이픈)만 적으세요.`,
+      })
+      .optional(),
     placeholder_cover: z.string().optional(),
     listen_link_patterns: z.record(z.string(), z.string()).optional(),
   })

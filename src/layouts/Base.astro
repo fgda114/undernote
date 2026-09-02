@@ -26,6 +26,7 @@ interface Props {
 
 const site = getSiteConfig();
 const { title, description, ogType = 'website', ogImage = '/og/default.png', path, current } = Astro.props;
+const goatcounter = site.goatcounter_code;
 const fullTitle = title === site.site_name ? title : `${title} — ${site.site_name}`;
 ---
 
@@ -54,5 +55,21 @@ const fullTitle = title === site.site_name ? title : `${title} — ${site.site_n
     <Masthead current={current} />
     <slot />
     <Footer />
+    {
+      /* Analytics — the ONE sanctioned exception to "client JS 0" (ADR-0002):
+         OPT-IN via config/site.yaml#goatcounter_code; absent = zero scripts.
+         Do not remove as a "JS 0" cleanup — charter §3 requires measured
+         referral/dwell data and the performance-budget reset depends on it
+         (lead decision 2026-09-02, recorded in api-contracts §3.8).
+         GoatCounter: cookieless, no GDPR banner, ~3.5KB. HTTPS explicit —
+         protocol-relative URLs are obsolete and break file:// viewing. */
+      goatcounter && (
+        <script
+          is:inline
+          data-goatcounter={`https://${goatcounter}.goatcounter.com/count`}
+          async
+          src="https://gc.zgo.at/count.js"></script>
+      )
+    }
   </body>
 </html>
