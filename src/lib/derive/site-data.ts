@@ -5,6 +5,7 @@
  * inlined in a template.
  */
 import { loadRepo, type RepoData } from '../checker/load.ts';
+import { deriveArchiveIndex, type ArchiveIndex } from './archive.ts';
 import { excerptFrom } from './excerpt.ts';
 import {
   currentYearMonthSeoul,
@@ -42,8 +43,13 @@ export interface SiteData {
   top10: Top10Progressive;
   recaps: MonthlyRecap[];
   badgeMap: Map<string, BadgeInfo>;
+  /** Every article in ArticleItem form, date desc — archive listings map
+   * ArchiveItem urls through this (single conversion point). */
+  allArticles: ArticleItem[];
+  articleByUrl: Map<string, ArticleItem>;
   latestArticles: ArticleItem[];
   latestPubDate: string | null;
+  archive: ArchiveIndex;
   homeVariant: HomeVariant;
   /** Snapshot years present in content (for /list/[year] static paths). */
   snapshotYears: number[];
@@ -61,6 +67,7 @@ export function getSiteData(): SiteData {
   const joined = joinReviews(data);
   const board = deriveBoard(joined, data.genres, data.site.active_year);
   const nominateTotal = board.buckets.reduce((n, b) => n + b.entries.length, 0);
+  const allArticles = deriveLatestArticles(data, joined, excerptFrom, Number.MAX_SAFE_INTEGER);
   cached = {
     data,
     site: data.site,
@@ -69,8 +76,11 @@ export function getSiteData(): SiteData {
     top10: deriveTop10(joined, data.site.active_year),
     recaps: deriveMonthlyRecaps(joined, currentYearMonthSeoul()),
     badgeMap: deriveBadgeMap(board),
-    latestArticles: deriveLatestArticles(data, joined, excerptFrom),
+    allArticles,
+    articleByUrl: new Map(allArticles.map((a) => [a.url, a])),
+    latestArticles: allArticles.slice(0, 8),
     latestPubDate: latestPublicationDate(data),
+    archive: deriveArchiveIndex(data),
     homeVariant: deriveHomeVariant({
       reviewCount: data.reviews.length,
       nominateTotal,

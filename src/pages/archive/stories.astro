@@ -1,14 +1,14 @@
 ---
 /**
- * /archive/stories/ — preset shell (W5.3 replaces with the filtered archive).
+ * /archive/stories/ — type preset — the global nav's 평론/이야기 target (full listing).
  * Lists stories as ArticleCards (no scores — browsing surface, D2).
  */
 import ArticleCard from '../../components/ArticleCard.astro';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/derive/site-data.ts';
 
-const { latestArticles } = getSiteData();
-const stories = latestArticles.filter((item) => item.type === 'story');
+const { allArticles } = getSiteData();
+const stories = allArticles.filter((item) => item.type === 'story');
 ---
 
 <Base title="이야기" description="발행된 음악 이야기 전체." path="/archive/stories/" current="stories">

@@ -7,9 +7,8 @@
  * src/lib/derive/review-page.ts (P1: templates render, they don't decide).
  *
  * D2 placement: hero = 4 fields, NO score/badge; the verdict block renders
- * after the body. The hero artist name is PLAIN TEXT in this story —
- * /artists/ routes are W5.3 output; the link promotion is explicitly W5.3's
- * task (linking now would break against E-112 in W5.2).
+ * after the body. Hero artist names link to /artists/{slug}/ (promotion
+ * done in W5.3 once the routes exist — US-9 AC1).
  */
 import { getCollection, getEntry, render } from 'astro:content';
 import CoverImage from '../../components/CoverImage.astro';
@@ -71,7 +70,14 @@ const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, yea
         <div class="hero-text">
           <FormatLabel text="평론" />
           <h1 class="hero-title">{page.title}</h1>
-          <p class="hero-sub">{page.artistsLabel} · {page.bucketLabel} · {page.releaseDateText}</p>
+          <p class="hero-sub">
+            {page.artistLinks.map((artist, i) => (
+              <>
+                {i > 0 && ', '}
+                <a class="artist-link" href={`/artists/${artist.slug}/`}>{artist.name}</a>
+              </>
+            ))} · {page.bucketLabel} · {page.releaseDateText}
+          </p>
         </div>
         <div class="hero-cover">
           <CoverImage cover={page.cover} size={320} albumTitle={page.title} loading="eager" />
@@ -122,6 +128,15 @@ const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, yea
   .hero-sub {
     font-size: var(--fs-17);
     color: var(--muted);
+  }
+  /* Underline keeps the link visible without color alone (WCAG 1.4.1). */
+  .artist-link {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color var(--t-micro);
+  }
+  .artist-link:hover {
+    color: var(--seal);
   }
   .column,
   .review-body {

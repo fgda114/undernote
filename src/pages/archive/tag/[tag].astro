@@ -1,0 +1,46 @@
+---
+/**
+ * /archive/tag/{tag}/ — detail-tag axis (canonical slugs). Pages exist only
+ * for tags that actually appear on content (empty values never render, R-4).
+ */
+import ArticleCard from '../../../components/ArticleCard.astro';
+import Base from '../../../layouts/Base.astro';
+import { getSiteData } from '../../../lib/derive/site-data.ts';
+
+export async function getStaticPaths() {
+  const { archive } = getSiteData();
+  return [...archive.by_tag.keys()].map((tag) => ({ params: { tag } }));
+}
+
+const { tag } = Astro.params;
+const { archive, articleByUrl, data } = getSiteData();
+const items = (archive.by_tag.get(tag!) ?? []).map((i) => articleByUrl.get(i.url)!).filter(Boolean);
+const label = (data.tags?.tags ?? []).find((t) => t.slug === tag)?.label ?? tag!;
+---
+
+<Base title={`${label} — 아카이브`} description={`태그 ${label}의 전체 글.`} path={`/archive/tag/${tag}/`} current="archive">
+  <main class="listing">
+    <h1 class="page-title">{label}</h1>
+    <ul class="cards">
+      {items.map((item) => <ArticleCard item={item} />)}
+    </ul>
+  </main>
+</Base>
+
+<style>
+  .listing {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: var(--s-48) 20px 0;
+  }
+  .page-title {
+    font-family: var(--serif);
+    font-size: var(--fs-27);
+    font-weight: 700;
+  }
+  .cards {
+    list-style: none;
+    margin: var(--s-24) 0 0;
+    padding: 0;
+  }
+</style>

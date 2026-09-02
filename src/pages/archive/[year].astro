@@ -1,0 +1,46 @@
+---
+/**
+ * /archive/{year}/ — publication-year axis listing (R-3: the archive asks
+ * "what did this magazine WRITE this year", unlike the release-keyed lists).
+ * Mixed types, ArticleCards, no scores.
+ */
+import ArticleCard from '../../components/ArticleCard.astro';
+import Base from '../../layouts/Base.astro';
+import { getSiteData } from '../../lib/derive/site-data.ts';
+
+export async function getStaticPaths() {
+  const { archive } = getSiteData();
+  return [...archive.by_year.keys()].map((year) => ({ params: { year } }));
+}
+
+const { year } = Astro.params;
+const { archive, articleByUrl } = getSiteData();
+const items = (archive.by_year.get(year!) ?? []).map((i) => articleByUrl.get(i.url)!).filter(Boolean);
+---
+
+<Base title={`${year} — 아카이브`} description={`${year}년에 발행된 전체 글.`} path={`/archive/${year}/`} current="archive">
+  <main class="listing">
+    <h1 class="page-title tnum">{year}</h1>
+    <ul class="cards">
+      {items.map((item) => <ArticleCard item={item} />)}
+    </ul>
+  </main>
+</Base>
+
+<style>
+  .listing {
+    max-width: var(--column);
+    margin: 0 auto;
+    padding: var(--s-48) 20px 0;
+  }
+  .page-title {
+    font-family: var(--serif);
+    font-size: var(--fs-27);
+    font-weight: 700;
+  }
+  .cards {
+    list-style: none;
+    margin: var(--s-24) 0 0;
+    padding: 0;
+  }
+</style>

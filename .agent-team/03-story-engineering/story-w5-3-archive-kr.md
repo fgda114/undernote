@@ -1,5 +1,5 @@
 ---
-status: ready-for-dev
+status: done
 story_key: w5-3-archive
 epic: E3 — 탐색 (CF-7 아카이브 · CF-6 아티스트)
 owner: Andrew (W5 단독 구현)
@@ -10,7 +10,7 @@ compiled_by: Matthew (#17) · 2026-09-02
 
 # 스토리 W5.3: 탐색 — 아카이브 4축 + 아티스트 페이지
 
-Status: ready-for-dev
+Status: done
 
 ## 스토리(Story) — story_requirements
 
@@ -33,17 +33,17 @@ so that **관심 축을 따라 글로 앨범을 고를 수 있다 (점수가 아
 
 ## 작업/하위작업(Tasks / Subtasks)
 
-- [ ] 작업 1 — `src/lib/derive/` 인덱스 (AC: #1~3)
-  - [ ] ArchiveIndex 4축 역인덱스 (by_year 발행 기준·by_bucket etc는 "그 외" 그룹·by_tag·by_artist) — ArchiveItem {type,url,title,date}만 (score 없음)
-  - [ ] 아티스트 집계 Map<artistSlug,(review|story)[]> — 복수 아티스트 전원
-- [ ] 작업 2 — checker 확장 (AC: #4)
-  - [ ] E-113 고아 검사를 4축 인덱스 완성본 기준으로 확정 (W5.2의 준비분 대체)
-- [ ] 작업 3 — 지면 (AC: #5~8)
-  - [ ] `/archive/…` 4축 탭 + 유형 필터 프리셋 — **W5.2의 C-2 셸(`archive/index.astro`)을 실구현으로 대체**. 버킷 = 굵은 라벨, 태그 = muted 소문자 칩(`--r-2`) 시각 구분
-  - [ ] ArticleCard는 **W5.2 산출 재사용** (신규 구현 아님 — Thomas N-4 이관. 형식 라벨·제목·부제·`<time>`·점수 프로퍼티 없음 계약 그대로)
-  - [ ] `/artists/[slug].astro` — 이름(세리프 27px)·소개글(산세리프)·집계 섹션 `{이름}을 다룬 글`
-  - [ ] **평론 히어로 아티스트명의 링크 승격 — 이 스토리 소유** (Thomas C-2 부수 배정): W5.1이 플레인 텍스트로 둔 아티스트명을 `/artists/{slug}/` 링크로 교체 (`src/pages/reviews/[slug].astro` 수정) + US-9 AC1 검증
-  - [ ] Masthead "평론/이야기" 프리셋 연결
+- [x] 작업 1 — `src/lib/derive/` 인덱스 (AC: #1~3)
+  - [x] ArchiveIndex 4축 역인덱스 (by_year 발행 기준·by_bucket etc는 "그 외" 그룹·by_tag·by_artist) — ArchiveItem {type,url,title,date}만 (score 없음)
+  - [x] 아티스트 집계 Map<artistSlug,(review|story)[]> — 복수 아티스트 전원
+- [x] 작업 2 — checker 확장 (AC: #4)
+  - [x] E-113 고아 검사를 4축 인덱스 완성본 기준으로 확정 (W5.2의 준비분 대체)
+- [x] 작업 3 — 지면 (AC: #5~8)
+  - [x] `/archive/…` 4축 탭 + 유형 필터 프리셋 — **W5.2의 C-2 셸(`archive/index.astro`)을 실구현으로 대체**. 버킷 = 굵은 라벨, 태그 = muted 소문자 칩(`--r-2`) 시각 구분
+  - [x] ArticleCard는 **W5.2 산출 재사용** (신규 구현 아님 — Thomas N-4 이관. 형식 라벨·제목·부제·`<time>`·점수 프로퍼티 없음 계약 그대로)
+  - [x] `/artists/[slug].astro` — 이름(세리프 27px)·소개글(산세리프)·집계 섹션 `{이름}을 다룬 글`
+  - [x] **평론 히어로 아티스트명의 링크 승격 — 이 스토리 소유** (Thomas C-2 부수 배정): W5.1이 플레인 텍스트로 둔 아티스트명을 `/artists/{slug}/` 링크로 교체 (`src/pages/reviews/[slug].astro` 수정) + US-9 AC1 검증
+  - [x] Masthead "평론/이야기" 프리셋 연결
 
 ---
 
@@ -135,17 +135,32 @@ so that **관심 축을 따라 글로 앨범을 고를 수 있다 (점수가 아
 ## Dev Agent Record (구현 기록)
 
 ### 사용 모델(Agent Model Used)
-_(구현 시 기입)_
+Claude (Andrew · 역할 #9) — 2026-09-02 구현
 
 ### 디버그 로그 참조
-_(구현 시 기입)_
+- 08-impl-notes/frontend.md W5.3 절
 
 ### 완료 노트 목록(Completion Notes List)
-- _(구현 시 기입)_
+- 4축 역인덱스 `src/lib/derive/archive.ts` (W5.2 관례대로 별파일): by_year 발행 연도·by_bucket etc="그 외"·by_tag canonical·by_artist 전원 집계(이야기는 참조 앨범 경유). ArchiveItem에 score 키 부재를 테스트로 고정.
+- **상류 모호 해소 1건**: artist-intro는 ArchiveItem으로 방출하지 않음 — §4.4가 date 필수인데 아티스트에겐 발행일이 없음. 아티스트 페이지 도달은 아티스트 축이 보장. 귀결로 **E-113 확정판의 실질 대상 = 무참조 아티스트** (발행일 있는 글은 연도 축에 정의상 편입 — 구조적 고아 불능이 설계 증명).
+- E-113 통합 실증: 고아 픽스처 복사 → 빌드 실패 + 한국어 메시지 (DoD 명시 항목 실측).
+- 라우팅: /archive/ 허브 + /archive/{year}/ + /archive/genre/{bucket}/ + /archive/tag/{tag}/ (태그 0이면 탭 자체 미표시) + 프리셋 전체 목록 승격. ArticleCard 재사용(N-4) — ArchiveItem→ArticleItem 변환은 site-data 단일 지점(articleByUrl).
+- /artists/{slug}: 소개(있을 때만)+집계, 순서 독립. 히어로 아티스트명 링크 승격 완료(US-9 AC1 — 밑줄 색비의존).
+- 이야기 픽스처 통합 빌드 포함 (리드 해소 주석 반영). 12 지면 · 테스트 119개 · check 0오류 · 2회 빌드 해시 동일.
 
 ### 파일 목록(File List)
 <!-- ⚠️ 다음 스토리(W5.4)의 이전 스토리 인텔리전스 입력 — 반드시 채울 것 (D4) -->
 
 | 파일 경로 | 상태 (신규/수정/삭제) |
 |-----------|----------------------|
-| _(구현 시 기입)_ | |
+| src/lib/derive/archive.ts | 신규 (4축 인덱스 + E-113 확정판) |
+| src/lib/derive/site-data.ts | 수정 (archive·allArticles·articleByUrl) |
+| src/lib/derive/review-page.ts | 수정 (artistLinks 추가) |
+| src/lib/checker/resolve.ts | 수정 (E-113 연결) |
+| src/pages/archive/index.astro | 수정 (셸 → 4축 허브 실구현) |
+| src/pages/archive/[year].astro · genre/[bucket].astro · tag/[tag].astro | 신규 |
+| src/pages/archive/{reviews,stories}.astro | 수정 (전체 목록 승격) |
+| src/pages/artists/[slug].astro | 신규 |
+| src/pages/reviews/[slug].astro | 수정 (아티스트명 링크 승격) |
+| content/stories/fixture-story.md | 수정 (태그 추가 — 태그 축 통합 커버리지) |
+| tests/unit/derive-archive.test.ts · tests/fixtures/orphan/ | 신규 |

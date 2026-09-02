@@ -1,20 +1,103 @@
 ---
 /**
- * /archive/ — C-2 shell (W5.2): fixes the preset URLs (/archive/reviews/ ·
- * /archive/stories/) and renders an honest empty state. W5.3 replaces this
- * with the real 4-axis archive. Exists now because E-112 is active and the
- * Masthead links here from every page.
+ * /archive/ — the 4-axis browse hub (ui-spec §6), replacing the W5.2 shell.
+ * Axes: 연도(발행 기준) / 장르(버킷 — bold labels) / 태그(muted chips — the
+ * tab itself disappears while the registry is empty) / 아티스트. Type presets
+ * (평론·이야기) sit on top — the global nav lands there. Empty axis values
+ * simply don't exist (R-4). No scores anywhere on browsing surfaces (D2).
  */
 import Base from '../../layouts/Base.astro';
+import { ETC_BUCKET_LABEL } from '../../lib/derive/archive.ts';
+import { getSiteData } from '../../lib/derive/site-data.ts';
+
+const { archive, data } = getSiteData();
+
+const years = [...archive.by_year.keys()].sort().reverse();
+
+const bucketLabels = new Map<string, string>();
+for (const block of data.genres?.years ?? []) {
+  for (const bucket of block.buckets) if (!bucketLabels.has(bucket.id)) bucketLabels.set(bucket.id, bucket.label);
+}
+const buckets = [...archive.by_bucket.keys()]
+  .sort()
+  .map((id) => ({ id, label: id === 'etc' ? ETC_BUCKET_LABEL : (bucketLabels.get(id) ?? id) }));
+
+const tagLabels = new Map((data.tags?.tags ?? []).map((t) => [t.slug, t.label]));
+const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tagLabels.get(slug) ?? slug }));
+
+const artistNames = new Map(data.artists.map((a) => [a.slug, a.data.name]));
+const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name: artistNames.get(slug) ?? slug }));
 ---
 
 <Base title="아카이브" description="연도·장르·태그·아티스트로 찾아보는 전체 글." path="/archive/" current="archive">
   <main class="archive">
     <h1 class="page-title">아카이브</h1>
+
     <ul class="presets">
       <li><a href="/archive/reviews/">평론</a></li>
       <li><a href="/archive/stories/">이야기</a></li>
     </ul>
+
+    {
+      years.length > 0 && (
+        <section class="axis">
+          <h2 class="axis-title">연도</h2>
+          <ul class="values">
+            {years.map((year) => (
+              <li>
+                <a class="value-strong tnum" href={`/archive/${year}/`}>{year}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      buckets.length > 0 && (
+        <section class="axis">
+          <h2 class="axis-title">장르</h2>
+          <ul class="values">
+            {buckets.map((bucket) => (
+              <li>
+                <a class="value-strong" href={`/archive/genre/${bucket.id}/`}>{bucket.label}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      /* Tag tab hidden entirely while no tags exist (ui-spec §6). */
+      tags.length > 0 && (
+        <section class="axis">
+          <h2 class="axis-title">태그</h2>
+          <ul class="values">
+            {tags.map((tag) => (
+              <li>
+                <a class="chip" href={`/archive/tag/${tag.slug}/`}>{tag.label}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      artists.length > 0 && (
+        <section class="axis">
+          <h2 class="axis-title">아티스트</h2>
+          <ul class="values">
+            {artists.map((artist) => (
+              <li>
+                <a class="value-strong" href={`/artists/${artist.slug}/`}>{artist.name}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
   </main>
 </Base>
 
@@ -23,6 +106,9 @@ import Base from '../../layouts/Base.astro';
     max-width: var(--column);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-32);
   }
   .page-title {
     font-family: var(--serif);
@@ -31,7 +117,7 @@ import Base from '../../layouts/Base.astro';
   }
   .presets {
     list-style: none;
-    margin: var(--s-24) 0 0;
+    margin: 0;
     padding: 0;
     display: flex;
     gap: var(--s-24);
@@ -41,9 +127,47 @@ import Base from '../../layouts/Base.astro';
     align-items: center;
     min-height: 44px;
     font-size: var(--fs-15);
-    font-weight: 600;
+    font-weight: 700;
   }
   .presets a:hover {
+    color: var(--seal);
+  }
+  .axis-title {
+    font-size: var(--fs-15);
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .values {
+    list-style: none;
+    margin: var(--s-8) 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-8) var(--s-16);
+  }
+  /* Buckets/years/artists: bold ink labels — tags: quiet lowercase chips.
+     The visual split IS the two-tier genre statement (ADR-0007). */
+  .value-strong {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--fs-16);
+    font-weight: 700;
+  }
+  .value-strong:hover {
+    color: var(--seal);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 var(--s-12);
+    font-size: var(--fs-14);
+    color: var(--muted);
+    background: var(--wash);
+    border-radius: var(--r-2);
+  }
+  .chip:hover {
     color: var(--seal);
   }
 </style>

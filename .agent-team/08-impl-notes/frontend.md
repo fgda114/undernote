@@ -4,6 +4,20 @@
 
 ---
 
+## W5.3 — 탐색: 아카이브 4축 + 아티스트 (2026-09-02)
+
+### 주요 결정·발견 (다음 스토리 필독)
+
+1. **아카이브 라우팅 확정**: `/archive/` 허브(축 값 나열) · `/archive/{year}/` · `/archive/genre/{bucket}/` · `/archive/tag/{tag}/` · 아티스트 축은 `/artists/{slug}/` 직결. 프리셋 `/archive/reviews|stories/`는 전체 목록으로 승격.
+2. **ArchiveItem → ArticleCard 변환은 단일 지점**: site-data의 `allArticles`(전량, date desc) + `articleByUrl` 맵 — 아카이브 지면은 인덱스의 url을 이 맵에 통과시켜 렌더 (부제·형식 라벨 중복 조립 없음).
+3. **아티스트 소개(artist-intro)는 ArchiveItem으로 방출하지 않음** — 계약(§4.4)이 date를 요구하는데 아티스트에겐 발행일이 없다. 아티스트 페이지 도달은 아티스트 축 자체가 보장. **이 결정의 귀결로 E-113 확정판의 실질 대상 = 무참조 아티스트** (평론·이야기는 발행일이 있어 연도 축에 정의상 편입 — 고아 불가능이 설계의 완전성 증명).
+4. E-113 통합 실증: tests/fixtures/orphan/orphan-artist.md를 content/artists/에 복사하면 빌드가 한국어 메시지와 함께 실패 (실측 완료).
+5. **아티스트명 링크 승격 완료** (W5.1 플레인 텍스트 → /artists/ 링크, 밑줄 색비의존). ReviewPageData에 artistLinks[] 추가.
+6. 이야기 픽스처는 리드 해소 주석대로 통합 빌드에 포함 (W5.2의 /stories/ 셸 선행 덕).
+7. 12 HTML 지면 · 테스트 119개 · 태그 축은 등록부 라벨 표시, 미등록 태그도 리터럴 slug로 인덱싱(E-201 경고는 별도).
+
+---
+
 ## W5.2 — 리스트 엔진 + 홈 (2026-09-02)
 
 ### 재현 명령

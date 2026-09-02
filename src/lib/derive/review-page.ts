@@ -14,6 +14,8 @@ export interface ReviewPageData {
   slug: string;
   title: string;
   artistsLabel: string;
+  /** Per-artist link data — hero renders names as /artists/ links (US-9 AC1). */
+  artistLinks: { slug: string; name: string }[];
   bucketLabel: string;
   releaseDateText: string;
   cover: CoverSet | null;
@@ -61,6 +63,7 @@ export function buildReviewPageData(input: {
     slug,
     title: album.title,
     artistsLabel,
+    artistLinks: album.artists.map((s) => ({ slug: s, name: artists.get(s)?.name ?? s })),
     bucketLabel: bucketLabelFor(album.bucket, Number(album.release_date.slice(0, 4)), genres),
     releaseDateText: formatReleaseDate(album.release_date),
     cover: coverSetFor({ slug, title: album.title, artistsLabel, cover: album.cover }),
