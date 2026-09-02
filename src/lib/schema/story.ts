@@ -7,7 +7,7 @@
  * optional role field is the lineage axis (plan B standby; plan A ignores it).
  */
 import { z } from 'astro/zod';
-import { isoDateSchema, slugSchema } from './common';
+import { isoDateSchema, slugSchema } from './common.ts';
 
 const roleSchema = z.enum(['lead', 'follow'], {
   error: (iss) => `role "${String(iss.input)}"은(는) 유효하지 않습니다. lead 또는 follow만 가능합니다.`,

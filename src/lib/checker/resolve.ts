@@ -14,10 +14,10 @@
  * designed state (api-contracts §3.4, US-14/R-4) — E-101 applies to reviews
  * and stories, where the body IS the product.
  */
-import { defaultListenLinks } from '../listen-links';
-import type { RepoData } from './load';
-import type { CheckResult, Finding } from './types';
-import { emptyResult } from './types';
+import { defaultListenLinks } from '../listen-links.ts';
+import type { RepoData } from './load.ts';
+import type { CheckResult, Finding } from './types.ts';
+import { emptyResult } from './types.ts';
 
 function releaseYear(releaseDate: string): number {
   return Number(releaseDate.slice(0, 4));

@@ -8,7 +8,7 @@
  */
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
-import { albumSchema, artistSchema, reviewSchema, snapshotSchema, storySchema } from './lib/schema';
+import { albumSchema, artistSchema, reviewSchema, snapshotSchema, storySchema } from './lib/schema/index.ts';
 
 export const collections = {
   // File name = album slug = URL segment (1:1, E-108 — checker).
