@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { luceneEscape, MbClient, MB_USER_AGENT } from '../../src/lib/mb/client';
 import { albumYaml, artistMarkdown, creditNames, releaseDateFrom, slugify } from '../../src/lib/mb/scaffold';
-import { MbError, type MbReleaseGroup } from '../../src/lib/mb/types';
+import { type MbReleaseGroup } from '../../src/lib/mb/types';
 import { parse as parseYaml } from 'yaml';
 import { albumSchema } from '../../src/lib/schema';
 

@@ -13,7 +13,7 @@
 # supplement (é for artist names), general punctuation, and the exact symbols
 # the UI micro-copy uses (↗ → ● ©). Rebuild + rerun if new glyphs appear.
 #
-# Also emits TTF siblings into src/assets/fonts/ for satori (OG cards):
+# Also emits TTF siblings into src/assets/fonts/ for satori (Pretendard as a static 400 instance) (OG cards):
 # satori cannot read woff2, and these build-only files never ship in dist.
 #
 # Usage:  python scripts/subset-fonts.py <PretendardVariable.ttf> <NotoSerifKR[wght].ttf>
@@ -94,11 +94,16 @@ def main() -> None:
     print(f"charset: {len(text)} chars")
 
     sizes = {}
-    # Pretendard stays variable (single file, whole weight axis).
+    # Pretendard stays variable for the web (single file, whole weight axis)…
     sizes["PretendardVariable-sub.woff2"] = run_subset(
         pretendard, OUT_WEB / "PretendardVariable-sub.woff2", text, "woff2"
     )
-    run_subset(pretendard, OUT_BUILD / "PretendardVariable-sub.ttf", text, None)
+    # …but satori chokes on variable TTFs ("reading '256'" crash) — the
+    # build-side copy must be a static 400 instance.
+    inst400 = OUT_BUILD / "Pretendard-inst400.ttf"
+    instance_weight(pretendard, 400, inst400)
+    run_subset(inst400, OUT_BUILD / "Pretendard-400-sub.ttf", text, None)
+    inst400.unlink()
 
     # Noto Serif KR: static 400/700 instances (only weights the system uses).
     for weight in (400, 700):
