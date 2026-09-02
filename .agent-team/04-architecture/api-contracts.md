@@ -263,7 +263,17 @@ properties:
   listen_link_patterns:                           # §6.3 검색형 패턴 오버라이드 (옵션 — 부재 시 §6.3 기본값)
     type: object
     additionalProperties: { type: string }        # service → urlTemplate ({q} 치환)
+  early_stage_threshold: { type: integer, default: 6 }  # 홈 극초기 변형 전환 임계 (ui-spec §1.5)
 ```
+
+> **`early_stage_threshold` 가산 (W5.2, 2026-09-02 — Andrew 요청 · 리드 Paul 승인).**
+> ui-spec §1.5는 "노미네이트 총수 ≥6이면 일반형"을 규정하고 스토리 AC12는 이 시안값을
+> **하드코딩하지 말고 설정으로 뺄 것**을 요구한다. 옵션 + 기본값 6이므로 기존
+> `site.yaml` 무수정으로 하위 호환하며, §7의 "필드 추가는 하위 호환(옵션으로 추가)"에
+> 해당해 ADR 갱신은 불요하다. `additionalProperties: false` 위반이 아닌 정식 가산이다.
+>
+> Andrew가 임의 키를 넣지 않고 §7 절차(문서 먼저 → Zod 반영)를 따랐다 — W3 게이트에서
+> 확정한 "임의 키 추가 금지" 규칙이 실제로 작동한 사례다.
 
 ---
 
