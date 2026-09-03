@@ -1247,3 +1247,85 @@ W2(James)가 확인해 `build-plan` §1에 권고한 구성이 그대로 성립�
 - [ ] manifest 웨이브 상태 갱신 (엔진에 `wave complete` 커맨드 부재 — `gates[]`가 실질 기록)
 - [ ] `/wave6-verify-report` — Thomas·Timothy·Matthias → Michael(보안) → Hananiah(리팩터) → Martin(리포트)
 - [ ] **원의 첫 실평론 대기** — 공개의 실제 병목. W6는 이와 무관하게 진행 가능
+
+---
+
+# ⏸️ 일시정지 — 2026-09-03 (User 요청) · W6 진행 중
+
+## 재개 브리핑
+
+### 현재 위치: **W6 1단계 완료 · 1.5~2단계 진행 중**
+
+| 단계 | 상태 |
+|---|---|
+| W6 1단계 Thomas(코드리뷰) | ✅ 완료·승인·shutdown |
+| W6 1단계 Timothy(문서화) | ✅ 완료·승인·shutdown |
+| W6 1단계 Matthias(QA·E2E) | ⏸️ 진행 중 정지 — E2E 구축 중 |
+| W6 1.5단계 Michael(보안) | ⏸️ 진행 중 정지 — 감사 중 |
+| **Andrew(결함 수정)** | ⏸️ 진행 중 정지 — **아래 우선순위 참조** |
+| W6 1.6단계 Hananiah(리팩터) | 미투입 — Andrew 수정 후 |
+| W6 2단계 Martin(리포트) | 미투입 |
+
+### 🔴 재개 시 최우선 — Andrew 수정 큐
+
+**① `astro check` 회귀 (1줄, CI 차단)**
+`tests/unit/derive-lists.test.ts:47` — `SiteConfig` 픽스처에 `early_stage_threshold` 누락.
+Zod v4가 `.default()`를 출력 타입에서 필수로 만든다. **리드가 승인한 §7 가산이 만든 회귀.**
+`npm test`(131/131)·`build`는 정상이고 **`check`만 실패** — 리드 3회 재현.
+→ 픽스처에 `early_stage_threshold: 6` 추가 + **다른 픽스처 전수 확인**
+
+**② M-3 `finalize` 사전 검증 누락 (1줄, 비가역)**
+`scripts/finalize.ts:64`가 `loadRepo`(shape만)만 부르고 **`runPrePass`(교차 무결성)를 안 부른다.**
+E-102 상태에서 평론이 빠진 잘못된 리스트가 **불변 스냅샷으로 동결**될 수 있다(ADR-0005).
+**연말 확정 한 번으로 그해 리스트가 영구히 틀어진다.** → `runPrePass`로 교체
+
+**③ B-1 blocking — 서브패스 배포 시 전 링크 파손 (User가 ⓑ 선택)**
+`BASE_URL` 0건 · href 전부 루트 상대 · `base_url`이 프로젝트 서브패스.
+**`E-112`는 `dist` 내부 검사라 구조적으로 검출 불가 — CI 초록인 채 100% 깨진 사이트가 나간다.**
+`launch-gate` §5 ④의 처방("base 설정 5분, 선택")도 **틀렸다**(Astro `base`는 수기 href를
+재작성하지 않음) → 문구도 정정할 것.
+→ **모든 링크·에셋을 `BASE_URL` 경유로.** 루트·서브패스 양쪽 정상 동작 + **검증 수단 필수**
+(E-112가 못 잡는 것이 문제의 핵심이므로)
+
+**④ M-1·M-2 `album-add` 안전성** — 커버를 존재 검사 전에 덮어씀 / 중도 이탈 시 고아
+아티스트가 E-113으로 전 발행 정지. **원이 쓰는 도구이고 실패 시 원이 복구 못 한다**
+
+**⑤ M-4** 구반 버킷 라벨 raw id 노출 · Thomas minor 중 Andrew 몫
+(**P1 침식 2건은 Hananiah 몫이니 손대지 말 것**)
+
+### W6 산출물 (커밋 `6cbcba5`)
+
+`10-review/` — `code-review.md`(blocking 1·major 4·minor 11) · `blocking-issues.md`
+`09-docs/` — 7종: `functional-spec` · `interface-spec` · `data-and-events` · `operations` ·
+`traceability-matrix` · `design-vs-impl-gaps` · **`content-guide-for-editor-kr`**(원용, 기술용어 0)
+
+### 반영 완료된 계약 정정 3건
+
+- `exceptions.md` E-101 문구 — 아티스트 빈 본문 허용 명시
+- `api-contracts` §4.3 `CoverSet.fallback` 가산
+- `api-contracts` §4.4 `artist-intro` enum — YAML 계약에만 적용됨을 명시(TS 제거가 옳음)
+
+### 미투입 2단계
+
+- **Hananiah**(리팩터) — Andrew 수정 후. 범위는 **동작보존만**이며 Thomas minor의
+  **P1 침식 2건**(홈 히어로 정렬 · 다른 글 합집합이 페이지 프론트매터에)이 주 대상.
+  버그 수정·계약 변경은 그의 범위 밖
+- **Martin**(통합 리포트 `report.html`) — 전 단계 완료 후
+
+### dev 서버
+
+리드가 `http://localhost:4321`에 띄웠다가 정지 시 종료. 재개 시:
+```
+node node_modules/astro/bin/astro.mjs dev
+```
+> `npm run dev`는 이 환경에서 실패한다 — npm이 띄우는 셸의 PATH에 `node`가 없다.
+
+### 🔴 User 작업 (공개 시점에만 필요 — 지금은 불요)
+
+지금 Pages를 켜도 **픽스처 게이트가 배포를 막는다**(정답 상태). 공개 순서:
+**원의 첫 실평론 → 사이트 이름 확정 → 픽스처 제거·실콘텐츠 투입 → Pages 활성화 → 배포**
+
+### 살아 있는 팀원
+
+W1~W6 팀원 다수가 idle/정지 상태. **재스폰 전 `ListAgents`로 생존 확인할 것** —
+이 세션에서 이중 가동 사고를 겪었고, `failed`(세션 한도)는 종료가 아니다.
