@@ -17,11 +17,16 @@
  * Build-only on purpose: the dev server must keep running while the editor
  * fixes content, so neither gate blocks `astro dev`.
  *
- * `site`/`base` are intentionally not set yet: public domain undecided (site
- * name pending); og:url derives from config/site.yaml#base_url instead.
+ * `site`/`base` derive from config/site.yaml#base_url (single source): a
+ * GitHub Pages project URL yields base "/undernote"; a custom domain later
+ * yields base "/" with zero code changes. Templates route every internal
+ * href/src through lib/paths.withBase — Astro's base does NOT rewrite
+ * hand-written hrefs, and E-112 (postbuild) enforces the prefix.
  */
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
+import { parse as parseYaml } from 'yaml';
 import type { AstroIntegration } from 'astro';
 import {
   formatReport,
@@ -63,7 +68,7 @@ function undernoteChecker(): AstroIntegration {
       },
       'astro:build:done': ({ dir, logger }) => {
         if (command !== 'build') return;
-        const postFailures = runPostBuildChecks(fileURLToPath(dir));
+        const postFailures = runPostBuildChecks(fileURLToPath(dir), baseUrl.pathname);
         const finalResult: CheckResult = { ...preResult, failures: postFailures };
         writeBuildReport(root, finalResult, boardState);
         if (postFailures.length > 0) {
@@ -78,6 +83,14 @@ function undernoteChecker(): AstroIntegration {
   };
 }
 
+// base_url is schema-validated by the checker gate; this early read only
+// needs the string (build aborts later if the config is broken anyway).
+const baseUrl = new URL(
+  (parseYaml(readFileSync(new URL('./config/site.yaml', import.meta.url), 'utf8')) as { base_url: string }).base_url,
+);
+
 export default defineConfig({
+  site: baseUrl.origin,
+  base: baseUrl.pathname,
   integrations: [undernoteChecker()],
 });

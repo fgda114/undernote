@@ -5,6 +5,7 @@
  * (D2: browsing surfaces never receive score data at all).
  */
 import type { ArticleItem } from '../lib/derive/lists.ts';
+import { withBase } from '../lib/paths.ts';
 
 interface Props {
   item: ArticleItem;
@@ -14,7 +15,7 @@ const { item } = Astro.props;
 ---
 
 <li class="article-card">
-  <a href={item.url} class="card-link">
+  <a href={withBase(item.url)} class="card-link">
     <span class="format">{item.formatLabel}</span>
     <span class="title">{item.title}</span>
     {item.subtitle && <span class="subtitle">{item.subtitle}</span>}

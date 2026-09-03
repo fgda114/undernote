@@ -18,6 +18,7 @@ import ListRankRow from '../../../components/ListRankRow.astro';
 import Base from '../../../layouts/Base.astro';
 import { coverSetFor } from '../../../lib/covers.ts';
 import { getSiteData } from '../../../lib/derive/site-data.ts';
+import { withBase } from '../../../lib/paths.ts';
 
 export async function getStaticPaths() {
   const { site, snapshotYears } = getSiteData();
@@ -139,7 +140,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
             </div>
           </section>
           {previousSnapshot && (
-            <a class="tail-link" href={`/list/${year - 1}/`}>지난해 확정 리스트 →</a>
+            <a class="tail-link" href={withBase(`/list/${year - 1}/`)}>지난해 확정 리스트 →</a>
           )}
         </>
       )

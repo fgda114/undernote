@@ -1,0 +1,13 @@
+{
+  "name": "undernote-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node lib/setup-rich.mjs",
+    "test": "playwright test",
+    "e2e": "node lib/setup-rich.mjs && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

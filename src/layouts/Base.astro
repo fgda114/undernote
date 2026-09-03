@@ -10,6 +10,7 @@
 import Footer from '../components/Footer.astro';
 import Masthead from '../components/Masthead.astro';
 import { absoluteUrl, getSiteConfig } from '../lib/site.ts';
+import { withBase } from '../lib/paths.ts';
 import '../styles/global.css';
 
 interface Props {
@@ -28,6 +29,14 @@ const site = getSiteConfig();
 const { title, description, ogType = 'website', ogImage = '/og/default.png', path, current } = Astro.props;
 const goatcounter = site.goatcounter_code;
 const fullTitle = title === site.site_name ? title : `${title} — ${site.site_name}`;
+
+// @font-face lives HERE, not in global.css: CSS cannot apply the deploy base
+// to url() and Astro inlines the stylesheet, so root-relative font URLs
+// would 404 under a subpath deploy (B-1 class). Computed with withBase.
+const fontFaceCss = `
+@font-face{font-family:'Pretendard Variable';src:url('${withBase('/fonts/PretendardVariable-sub.woff2')}') format('woff2-variations');font-weight:45 920;font-display:swap}
+@font-face{font-family:'Noto Serif KR';src:url('${withBase('/fonts/NotoSerifKR-400-sub.woff2')}') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Noto Serif KR';src:url('${withBase('/fonts/NotoSerifKR-700-sub.woff2')}') format('woff2');font-weight:700;font-display:swap}`;
 ---
 
 <!doctype html>
@@ -37,8 +46,8 @@ const fullTitle = title === site.site_name ? title : `${title} — ${site.site_n
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={withBase('/apple-touch-icon.png')} />
     <link rel="canonical" href={absoluteUrl(path)} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
@@ -48,8 +57,9 @@ const fullTitle = title === site.site_name ? title : `${title} — ${site.site_n
     <meta property="og:site_name" content={site.site_name} />
     <meta name="twitter:card" content="summary_large_image" />
     {/* Fonts are small subsets; preloading the two first-paint faces avoids FOUT on the wordmark. */}
-    <link rel="preload" href="/fonts/NotoSerifKR-700-sub.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/PretendardVariable-sub.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={withBase('/fonts/NotoSerifKR-700-sub.woff2')} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={withBase('/fonts/PretendardVariable-sub.woff2')} as="font" type="font/woff2" crossorigin />
+    <Fragment set:html={`<style>${fontFaceCss}</style>`} />
   </head>
   <body>
     <Masthead current={current} />

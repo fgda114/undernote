@@ -9,6 +9,7 @@
 import Base from '../../layouts/Base.astro';
 import { ETC_BUCKET_LABEL } from '../../lib/derive/archive.ts';
 import { getSiteData } from '../../lib/derive/site-data.ts';
+import { withBase } from '../../lib/paths.ts';
 
 const { archive, data } = getSiteData();
 
@@ -34,8 +35,8 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
     <h1 class="page-title">아카이브</h1>
 
     <ul class="presets">
-      <li><a href="/archive/reviews/">평론</a></li>
-      <li><a href="/archive/stories/">이야기</a></li>
+      <li><a href={withBase('/archive/reviews/')}>평론</a></li>
+      <li><a href={withBase('/archive/stories/')}>이야기</a></li>
     </ul>
 
     {
@@ -45,7 +46,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
           <ul class="values">
             {years.map((year) => (
               <li>
-                <a class="value-strong tnum" href={`/archive/${year}/`}>{year}</a>
+                <a class="value-strong tnum" href={withBase(`/archive/${year}/`)}>{year}</a>
               </li>
             ))}
           </ul>
@@ -60,7 +61,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
           <ul class="values">
             {buckets.map((bucket) => (
               <li>
-                <a class="value-strong" href={`/archive/genre/${bucket.id}/`}>{bucket.label}</a>
+                <a class="value-strong" href={withBase(`/archive/genre/${bucket.id}/`)}>{bucket.label}</a>
               </li>
             ))}
           </ul>
@@ -76,7 +77,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
           <ul class="values">
             {tags.map((tag) => (
               <li>
-                <a class="chip" href={`/archive/tag/${tag.slug}/`}>{tag.label}</a>
+                <a class="chip" href={withBase(`/archive/tag/${tag.slug}/`)}>{tag.label}</a>
               </li>
             ))}
           </ul>
@@ -91,7 +92,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
           <ul class="values">
             {artists.map((artist) => (
               <li>
-                <a class="value-strong" href={`/artists/${artist.slug}/`}>{artist.name}</a>
+                <a class="value-strong" href={withBase(`/artists/${artist.slug}/`)}>{artist.name}</a>
               </li>
             ))}
           </ul>

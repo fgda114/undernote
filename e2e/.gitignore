@@ -1,0 +1,4 @@
+node_modules/
+.sandbox/
+test-results/
+playwright-report/

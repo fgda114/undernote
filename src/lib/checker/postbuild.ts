@@ -48,20 +48,40 @@ export function checkOgTrio(distDir: string): Finding[] {
   return findings;
 }
 
-/** Internal links only: href="/..." — external/anchor/mailto are ignored.
- * A target resolves when dist has the file itself, or its /index.html. */
-export function checkInternalLinks(distDir: string): Finding[] {
+/**
+ * Internal links only: href/src="/..." — external/anchor/mailto are ignored.
+ * BASE-AWARE (B-1 fix): dist's directory layout never contains the deploy
+ * base, so URLs are resolved after stripping it — and with a non-root base,
+ * any internal URL that does NOT carry the prefix is itself an E-112
+ * failure. That is the structural detector B-1 lacked: a hand-written
+ * root-relative href would 404 under a subpath deploy while resolving fine
+ * inside dist, so existence checking alone can never catch it.
+ */
+export function checkInternalLinks(distDir: string, base = '/'): Finding[] {
   const findings: Finding[] = [];
   const seen = new Set<string>();
+  const prefix = base.replace(/\/+$/, ''); // '/' → '' · '/undernote/' → '/undernote'
   for (const file of listHtmlFiles(distDir)) {
     const html = readFileSync(join(distDir, file), 'utf8');
     for (const match of html.matchAll(/(?:href|src)="(\/[^"]*)"/g)) {
       const target = match[1].split('#')[0].split('?')[0];
-      if (target === '/' || target === '') continue;
+      if (target === '') continue;
       const key = `${file} → ${target}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      const rel = target.replace(/^\//, '');
+
+      if (prefix && !(target === prefix || target.startsWith(`${prefix}/`))) {
+        findings.push({
+          code: 'E-112',
+          message: `E-112: 내부 링크 "${target}"에 배포 접두 "${prefix}"가 없습니다 — 서브패스 배포에서 404가 됩니다. 템플릿에서 withBase()를 거치세요 (src/lib/paths.ts).`,
+          file: `dist/${file}`,
+        });
+        continue;
+      }
+
+      const sitePath = prefix ? target.slice(prefix.length) : target;
+      if (sitePath === '/' || sitePath === '') continue;
+      const rel = sitePath.replace(/^\//, '');
       const candidates = [rel, join(rel, 'index.html'), rel.replace(/\/$/, '') + '/index.html'];
       if (!candidates.some((c) => existsSync(join(distDir, c)))) {
         findings.push({
@@ -75,6 +95,6 @@ export function checkInternalLinks(distDir: string): Finding[] {
   return findings;
 }
 
-export function runPostBuildChecks(distDir: string): Finding[] {
-  return [...checkOgTrio(distDir), ...checkInternalLinks(distDir)];
+export function runPostBuildChecks(distDir: string, base = '/'): Finding[] {
+  return [...checkOgTrio(distDir), ...checkInternalLinks(distDir, base)];
 }

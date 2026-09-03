@@ -19,6 +19,7 @@ import Base from '../layouts/Base.astro';
 import { getSiteData } from '../lib/derive/site-data.ts';
 import { toListEntry, compareR1 } from '../lib/derive/lists.ts';
 import { formatReleaseDate } from '../lib/derive/review-page.ts';
+import { withBase } from '../lib/paths.ts';
 
 const { site, board, latestArticles, latestPubDate, homeVariant, joined, data } = getSiteData();
 const nominateTotal = board.buckets.reduce((n, b) => n + b.entries.length, 0);
@@ -50,7 +51,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
       homeVariant === 'post-finalize' && previousSnapshot && (
         <section class="finalized-card">
           <FormatLabel text={`${previousYear} 올해의 앨범`} />
-          <a class="finalized-link" href={`/list/${previousYear}/`}>
+          <a class="finalized-link" href={withBase(`/list/${previousYear}/`)}>
             <span class="finalized-title">{previousYear} 올해의 앨범 — 확정</span>
             <span class="arrow" aria-hidden="true">→</span>
           </a>
@@ -65,11 +66,11 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
             <FormatLabel text={`${site.active_year} 올해의 앨범`} />
             <p class="banner-line">
               올해의 앨범 후보가 여기서 자랍니다 — 지금까지 평론 {data.reviews.length}편
-              <a class="banner-link" href={`/list/${site.active_year}/`}>전체 보기 →</a>
+              <a class="banner-link" href={withBase(`/list/${site.active_year}/`)}>전체 보기 →</a>
             </p>
           </section>
           <section class="review-hero">
-            <a href={heroEntry.review_url} class="hero-link">
+            <a href={withBase(heroEntry.review_url)} class="hero-link">
               <CoverImage cover={heroEntry.cover} size={320} albumTitle={heroEntry.title} loading="eager" />
               <span class="hero-text">
                 <FormatLabel text="평론" />
@@ -95,7 +96,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
               <BoardPanel bucket={bucket} />
             ))}
           </div>
-          <a class="board-more" href={`/list/${site.active_year}/`}>올해의 앨범 전체 보기 →</a>
+          <a class="board-more" href={withBase(`/list/${site.active_year}/`)}>올해의 앨범 전체 보기 →</a>
         </section>
       )
     }

@@ -10,6 +10,7 @@
  */
 import type { AlbumBoxRow } from '../lib/derive/links.ts';
 import CoverImage from './CoverImage.astro';
+import { withBase } from '../lib/paths.ts';
 
 interface Props {
   rows: AlbumBoxRow[];
@@ -30,7 +31,7 @@ const { rows } = Astro.props;
             {row.meta && <span class="meta">{row.meta}</span>}
           </span>
           {row.reviewUrl ? (
-            <a class="action" href={row.reviewUrl} aria-label={`${row.title} 평론 읽기`}>
+            <a class="action" href={withBase(row.reviewUrl)} aria-label={`${row.title} 평론 읽기`}>
               평론 읽기 <span aria-hidden="true">→</span>
             </a>
           ) : (
