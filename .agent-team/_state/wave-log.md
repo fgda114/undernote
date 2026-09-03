@@ -1266,20 +1266,34 @@ W2(James)가 확인해 `build-plan` §1에 권고한 구성이 그대로 성립�
 | W6 1.6단계 Hananiah(리팩터) | 미투입 — Andrew 수정 후 |
 | W6 2단계 Martin(리포트) | 미투입 |
 
-### 🔴 재개 시 최우선 — Andrew 수정 큐
+### ✅ 정지 직전 완료 — Andrew P1·P2 (커밋 `cbe0d0e`, 리드 검증 완료)
 
-**① `astro check` 회귀 (1줄, CI 차단)**
+**P1 `astro check` 회귀 — 해소.** 리드 재확인: **0 errors**(78파일).
+> **지적된 것보다 넓었다.** `derive-lists` 외에 **`as SiteConfig` 캐스트로 tsc를
+> 통과하던 3곳이 더 있었다**(`derive-archive`·`golden`·`links`) — 캐스트가 타입 오류를
+> 가리고 있었다. Timothy가 찾은 것은 빙산의 일각이었고, 리드가 지시한 "다른 픽스처
+> 전수 확인"이 값을 했다. 4곳 전부 `early_stage_threshold: 6` 추가.
+
+**P2 `finalize` 사전 검증 — 해소.** 리드 재확인: `scripts/finalize.ts:67`이
+`runPrePass(root)` 호출. 주석에 비가역 근거 명기.
+음성 실증: 앨범 없는 평론(E-102) 상태에서 **확정 거부 + 한국어 전량 보고 + 스냅샷 미생성**.
+
+테스트 131개 통과.
+
+### 🔴 재개 시 최우선 — Andrew 수정 큐 (P1·P2 완료, P3부터)
+
+**~~① `astro check` 회귀~~ — ✅ 완료 (`cbe0d0e`)**
 `tests/unit/derive-lists.test.ts:47` — `SiteConfig` 픽스처에 `early_stage_threshold` 누락.
 Zod v4가 `.default()`를 출력 타입에서 필수로 만든다. **리드가 승인한 §7 가산이 만든 회귀.**
 `npm test`(131/131)·`build`는 정상이고 **`check`만 실패** — 리드 3회 재현.
 → 픽스처에 `early_stage_threshold: 6` 추가 + **다른 픽스처 전수 확인**
 
-**② M-3 `finalize` 사전 검증 누락 (1줄, 비가역)**
+**~~② M-3 `finalize` 사전 검증 누락~~ — ✅ 완료 (`cbe0d0e`)**
 `scripts/finalize.ts:64`가 `loadRepo`(shape만)만 부르고 **`runPrePass`(교차 무결성)를 안 부른다.**
 E-102 상태에서 평론이 빠진 잘못된 리스트가 **불변 스냅샷으로 동결**될 수 있다(ADR-0005).
 **연말 확정 한 번으로 그해 리스트가 영구히 틀어진다.** → `runPrePass`로 교체
 
-**③ B-1 blocking — 서브패스 배포 시 전 링크 파손 (User가 ⓑ 선택)**
+**③ B-1 blocking — 서브패스 배포 시 전 링크 파손 (User가 ⓑ 선택) ← 여기부터 재개**
 `BASE_URL` 0건 · href 전부 루트 상대 · `base_url`이 프로젝트 서브패스.
 **`E-112`는 `dist` 내부 검사라 구조적으로 검출 불가 — CI 초록인 채 100% 깨진 사이트가 나간다.**
 `launch-gate` §5 ④의 처방("base 설정 5분, 선택")도 **틀렸다**(Astro `base`는 수기 href를
