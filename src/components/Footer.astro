@@ -9,6 +9,7 @@
  * SNS links come from config when they exist; absent → not rendered (R-4).
  */
 import { getSiteConfig } from '../lib/site.ts';
+import { withBase } from '../lib/paths.ts';
 
 const site = getSiteConfig();
 ---
@@ -16,8 +17,8 @@ const site = getSiteConfig();
 <footer class="footer">
   <div class="footer-inner">
     <ul class="footer-nav">
-      <li><a href="/about/">소개/기준</a></li>
-      <li><a href="/archive/">아카이브</a></li>
+      <li><a href={withBase('/about/')}>소개/기준</a></li>
+      <li><a href={withBase('/archive/')}>아카이브</a></li>
     </ul>
     <p class="copyright">© {site.active_year} {site.site_name}</p>
   </div>

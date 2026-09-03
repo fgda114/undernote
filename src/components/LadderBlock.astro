@@ -16,6 +16,8 @@ interface Props {
   stories: { url: string; title: string; excerpt: string }[];
 }
 
+import { withBase } from '../lib/paths.ts';
+
 const { mode, bucketLabel = '', stories } = Astro.props;
 const leadCopy =
   mode === 'bucket' ? `이 장르가 낯설다면 — ${bucketLabel} 이야기` : '이 점수가 낯설다면 — 이 앨범이 놓인 흐름 이야기';
@@ -27,7 +29,7 @@ const leadCopy =
     {
       stories.map((story) => (
         <li>
-          <a href={story.url}>
+          <a href={withBase(story.url)}>
             <span class="story-title">{story.title}</span>
             {story.excerpt && <span class="excerpt">{story.excerpt}</span>}
             <span class="arrow" aria-hidden="true">→</span>

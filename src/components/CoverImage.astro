@@ -10,6 +10,7 @@
  * are always set: zero CLS is a hard rule.
  */
 import type { CoverSet } from '../lib/covers.ts';
+import { withBase } from '../lib/paths.ts';
 
 interface Props {
   cover: CoverSet | null;
@@ -36,8 +37,8 @@ const letter = Array.from(albumTitle.trim())[0] ?? '';
 {
   cover && src ? (
     <picture>
-      <source type="image/webp" srcset={src} />
-      <img class="cover" src={cover.fallback} alt={cover.alt} width={size} height={size} loading={loading} decoding="async" />
+      <source type="image/webp" srcset={withBase(src)} />
+      <img class="cover" src={withBase(cover.fallback)} alt={cover.alt} width={size} height={size} loading={loading} decoding="async" />
     </picture>
   ) : (
     <span class="cover placeholder" style={`--cover-size:${size}px`} role="img" aria-label={`${albumTitle} 커버`}>

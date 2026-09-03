@@ -108,9 +108,10 @@
       "wave_id": "W6",
       "project_id": "bathos-b8a396ee-6b9e-4275-9de3-f94e7e698431",
       "name": "Verify · Documentation · Report",
-      "status": "pending",
+      "status": "active",
       "active_roles": [],
-      "exit_gate": "Release"
+      "exit_gate": "Release",
+      "started": "2026-09-03T00:04:41.072972800Z"
     }
   ],
   "roles": [],

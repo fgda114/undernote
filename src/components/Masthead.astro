@@ -9,6 +9,7 @@
  * obligation (E-112 readiness).
  */
 import { getSiteConfig } from '../lib/site.ts';
+import { withBase } from '../lib/paths.ts';
 
 interface Props {
   /** Which nav item is the current page (aria-current + visual state). */
@@ -18,19 +19,20 @@ interface Props {
 const { current } = Astro.props;
 const site = getSiteConfig();
 
+// Every href passes withBase — subpath deploys 404 otherwise (B-1).
 const items = [
-  { key: 'reviews', label: '평론', href: '/archive/reviews/' },
-  { key: 'stories', label: '이야기', href: '/archive/stories/' },
-  { key: 'list', label: '올해의앨범', href: `/list/${site.active_year}/` },
-  { key: 'archive', label: '아카이브', href: '/archive/' },
-  { key: 'about', label: '소개', href: '/about/' },
+  { key: 'reviews', label: '평론', href: withBase('/archive/reviews/') },
+  { key: 'stories', label: '이야기', href: withBase('/archive/stories/') },
+  { key: 'list', label: '올해의앨범', href: withBase(`/list/${site.active_year}/`) },
+  { key: 'archive', label: '아카이브', href: withBase('/archive/') },
+  { key: 'about', label: '소개', href: withBase('/about/') },
 ] as const;
 ---
 
 <header class="masthead">
   <nav aria-label="주 메뉴" class="masthead-inner">
     {/* Wordmark: serif 700 + seal period — text logo, single replacement point. */}
-    <a href="/" class="wordmark">{site.site_name}<span class="wordmark-dot" aria-hidden="true">.</span></a>
+    <a href={withBase('/')} class="wordmark">{site.site_name}<span class="wordmark-dot" aria-hidden="true">.</span></a>
     <ul class="nav-list">
       {
         items.map((item) => (

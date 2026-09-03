@@ -7,6 +7,7 @@
  * (SS-8); this component provides no reordering UI.
  */
 import CoverImage from './CoverImage.astro';
+import { withBase } from '../lib/paths.ts';
 
 interface Props {
   rank: number;
@@ -22,7 +23,7 @@ const { rank, title, artistsLabel, score, reviewUrl, cover, champion = false } =
 ---
 
 <li class:list={['rank-row', { champion, first: rank === 1 }]}>
-  <a href={reviewUrl} class="row-link">
+  <a href={withBase(reviewUrl)} class="row-link">
     <span class="rank tnum" aria-hidden="true">{rank}</span>
     <CoverImage cover={cover} size={champion ? 160 : 64} albumTitle={title} />
     <span class="titles">

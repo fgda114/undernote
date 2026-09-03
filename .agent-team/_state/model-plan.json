@@ -1,17 +1,13 @@
 {
   "schema": "bathos/model-plan@1",
-  "updated": "2026-09-02T03:24:25.122269100Z",
+  "updated": "2026-09-03T00:05:40.363822400Z",
   "updated_by": "Paul",
   "session_backend": "claude",
   "defaults": {
     "runtime": "claude"
   },
   "roles": {
-    "john-reverse-specialist": {
-      "runtime": "claude",
-      "model": "haiku"
-    },
-    "thomas-code-reviewer": {
+    "mishael-security-specialist": {
       "runtime": "claude",
       "model": "claude-fable-5"
     },
@@ -22,6 +18,14 @@
     "andrew-frontend-engineer": {
       "runtime": "claude",
       "model": "claude-fable-5"
+    },
+    "thomas-code-reviewer": {
+      "runtime": "claude",
+      "model": "claude-fable-5"
+    },
+    "john-reverse-specialist": {
+      "runtime": "claude",
+      "model": "haiku"
     }
   },
   "waves": {}

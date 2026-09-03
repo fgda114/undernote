@@ -5,26 +5,9 @@
  */
 @import './tokens.css';
 
-/* ── Self-hosted subset fonts (tokens.md §3 — CDN forbidden, <1.5MB total).
-   unicode-range keeps the browser from downloading a face it never paints. ── */
-@font-face {
-  font-family: 'Pretendard Variable';
-  src: url('/fonts/PretendardVariable-sub.woff2') format('woff2-variations');
-  font-weight: 45 920;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Noto Serif KR';
-  src: url('/fonts/NotoSerifKR-400-sub.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Noto Serif KR';
-  src: url('/fonts/NotoSerifKR-700-sub.woff2') format('woff2');
-  font-weight: 700;
-  font-display: swap;
-}
+/* Self-hosted subset fonts are declared in Base.astro, not here: CSS url()
+   cannot carry the deploy base (B-1), so @font-face is computed with
+   withBase at render time. */
 
 /* ── Reset (small on purpose) ── */
 *,

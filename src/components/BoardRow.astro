@@ -7,6 +7,7 @@
  */
 import type { ListEntry } from '../lib/derive/lists.ts';
 import CoverImage from './CoverImage.astro';
+import { withBase } from '../lib/paths.ts';
 
 interface Props {
   entry: ListEntry;
@@ -17,7 +18,7 @@ const { entry, rank } = Astro.props;
 ---
 
 <li class:list={['board-row', { first: rank === 1 }]}>
-  <a href={entry.review_url} class="row-link">
+  <a href={withBase(entry.review_url)} class="row-link">
     <span class="rank tnum" aria-hidden="true">{rank}</span>
     <CoverImage cover={entry.cover} size={48} albumTitle={entry.title} />
     <span class="titles">

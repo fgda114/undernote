@@ -14,10 +14,12 @@ interface Props {
   year: number;
 }
 
+import { withBase } from '../lib/paths.ts';
+
 const { bucketLabel, rank, year } = Astro.props;
 ---
 
-<a class="badge" href={`/list/${year}/`}>
+<a class="badge" href={withBase(`/list/${year}/`)}>
   <span aria-hidden="true">●</span>
   지금 {bucketLabel} 노미네이트 {rank}위 → 보드 보기
 </a>

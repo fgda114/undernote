@@ -22,6 +22,7 @@ import { deriveBacklinks } from '../../lib/derive/links.ts';
 import { buildReviewPageData } from '../../lib/derive/review-page.ts';
 import { getSiteConfig } from '../../lib/site.ts';
 import { getSiteData } from '../../lib/derive/site-data.ts';
+import { withBase } from '../../lib/paths.ts';
 import { genresConfigSchema } from '../../lib/schema/index.ts';
 import { readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
@@ -94,7 +95,7 @@ const otherByArtist = [
             {page.artistLinks.map((artist, i) => (
               <>
                 {i > 0 && ', '}
-                <a class="artist-link" href={`/artists/${artist.slug}/`}>{artist.name}</a>
+                <a class="artist-link" href={withBase(`/artists/${artist.slug}/`)}>{artist.name}</a>
               </>
             ))} · {page.bucketLabel} · {page.releaseDateText}
           </p>
