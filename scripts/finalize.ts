@@ -22,7 +22,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stringify } from 'yaml';
-import { loadRepo } from '../src/lib/checker/load.ts';
+import { runPrePass } from '../src/lib/checker/index.ts';
 import {
   deriveBoard,
   deriveTop10,
@@ -61,7 +61,10 @@ async function main() {
     process.exit(1);
   }
 
-  const { data, result } = loadRepo(root);
+  // Full pre-pass (shape + cross-file integrity, E-100~110) — NOT loadRepo
+  // alone: freezing under an E-102 state would bake a silently-short list
+  // into the immutable snapshot (irreversible by design, ADR-0005).
+  const { data, result } = runPrePass(root);
   if (result.failures.length > 0) {
     console.error('콘텐츠 검증 실패 상태에서는 확정할 수 없습니다 — 먼저 빌드를 통과시키세요.');
     for (const f of result.failures) console.error(`  ${f.file} — ${f.message}`);

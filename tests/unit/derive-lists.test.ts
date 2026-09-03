@@ -49,6 +49,9 @@ const site: SiteConfig = {
   base_url: 'https://example.com',
   active_year: 2026,
   og_use_cover: true,
+  // Zod v4 .default() makes this REQUIRED in the output type (documented
+  // breaking change) — fixtures typed as SiteConfig must carry it.
+  early_stage_threshold: 6,
 };
 
 let counter = 0;

@@ -49,7 +49,7 @@ const repo: RepoData = {
     entry<Artist>('orphan-artist', { name: '고아' }), // referenced by nothing
   ],
   snapshots: [],
-  site: { site_name: 'undernote', base_url: 'https://example.com', active_year: 2026, og_use_cover: true } as SiteConfig,
+  site: { site_name: 'undernote', base_url: 'https://example.com', active_year: 2026, og_use_cover: true, early_stage_threshold: 6 } as SiteConfig,
   genres: { years: [{ year: 2026, buckets: [{ id: 'pop', label: '팝', order: 1 }], min_reviews_to_publish: 3 }] },
   tags: { tags: [{ slug: 'city-pop', label: '시티팝', aliases: [] }] },
 };

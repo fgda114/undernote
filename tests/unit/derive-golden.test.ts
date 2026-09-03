@@ -64,7 +64,7 @@ const repo: RepoData = {
   stories: [],
   artists: [entry<Artist>('artist-a', { name: '아티스트A' })],
   snapshots: [],
-  site: { site_name: 'undernote', base_url: 'https://example.com', active_year: 2026, og_use_cover: true } as SiteConfig,
+  site: { site_name: 'undernote', base_url: 'https://example.com', active_year: 2026, og_use_cover: true, early_stage_threshold: 6 } as SiteConfig,
   genres,
   tags: { tags: [] },
 };
