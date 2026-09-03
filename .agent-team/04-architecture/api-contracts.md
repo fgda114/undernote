@@ -365,6 +365,7 @@ CoverSet:
     w320: { type: string }    # 카드
     w640: { type: string }    # 평론 히어로 · OG 합성 원료
     alt:  { type: string }    # "앨범명 — 아티스트 앨범 커버" (ADR-0008 §3)
+    fallback: { type: string }   # 축소 마스터 원본 — non-WebP 에이전트 <img> 폴백 (W6 Timothy 발견, 리드 승인 2026-09-03)
 
 # 4.4 ArchiveIndex — 4축 인덱스 (SS-11). 점수 없음 (D2 — 탐색 지면 비표시)
 ArchiveIndex:
@@ -404,6 +405,15 @@ ArchiveItem:
 >
 > `type` enum에서 `artist-intro`를 제거하지 않고 남겨 둔다 — 향후 아티스트에게 발행일
 > 개념이 생기면(예: 소개글 작성일 도입) 계약 변경 없이 켤 수 있다. **현재는 미사용이다.**
+>
+> **정정 (W6, 2026-09-03 — Timothy 발견 · 리드 승인):** 위 "enum에 남겨 두라"는 지시는
+> **YAML 계약(이 문서)에만 적용된다.** 구현의 TS 타입(`src/lib/derive/archive.ts`)은
+> `artist-intro`를 **완전히 제거**했고, 그것이 옳다 — 방출하지 않는 값을 유니온에 남기면
+> **당장 쓰이지 않는 유연성을 위해 타입 안전성을 낮추는 트레이드오프**가 된다.
+> `tests/unit/derive-archive.test.ts`가 이 상태를 고정하고 있다.
+>
+> 즉 **계약은 상위집합(향후 확장 여지), 구현은 실제 방출분**이며 이는 불일치가 아니다.
+> 향후 `artist-intro`를 켤 때 TS 유니온에 다시 넣으면 된다.
 ```yaml
 # 4.5 Backlinks — 평론 페이지의 "이 앨범이 등장하는 이야기" (SS-10 폴백 사슬)
 Backlinks:
