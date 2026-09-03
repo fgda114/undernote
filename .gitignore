@@ -65,3 +65,7 @@ reports/
 # 폰트 릴리스 조회 등 API 응답 잔여물
 pret-rel.json
 *-rel.json
+
+# 리뷰·QA가 경합 회피로 만드는 분리 빌드 산출물
+dist-check-*/
+dist-*/
