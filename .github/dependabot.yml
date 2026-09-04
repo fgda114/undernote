@@ -1,0 +1,15 @@
+# Supply-chain watch (security audit UN-SEC-003): the build IS the product's
+# runtime, so build-time dependencies are the trust boundary. Dependabot keeps
+# the npm tree and the SHA-pinned actions (UN-SEC-002) patched — without it
+# the lockfile ages unwatched (one-person operation, no manual audit routine).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

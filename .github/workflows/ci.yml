@@ -16,13 +16,18 @@ on:
 env:
   TZ: Asia/Seoul
 
+# Least privilege (security audit UN-SEC-001): verify only reads the repo.
+# deploy declares its own elevated scopes; unlisted scopes default to none.
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
@@ -81,7 +86,7 @@ jobs:
       # exactly these bytes, never a rebuild.
       - name: Upload site artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: dist-1
 
@@ -90,6 +95,7 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     permissions:
+      contents: read # checkout for the fixture-content gate
       pages: write
       id-token: write
     environment:
@@ -101,7 +107,7 @@ jobs:
       # verify — so dev builds stay green; and checked against the repo, not
       # via a rebuild, so the verified dist-1 bytes still deploy untouched
       # (atomicity argument of the pipeline is preserved).
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Fixture content must not deploy
         run: |
           leftovers=$(find content public/covers -name 'fixture-*' -not -name '.gitkeep' 2>/dev/null || true)
@@ -111,4 +117,4 @@ jobs:
             exit 1
           fi
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
