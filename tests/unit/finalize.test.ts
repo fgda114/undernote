@@ -36,8 +36,18 @@ function runFinalize(args: string[]): { status: number; output: string } {
   }
 }
 
+/**
+ * TIMEOUT NOTE: each test spawns a real `node` subprocess that runs the FULL
+ * pre-pass (runPrePass — shape + cross-file integrity, E-100~110). That
+ * thoroughness is deliberate (W6 P2: finalize must refuse to freeze an
+ * E-102 state — irreversible snapshot). Solo the file finishes in ~2s, but
+ * under the parallel suite the default 5s flakes. Do NOT "fix" this by
+ * reverting finalize to the cheaper loadRepo — raise the timeout instead.
+ */
+const SUBPROCESS_TIMEOUT = 30_000;
+
 describe('finalize — 시퀀스 C', () => {
-  it('스냅샷 생성 + active_year 전환 + 이듬해 블록', () => {
+  it('스냅샷 생성 + active_year 전환 + 이듬해 블록', { timeout: SUBPROCESS_TIMEOUT }, () => {
     const { status, output } = runFinalize(['--year', '2026', '--preface', preface]);
     expect(status).toBe(0);
 
@@ -54,13 +64,13 @@ describe('finalize — 시퀀스 C', () => {
     expect(output).toContain('스냅샷 생성');
   });
 
-  it('재실행은 거부된다 (스냅샷 수동 편집 금지 수칙의 짝)', () => {
+  it('재실행은 거부된다 (스냅샷 수동 편집 금지 수칙의 짝)', { timeout: SUBPROCESS_TIMEOUT }, () => {
     const { status, output } = runFinalize(['--year', '2026', '--preface', preface]);
     expect(status).not.toBe(0);
     expect(output).toContain('이미 있습니다');
   });
 
-  it('평론 0편인 연도는 E-405 확정 거부', () => {
+  it('평론 0편인 연도는 E-405 확정 거부', { timeout: SUBPROCESS_TIMEOUT }, () => {
     const { status, output } = runFinalize(['--year', '2031', '--preface', preface]);
     expect(status).not.toBe(0);
     expect(output).toContain('E-405');
