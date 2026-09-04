@@ -79,6 +79,10 @@ describe('bucketLabelFor', () => {
   it('etc는 예약 라벨 "그 외"', () => {
     expect(bucketLabelFor('etc', 2026, genres)).toBe('그 외');
   });
+
+  it('구반(연도 블록 없음)도 전 연도 합집합에서 라벨 해석 — raw id 노출 금지 (M-4)', () => {
+    expect(bucketLabelFor('pop', 2020, genres)).toBe('팝');
+  });
 });
 
 describe('excerptFrom — og:description 원료', () => {

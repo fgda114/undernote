@@ -33,16 +33,25 @@ export function formatReleaseDate(releaseDate: string): string {
   return y;
 }
 
-/** Bucket id → display label from the RELEASE YEAR's config block (R-3:
- * annual attribution key is the release year). "etc" is the reserved
- * everything-else bucket — fixed label, never configured (E-109). */
+/** Bucket id → display label. Resolution mirrors the E-104 validation rule
+ * (R-8): the RELEASE YEAR's block first, then the union of every year block
+ * — back-catalog albums (release year without a block) are VALID content,
+ * so their label must resolve too (W6 M-4: raw ids like "pop" were leaking
+ * into the hero, disagreeing with the archive surface). "etc" is the
+ * reserved everything-else bucket — fixed label, never configured (E-109).
+ * Ascending-year scan keeps the pick deterministic when labels differ. */
 export function bucketLabelFor(bucket: string, releaseYear: number, genres: GenresConfig): string {
   if (bucket === 'etc') return '그 외';
   const block = genres.years.find((y) => y.year === releaseYear);
-  const found = block?.buckets.find((b) => b.id === bucket);
-  // The checker (E-104) guarantees existence at build time; the fallback only
-  // serves non-build consumers (tests with partial data).
-  return found?.label ?? bucket;
+  const inYear = block?.buckets.find((b) => b.id === bucket);
+  if (inYear) return inYear.label;
+  for (const year of [...genres.years].sort((a, b) => a.year - b.year)) {
+    const found = year.buckets.find((b) => b.id === bucket);
+    if (found) return found.label;
+  }
+  // Unreachable for checker-passed content (E-104 validates against the same
+  // union); raw id only for partial test data.
+  return bucket;
 }
 
 export function artistsLabelFor(artistSlugs: string[], artists: Map<string, Artist>): string {
