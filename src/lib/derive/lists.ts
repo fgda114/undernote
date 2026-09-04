@@ -228,6 +228,18 @@ export function deriveLatestArticles(
   return items.slice(0, limit);
 }
 
+/** Latest review hero (ui-spec §1.5 'early' variant) — newest by publication
+ * date; equal dates fall through to the R-1 comparator (score desc → date →
+ * slug), so the tiebreak follows the SAME total order as every other list
+ * rather than an ad hoc rule (W6 m-4: this judgment used to live inline in
+ * the page — moved here so it is covered by the golden-file test, not just
+ * eyeballed in .astro, which vitest never touches). */
+export function latestReviewHero(joined: JoinedReview[]): ListEntry | null {
+  if (joined.length === 0) return null;
+  const latest = [...joined].sort((a, b) => codePointCompare(b.review.date, a.review.date) || compareR1(a, b))[0];
+  return toListEntry(latest);
+}
+
 /** Latest publication date across all content — feeds the board caption
  * "{날짜} 기준" with a REPO-DERIVED value (build-clock output is forbidden:
  * it would break the double-build hash gate, R-10). */

@@ -17,20 +17,16 @@ import CoverImage from '../components/CoverImage.astro';
 import FormatLabel from '../components/FormatLabel.astro';
 import Base from '../layouts/Base.astro';
 import { getSiteData } from '../lib/derive/site-data.ts';
-import { toListEntry, compareR1 } from '../lib/derive/lists.ts';
+import { latestReviewHero } from '../lib/derive/lists.ts';
 import { formatReleaseDate } from '../lib/derive/review-page.ts';
 import { withBase } from '../lib/paths.ts';
 
 const { site, board, latestArticles, latestPubDate, homeVariant, joined, data } = getSiteData();
 const nominateTotal = board.buckets.reduce((n, b) => n + b.entries.length, 0);
 
-// Latest review hero for the early variant — newest by publication date
-// (tie → R-1 keys via compareR1 on equal dates is score-based; use date desc
-// then slug asc through the derive comparator chain).
-const latestReview = [...joined].sort(
-  (a, b) => (a.review.date < b.review.date ? 1 : a.review.date > b.review.date ? -1 : compareR1(a, b)),
-)[0];
-const heroEntry = latestReview ? toListEntry(latestReview) : null;
+// Latest review hero for the early variant (ui-spec §1.5) — judgment lives in
+// the derive layer (P1); the page only renders the result.
+const heroEntry = latestReviewHero(joined);
 
 const previousYear = site.active_year - 1;
 const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear);

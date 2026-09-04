@@ -24,6 +24,7 @@ import {
   detectUnfinalizedYear,
   joinReviews,
   latestPublicationDate,
+  latestReviewHero,
 } from '../../src/lib/derive/lists';
 import { excerptFrom } from '../../src/lib/derive/excerpt';
 import type { Album, Artist, GenresConfig, ReviewFrontmatter, SiteConfig, Snapshot, Story } from '../../src/lib/schema';
@@ -302,5 +303,27 @@ describe('최신 글 (ui-spec §1.1) — 점수 필드 부재가 계약', () => 
 
   it('보드 캡션 날짜 = 저장소 유래 최신 발행일 (빌드 시계 금지)', () => {
     expect(latestPublicationDate(repo)).toBe('2026-06-01');
+  });
+});
+
+describe('latestReviewHero (ui-spec §1.5 early variant, W6 m-4 — 페이지에서 이관)', () => {
+  it('발행일 내림차순으로 최신 평론을 고른다', () => {
+    const repo = repoOf({
+      albums: [albumOf('early'), albumOf('late')],
+      reviews: [reviewOf('early', '8.0', '2026-01-01'), reviewOf('late', '9.0', '2026-02-01')],
+    });
+    expect(latestReviewHero(joinReviews(repo))?.album).toBe('late');
+  });
+
+  it('같은 날짜면 R-1 comparator로 동점을 가른다 (점수 높은 쪽)', () => {
+    const repo = repoOf({
+      albums: [albumOf('low'), albumOf('high')],
+      reviews: [reviewOf('low', '7.0', '2026-01-01'), reviewOf('high', '9.0', '2026-01-01')],
+    });
+    expect(latestReviewHero(joinReviews(repo))?.album).toBe('high');
+  });
+
+  it('평론이 없으면 null', () => {
+    expect(latestReviewHero(joinReviews(repoOf({})))).toBeNull();
   });
 });
