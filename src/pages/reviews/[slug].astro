@@ -23,9 +23,6 @@ import { buildReviewPageData, otherWorkByArtist } from '../../lib/derive/review-
 import { getSiteConfig } from '../../lib/site.ts';
 import { getSiteData } from '../../lib/derive/site-data.ts';
 import { withBase } from '../../lib/paths.ts';
-import { genresConfigSchema } from '../../lib/schema/index.ts';
-import { readFileSync } from 'node:fs';
-import { parse as parseYaml } from 'yaml';
 
 export async function getStaticPaths() {
   const reviews = await getCollection('reviews');
@@ -34,19 +31,23 @@ export async function getStaticPaths() {
 
 const { review } = Astro.props;
 
+// Single load path (P2/m-5): genres come from the same getSiteData() call
+// every other derivation uses, instead of a second readFileSync+parse of
+// config/genres.yaml — one source, not two that could drift.
+const siteData = getSiteData();
+
 // Cross-references — existence is guaranteed by the checker gate (E-102/103);
 // a miss here would be a build bug, so the non-null assertions are safe.
 const album = (await getEntry('albums', review.data.album))!;
 const artistEntries = await Promise.all(album.data.artists.map((slug) => getEntry('artists', slug)));
 const artists = new Map(artistEntries.filter((e) => e != null).map((e) => [e.id, e.data]));
-const genres = genresConfigSchema.parse(parseYaml(readFileSync('config/genres.yaml', 'utf8')));
 
 const page = buildReviewPageData({
   slug: review.id,
   review: review.data,
   album: album.data,
   artists,
-  genres,
+  genres: siteData.data.genres!,
   site: getSiteConfig(),
 });
 
@@ -55,7 +56,6 @@ const description = excerptFrom(review.body ?? '');
 
 // Nominate badge (SS-4 derive): present only while this album sits on the
 // active board — the verdict block hides the row otherwise (R-4).
-const siteData = getSiteData();
 const badge = siteData.badgeMap.get(review.id) ?? null;
 const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, year: badge.year } : null;
 
