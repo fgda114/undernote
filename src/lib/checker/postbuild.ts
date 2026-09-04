@@ -3,12 +3,12 @@
  *
  *   E-111 — every HTML page must carry the OG trio (title/description/image).
  *   E-112 — every internal link must resolve to a file in dist.
- *   E-113 — orphan detection SCAFFOLD: reachability is computed here, but at
- *           this stage every review is reachable by construction (its monthly
- *           recap page, or the current-month surfaces) and stories/artists
- *           await the 4-axis archive (W5.3), so enforcement stays narrow.
- *           W5.3 widens the checked set — do not "complete" it early or
- *           pre-archive stories would false-fail.
+ *
+ * E-113 (orphan detection) is NOT here — its final form lives in the 4-axis
+ * archive index (src/lib/derive/archive.ts:detectOrphans), a pre-build
+ * cross-file check over RepoData (W5.3). This stage only ever held a
+ * narrower dist/-reachability scaffold that predated the archive; do not
+ * re-add it here (it would just duplicate archive.ts's already-widened check).
  *
  * E-115 is deliberately NOT here as a substring scan: scanning HTML for
  * score-like strings false-positives on normal copy ("1983년" contains
