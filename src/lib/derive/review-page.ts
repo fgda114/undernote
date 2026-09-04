@@ -9,6 +9,8 @@
 import { coverSetFor, type CoverSet } from '../covers.ts';
 import { buildListenLinks, defaultListenLinks, type ListenLink } from '../listen-links.ts';
 import type { Album, Artist, GenresConfig, ReviewFrontmatter, SiteConfig } from '../schema/index.ts';
+import type { ArchiveItem } from './archive.ts';
+import type { ArticleItem } from './lists.ts';
 
 export interface ReviewPageData {
   slug: string;
@@ -82,4 +84,35 @@ export function buildReviewPageData(input: {
       site.listen_link_patterns ?? defaultListenLinks,
     ),
   };
+}
+
+/**
+ * "{artist}의 다른 글" follow block (§2.5 ②) — union of every credited
+ * artist's archive items, current review excluded, one row per URL (a shared
+ * archive item — e.g. a duo album — is pushed onto EACH artist's axis in
+ * archive.ts, so a naive concat would repeat it once per shared artist).
+ * First-occurrence dedup preserves archive order (date desc, already a total
+ * order per archive.ts:byDateDesc) without a second sort (W6 m-4: this
+ * judgment used to live inline in the page — moved here so a golden-file
+ * test can see it; vitest never touches .astro).
+ */
+export function otherWorkByArtist(
+  currentReviewUrl: string,
+  artistSlugs: string[],
+  byArtist: Map<string, ArchiveItem[]>,
+  articleByUrl: Map<string, ArticleItem>,
+): ArticleItem[] {
+  const deduped = new Map<string, ArchiveItem>();
+  for (const slug of artistSlugs) {
+    for (const item of byArtist.get(slug) ?? []) {
+      if (item.url === currentReviewUrl || deduped.has(item.url)) continue;
+      deduped.set(item.url, item);
+    }
+  }
+  const result: ArticleItem[] = [];
+  for (const item of deduped.values()) {
+    const article = articleByUrl.get(item.url);
+    if (article) result.push(article);
+  }
+  return result;
 }

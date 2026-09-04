@@ -6,7 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import { coverSetFor, derivedCoverPath } from '../../src/lib/covers';
 import { excerptFrom } from '../../src/lib/derive/excerpt';
-import { bucketLabelFor, formatReleaseDate } from '../../src/lib/derive/review-page';
+import { bucketLabelFor, formatReleaseDate, otherWorkByArtist } from '../../src/lib/derive/review-page';
+import type { ArchiveItem } from '../../src/lib/derive/archive';
+import type { ArticleItem } from '../../src/lib/derive/lists';
 import { buildListenLinks, defaultListenLinks } from '../../src/lib/listen-links';
 import type { GenresConfig } from '../../src/lib/schema';
 
@@ -117,5 +119,48 @@ describe('coverSetFor (ADR-0008 §3)', () => {
       fallback: '/covers/a-b.jpg',
     });
     expect(derivedCoverPath('a-b', 320)).toBe('/covers/derived/a-b-w320.webp');
+  });
+});
+
+describe('otherWorkByArtist — "{아티스트}의 다른 글" (§2.5 ②, W6 m-4 — 페이지에서 이관)', () => {
+  function article(url: string): ArticleItem {
+    return { type: 'review', url, title: url, subtitle: '', date: '2026-01-01', formatLabel: '평론' };
+  }
+  function archiveItem(url: string, date: string): ArchiveItem {
+    return { type: 'review', url, title: url, date };
+  }
+
+  it('공유 아티스트(듀오 앨범 등)가 여러 아티스트 축에 걸쳐도 한 번만 나온다', () => {
+    const shared = archiveItem('/reviews/duo/', '2026-03-01');
+    const byArtist = new Map([
+      ['artist-a', [shared]],
+      ['artist-b', [shared]],
+    ]);
+    const articleByUrl = new Map([['/reviews/duo/', article('/reviews/duo/')]]);
+    const result = otherWorkByArtist('/reviews/current/', ['artist-a', 'artist-b'], byArtist, articleByUrl);
+    expect(result).toHaveLength(1);
+  });
+
+  it('현재 평론 자신은 제외된다', () => {
+    const byArtist = new Map([['artist-a', [archiveItem('/reviews/current/', '2026-01-01')]]]);
+    const articleByUrl = new Map([['/reviews/current/', article('/reviews/current/')]]);
+    expect(otherWorkByArtist('/reviews/current/', ['artist-a'], byArtist, articleByUrl)).toEqual([]);
+  });
+
+  it('아카이브 순서(발행일 내림차순)를 그대로 유지한다', () => {
+    const byArtist = new Map([
+      ['artist-a', [archiveItem('/reviews/newer/', '2026-05-01'), archiveItem('/reviews/older/', '2026-01-01')]],
+    ]);
+    const articleByUrl = new Map([
+      ['/reviews/newer/', article('/reviews/newer/')],
+      ['/reviews/older/', article('/reviews/older/')],
+    ]);
+    const result = otherWorkByArtist('/reviews/current/', ['artist-a'], byArtist, articleByUrl);
+    expect(result.map((a) => a.url)).toEqual(['/reviews/newer/', '/reviews/older/']);
+  });
+
+  it('articleByUrl에 없는 항목은 조용히 걸러진다 (방어적 filter(Boolean))', () => {
+    const byArtist = new Map([['artist-a', [archiveItem('/reviews/missing/', '2026-01-01')]]]);
+    expect(otherWorkByArtist('/reviews/current/', ['artist-a'], byArtist, new Map())).toEqual([]);
   });
 });

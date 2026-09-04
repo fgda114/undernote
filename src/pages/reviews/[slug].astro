@@ -19,7 +19,7 @@ import ArticleCard from '../../components/ArticleCard.astro';
 import LadderBlock from '../../components/LadderBlock.astro';
 import { excerptFrom } from '../../lib/derive/excerpt.ts';
 import { deriveBacklinks } from '../../lib/derive/links.ts';
-import { buildReviewPageData } from '../../lib/derive/review-page.ts';
+import { buildReviewPageData, otherWorkByArtist } from '../../lib/derive/review-page.ts';
 import { getSiteConfig } from '../../lib/site.ts';
 import { getSiteData } from '../../lib/derive/site-data.ts';
 import { withBase } from '../../lib/paths.ts';
@@ -66,14 +66,12 @@ const backlinks = deriveBacklinks(
   siteData.ladder.refIndex,
   siteData.ladder.albumBuckets,
 );
-const otherByArtist = [
-  ...new Map(
-    album.data.artists
-      .flatMap((slug) => siteData.archive.by_artist.get(slug) ?? [])
-      .filter((item) => item.url !== `/reviews/${review.id}/`)
-      .map((item) => [item.url, item] as const),
-  ).values(),
-].map((item) => siteData.articleByUrl.get(item.url)!).filter(Boolean);
+const otherByArtist = otherWorkByArtist(
+  `/reviews/${review.id}/`,
+  album.data.artists,
+  siteData.archive.by_artist,
+  siteData.articleByUrl,
+);
 ---
 
 <Base
