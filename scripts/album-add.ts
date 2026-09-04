@@ -9,10 +9,17 @@
  * prompt after at most ONE retry — a human is sitting here (P9), so no retry
  * loops, no daemons.
  *
+ * ATOMICITY (W6 M-1/M-2): the interactive phase writes NOTHING. All file
+ * writes happen in one commit phase at the end — after the album-exists
+ * check — and roll back on failure (created files unlinked, an overwritten
+ * leftover cover restored from its pre-image). Aborting mid-run can no
+ * longer strand orphan artists (E-113 would halt ALL publishing) or destroy
+ * an existing cover.
+ *
  * Usage: node scripts/album-add.ts "아티스트" "앨범명" [앨범-slug]
  * (Node 22.18+ / 24 runs TypeScript natively.)
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { parse as parseYaml } from 'yaml';
@@ -133,6 +140,7 @@ async function main() {
 
   const names = picked ? creditNames(picked) : [artistArg];
   const artistSlugs: string[] = [];
+  const newArtists: { path: string; rel: string; name: string }[] = [];
   for (const name of names) {
     const suggestion = slugify(name);
     const slug = isValidSlug(suggestion)
@@ -147,11 +155,10 @@ async function main() {
       process.exit(1);
     }
     artistSlugs.push(slug);
+    // Deferred to the commit phase (M-2): writing here would strand orphan
+    // artist files if the run aborts later.
     const artistPath = join(root, 'content/artists', `${slug}.md`);
-    if (!existsSync(artistPath)) {
-      writeFileSync(artistPath, artistMarkdown(name), 'utf8');
-      console.log(`아티스트 파일 생성: content/artists/${slug}.md`);
-    }
+    if (!existsSync(artistPath)) newArtists.push({ path: artistPath, rel: `content/artists/${slug}.md`, name });
   }
 
   const year = releaseDate.slice(0, 4);
@@ -176,9 +183,20 @@ async function main() {
     process.exit(1);
   }
 
-  // ── 3. Cover via CAA (reduced copy only — ADR-0008 §2) ───────────────
+  // Fail fast BEFORE any download or write (M-1): nothing may be touched
+  // for a slug that already exists (R-9 — published slugs are immutable).
+  const albumPath = join(root, 'content/albums', `${albumSlug}.yaml`);
+  if (existsSync(albumPath)) {
+    console.error(
+      `content/albums/${albumSlug}.yaml이 이미 있습니다 — slug는 발행 후 불변입니다 (R-9). 중단합니다.`,
+    );
+    process.exit(1);
+  }
+
+  // ── 3. Cover via CAA — encode to a BUFFER only (write deferred, M-1) ──
   let cover: string | undefined;
   let coverSource: string | undefined;
+  let coverBuffer: Buffer | null = null;
   if (picked?.id) {
     try {
       const fetched = await client.fetchCoverFront(picked.id);
@@ -188,36 +206,64 @@ async function main() {
         );
       } else {
         const sharp = (await import('sharp')).default;
-        mkdirSync(join(root, 'public/covers'), { recursive: true });
-        const outPath = join(root, 'public/covers', `${albumSlug}.jpg`);
         // Max 640px on the longest side, no enlargement — the stored copy IS
         // the ceiling; every derived size stays at or below it (ADR-0008 §2).
-        await sharp(fetched.buffer)
+        coverBuffer = await sharp(fetched.buffer)
           .resize(640, 640, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 82, mozjpeg: true })
-          .toFile(outPath);
+          .toBuffer();
         cover = `covers/${albumSlug}.jpg`;
         coverSource = fetched.sourceUrl;
-        console.log(`커버 저장: public/covers/${albumSlug}.jpg (장변 ≤640px 재인코딩)`);
       }
     } catch (err) {
       console.log(`커버 확보 실패 (${err instanceof Error ? err.message : err}) — 플레이스홀더로 진행됩니다.`);
     }
   }
 
-  // ── 4. Write album file ──────────────────────────────────────────────
-  const albumPath = join(root, 'content/albums', `${albumSlug}.yaml`);
-  if (existsSync(albumPath)) {
-    console.error(
-      `content/albums/${albumSlug}.yaml이 이미 있습니다 — slug는 발행 후 불변입니다 (R-9). 중단합니다.`,
+  // ── 4. Commit phase — the ONLY writes in the whole run, with rollback ──
+  const created: string[] = [];
+  const coverPath = join(root, 'public/covers', `${albumSlug}.jpg`);
+  // The album-exists check passed, so a file here is a leftover from an
+  // aborted past run — keep its pre-image so rollback can restore it.
+  const coverPreImage = coverBuffer && existsSync(coverPath) ? readFileSync(coverPath) : null;
+  try {
+    for (const artist of newArtists) {
+      writeFileSync(artist.path, artistMarkdown(artist.name), 'utf8');
+      created.push(artist.path);
+      console.log(`아티스트 파일 생성: ${artist.rel}`);
+    }
+    if (coverBuffer) {
+      mkdirSync(join(root, 'public/covers'), { recursive: true });
+      if (coverPreImage) console.log(`기존 잔여 커버를 교체합니다: public/covers/${albumSlug}.jpg`);
+      writeFileSync(coverPath, coverBuffer);
+      if (!coverPreImage) created.push(coverPath);
+      console.log(`커버 저장: public/covers/${albumSlug}.jpg (장변 ≤640px 재인코딩)`);
+    }
+    writeFileSync(
+      albumPath,
+      albumYaml({ title, artistSlugs, releaseDate, bucket, mbid: picked?.id, cover, coverSource }),
+      'utf8',
     );
+    created.push(albumPath);
+  } catch (err) {
+    // Roll back everything this run created; restore an overwritten leftover.
+    console.error(`쓰기 실패 — 이번 실행이 만든 파일을 되돌립니다. (${err instanceof Error ? err.message : err})`);
+    for (const path of created.reverse()) {
+      try {
+        unlinkSync(path);
+      } catch {
+        /* already gone */
+      }
+    }
+    if (coverPreImage) {
+      try {
+        writeFileSync(coverPath, coverPreImage);
+      } catch {
+        /* pre-image restore is best-effort */
+      }
+    }
     process.exit(1);
   }
-  writeFileSync(
-    albumPath,
-    albumYaml({ title, artistSlugs, releaseDate, bucket, mbid: picked?.id, cover, coverSource }),
-    'utf8',
-  );
   console.log(`\n앨범 파일 생성: content/albums/${albumSlug}.yaml`);
   console.log(
     `다음 단계: content/reviews/${albumSlug}.md 에 평론을 쓰고 push 하세요 (album·score·date·editorial_check 필수).`,
