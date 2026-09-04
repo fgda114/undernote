@@ -75,7 +75,7 @@ properties:
     type: array
     items: { $ref: "#/$defs/slug" }
     default: []
-  cover:        { type: string }                   # public/covers/ 내 경로. 부재 → E-202
+  cover:        { type: string, pattern: "^covers/[a-z0-9]+(-[a-z0-9]+)*\.jpg$" }   # album-add 산출 형식·data-model 커버 규격(.jpg 마스터)과 자구 고정 — `../` 경로 순회 차단 (보안 감사 UN-SEC-005). 부재 → E-202
   cover_source: { type: string }                   # 출처 기록 — ADR-0008 §3 (출처 명시)
   listen_links: # 수기 오버라이드. 있으면 자동 검색형 링크보다 우선 (SS-13)
     type: array
@@ -85,7 +85,7 @@ properties:
       additionalProperties: false
       properties:
         service: { enum: [spotify, apple-music, youtube-music, other] }
-        url:     { type: string, format: uri }
+        url:     { type: string, format: uri, pattern: "^https://" }   # https만 허용 — javascript:·http: 스킴 거부 (보안 감사 UN-SEC-004, 방어심층)
   mbid:         { type: string }                   # MusicBrainz release-group MBID
   label:        { type: string }
 ```
