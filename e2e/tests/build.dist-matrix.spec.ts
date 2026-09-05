@@ -11,10 +11,11 @@
 import { expect, test } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SANDBOX_ROOT, distPagePaths, readPage, readBuildReport } from '../lib/sandbox.mjs';
+import { SANDBOX_ROOT, basePathOf, distPagePaths, readPage, readBuildReport } from '../lib/sandbox.mjs';
 import { RICH_SET } from '../lib/rich-content.mjs';
 
 const dir = join(SANDBOX_ROOT, 'rich');
+const B = basePathOf(dir);
 const SCORES = ['9.1', '8.8', '8.3', '8.0', '7.9', '7.5', '7.2', '6.8'];
 const scoreToken = (s: string) => `>${s}<`;
 
@@ -84,7 +85,7 @@ test('US-5 — 월말정산 8월: 3편 점수순 + 전 항목 평론 링크, 진
   expect(i91).toBeGreaterThan(-1);
   expect(i88).toBeGreaterThan(i91);
   expect(i80).toBeGreaterThan(i88);
-  const anchors = new Set(aug.match(/href="\/reviews\/[^"]+"/g) ?? []);
+  const anchors = new Set(aug.match(new RegExp(`href="${B}/reviews/[^"]+"`, 'g')) ?? []);
   expect(anchors.size).toBe(3);
   expect(pages).not.toContain('/list/2026/09/'); // September is in progress (review dated 09-02 exists)
 });
@@ -124,10 +125,10 @@ test('US-7/SS-13 — 수기 링크 우선 + 자동 검색형 3종', () => {
 
 test('US-9/SS-12 — 아티스트 집계: 공유 아티스트 2편, 복수 아티스트 양쪽 집계', () => {
   const shared = readPage(dir, '/artists/shared-artist/');
-  expect(shared).toContain('href="/reviews/aurora-line-first-light/"');
-  expect(shared).toContain('href="/reviews/aurora-line-second-wind/"');
+  expect(shared).toContain(`href="${B}/reviews/aurora-line-first-light/"`);
+  expect(shared).toContain(`href="${B}/reviews/aurora-line-second-wind/"`);
   for (const artist of ['motif-one', 'motif-two']) {
-    expect(readPage(dir, `/artists/${artist}/`)).toContain('href="/reviews/twin-motif-duet/"');
+    expect(readPage(dir, `/artists/${artist}/`)).toContain(`href="${B}/reviews/twin-motif-duet/"`);
   }
 });
 

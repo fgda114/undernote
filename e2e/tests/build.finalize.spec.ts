@@ -7,15 +7,17 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { build, finalize, makeSandbox, readPage } from '../lib/sandbox.mjs';
+import { basePathOf, build, finalize, makeSandbox, readPage } from '../lib/sandbox.mjs';
 import { writeRichContent } from '../lib/rich-content.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
 let dir: string;
+let B: string;
 
 test.beforeAll(() => {
   dir = makeSandbox('finalize');
+  B = basePathOf(dir);
   writeRichContent(dir);
 });
 
@@ -42,7 +44,7 @@ test('확정 빌드 — 동결 리스트 지면 + 홈 post-finalize 상태', () 
   expect(list).toContain('2026 올해의 앨범 — 확정');
   expect(list).toContain('8장의 앨범');
   // USP-A on the frozen surface: every entry links to a review.
-  const anchors = list.match(/href="\/reviews\/[^"]+"/g) ?? [];
+  const anchors = list.match(new RegExp(`href="${B}/reviews/[^"]+"`, 'g')) ?? [];
   expect(new Set(anchors).size).toBe(8);
   // Rank = score desc: champion score renders first.
   expect(list.indexOf('>9.1<')).toBeGreaterThan(-1);
@@ -51,7 +53,7 @@ test('확정 빌드 — 동결 리스트 지면 + 홈 post-finalize 상태', () 
   const home = readPage(dir, '/');
   expect(home).toContain('finalized-card');
   expect(home).toContain('2026 올해의 앨범 — 확정');
-  expect(home).toContain('href="/list/2026/"');
+  expect(home).toContain(`href="${B}/list/2026/"`);
   // New-year board starts empty: all 3 buckets show the empty copy.
   expect(home.match(/아직 이 장르의 후보가 없습니다/g)?.length).toBe(3);
 });
@@ -89,7 +91,7 @@ test('확정 후 지난해 발매작 평론 발행 → 스냅샷 불변 + 아카
   expect(list).not.toContain('late-arrival');
 
   const archive = readPage(dir, '/archive/2026/');
-  expect(archive).toContain('href="/reviews/late-arrival/"');
+  expect(archive).toContain(`href="${B}/reviews/late-arrival/"`);
 
   const home = readPage(dir, '/');
   expect(home).toContain('finalized-card'); // still post-finalize

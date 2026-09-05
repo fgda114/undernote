@@ -14,11 +14,12 @@ import { spawn } from 'node:child_process';
 import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { SANDBOX_ROOT, build, makeSandboxFrom } from './sandbox.mjs';
+import { SANDBOX_ROOT, basePathOf, build, makeSandboxFrom } from './sandbox.mjs';
 import { writeScaleContent } from './rich-content.mjs';
 
 const richDir = join(SANDBOX_ROOT, 'rich');
 const PORT = 4185;
+const BASE = basePathOf(richDir); // deploy base path, e.g. "/undernote"
 
 const PAGE_TYPES = {
   '홈 (normal)': '/',
@@ -54,7 +55,7 @@ async function waitFor(url, tries = 50) {
 
 async function measurePages() {
   const server = startServer();
-  await waitFor(`http://127.0.0.1:${PORT}/`);
+  await waitFor(`http://127.0.0.1:${PORT}${BASE}/`);
   const browser = await chromium.launch();
   const results = {};
   try {
@@ -72,7 +73,7 @@ async function measurePages() {
           if (type === 'document' && htmlBody === null) htmlBody = body;
         } catch {}
       });
-      await page.goto(`http://127.0.0.1:${PORT}${path}`, { waitUntil: 'networkidle' });
+      await page.goto(`http://127.0.0.1:${PORT}${BASE}${path}`, { waitUntil: 'networkidle' });
       const total = Object.values(byType).reduce((a, b) => a + b, 0);
       results[label] = {
         path,

@@ -8,16 +8,18 @@
 import { expect, test } from '@playwright/test';
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { build, makeSandbox, readPage } from '../lib/sandbox.mjs';
+import { basePathOf, build, makeSandbox, readPage } from '../lib/sandbox.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
 let dir: string;
+let B: string;
 const REVIEW_PATH = '/reviews/fixture-artist-fixture-album/';
 const STORY = 'content/stories/fixture-story.md';
 
 test.beforeAll(() => {
   dir = makeSandbox('ladder');
+  B = basePathOf(dir);
 });
 
 test('① direct — 직접 참조 이야기가 평론에 표시', () => {
@@ -25,7 +27,7 @@ test('① direct — 직접 참조 이야기가 평론에 표시', () => {
   expect(result.status, result.out.slice(-2000)).toBe(0);
   const review = readPage(dir, REVIEW_PATH);
   expect(review).toContain('이 점수가 낯설다면 — 이 앨범이 놓인 흐름 이야기');
-  expect(review).toContain('href="/stories/fixture-story/"');
+  expect(review).toContain(`href="${B}/stories/fixture-story/"`);
 });
 
 test('② tag — 직접 참조 0 + 태그 교집합(city-pop)으로 폴백', () => {
@@ -48,7 +50,7 @@ tags: [city-pop]
   expect(result.status, result.out.slice(-2000)).toBe(0);
   const review = readPage(dir, REVIEW_PATH);
   expect(review).toContain('이 점수가 낯설다면 — 이 앨범이 놓인 흐름 이야기');
-  expect(review).toContain('href="/stories/fixture-story/"');
+  expect(review).toContain(`href="${B}/stories/fixture-story/"`);
 });
 
 test('③ bucket — 태그 교집합 0 + 같은 버킷 참조로 폴백 (전용 리드 카피)', () => {
@@ -80,7 +82,7 @@ albums:
   expect(result.status, result.out.slice(-2000)).toBe(0);
   const review = readPage(dir, REVIEW_PATH);
   expect(review).toContain('이 장르가 낯설다면 — 팝 이야기');
-  expect(review).toContain('href="/stories/fixture-story/"');
+  expect(review).toContain(`href="${B}/stories/fixture-story/"`);
 });
 
 test('④ none — 대상 0이면 영역 자체가 미출력 (빈 껍데기 금지)', () => {
@@ -89,6 +91,8 @@ test('④ none — 대상 0이면 영역 자체가 미출력 (빈 껍데기 금�
   const result = build(dir);
   expect(result.status, result.out.slice(-2000)).toBe(0);
   const review = readPage(dir, REVIEW_PATH);
+  // Both ladder lead copies gone = no block at all. (A broad "/stories/"
+  // negative would false-positive on the masthead's /archive/stories/ link.)
   expect(review).not.toContain('낯설다면');
-  expect(review).not.toContain('/stories/');
+  expect(review).not.toContain(`href="${B}/stories/fixture-story/"`);
 });

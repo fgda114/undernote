@@ -32,6 +32,26 @@ export function removeSandbox(dir) {
   rmSync(dir, { recursive: true, force: true });
 }
 
+/**
+ * Astro's content-layer cache lives in node_modules/.astro and Vite's dep
+ * cache in node_modules/.vite — both SHARED through the junction. Without
+ * per-sandbox cache dirs, parallel sandbox builds cross-contaminate (measured:
+ * ladder build rendered rich-sandbox cover routes). Idempotent injection.
+ */
+function isolateCaches(dir) {
+  const configPath = join(dir, 'astro.config.ts');
+  const config = readFileSync(configPath, 'utf8');
+  if (config.includes('.astro-cache')) return;
+  writeFileSync(
+    configPath,
+    config.replace(
+      'export default defineConfig({',
+      "export default defineConfig({\n  cacheDir: './.astro-cache',\n  vite: { cacheDir: './.vite-cache' },",
+    ),
+    'utf8',
+  );
+}
+
 export function makeSandbox(name) {
   const dir = join(SANDBOX_ROOT, name);
   removeSandbox(dir);
@@ -42,9 +62,20 @@ export function makeSandbox(name) {
   for (const f of ['astro.config.ts', 'tsconfig.json', 'package.json']) {
     cpSync(join(REPO, f), join(dir, f));
   }
+  isolateCaches(dir);
   mkdirSync(join(dir, 'reports'), { recursive: true });
   symlinkSync(join(REPO, 'node_modules'), join(dir, 'node_modules'), 'junction');
   return dir;
+}
+
+/** Deploy base path of a sandbox, e.g. "/undernote" (or "" at domain root) —
+ * read from config/site.yaml#base_url, the single source astro.config uses.
+ * Tests must build expected URLs through this so a base change (custom
+ * domain → "/") cannot break the suite. */
+export function basePathOf(dir) {
+  const m = readFileSync(join(dir, 'config', 'site.yaml'), 'utf8').match(/^base_url:\s*"?([^"\s]+)"?/m);
+  if (!m) throw new Error(`config/site.yaml에 base_url이 없습니다: ${dir}`);
+  return new URL(m[1]).pathname.replace(/\/+$/, '');
 }
 
 /** Clone an EXISTING sandbox (same code baseline) instead of the live repo —
@@ -60,6 +91,7 @@ export function makeSandboxFrom(sourceDir, name) {
   for (const f of ['astro.config.ts', 'tsconfig.json', 'package.json']) {
     cpSync(join(sourceDir, f), join(dir, f));
   }
+  isolateCaches(dir);
   mkdirSync(join(dir, 'reports'), { recursive: true });
   symlinkSync(join(REPO, 'node_modules'), join(dir, 'node_modules'), 'junction');
   return dir;

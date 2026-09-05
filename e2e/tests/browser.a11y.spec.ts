@@ -4,10 +4,15 @@
  * (Viewport 360px lives in browser.responsive.spec.ts.)
  */
 import { expect, test } from '@playwright/test';
+import { join } from 'node:path';
+import { SANDBOX_ROOT, basePathOf } from '../lib/sandbox.mjs';
+
+const B = basePathOf(join(SANDBOX_ROOT, 'rich'));
+const u = (p: string) => `${B}${p}`;
 
 for (const path of ['/', '/reviews/aurora-line-first-light/']) {
   test(`키보드 통독 — ${path}: 포커스 대상 전부 앵커 + focus-visible 아웃라인`, async ({ page }) => {
-    await page.goto(path);
+    await page.goto(u(path));
     const seen: { tag: string; outline: string }[] = [];
     for (let i = 0; i < 120; i++) {
       await page.keyboard.press('Tab');
@@ -29,7 +34,7 @@ for (const path of ['/', '/reviews/aurora-line-first-light/']) {
 
 test('다크 모드 — prefers-color-scheme 토큰 전환 실측', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.goto('/');
+  await page.goto(u('/'));
   const light = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   await page.emulateMedia({ colorScheme: 'dark' });
   const dark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -41,7 +46,7 @@ test('다크 모드 — prefers-color-scheme 토큰 전환 실측', async ({ pag
 
 test('reduced-motion — 보드 스태거 애니메이션 제거 실측', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto('/');
+  await page.goto(u('/'));
   const animated = await page
     .locator('.stagger > *')
     .first()

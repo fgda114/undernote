@@ -1,4 +1,13 @@
 import { defineConfig } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+// Deploy base path (e.g. "/undernote") — same single source astro.config uses.
+// Falls back to "" so `playwright test --list` works before setup-rich ran.
+let base = '';
+try {
+  const m = readFileSync('./.sandbox/rich/config/site.yaml', 'utf8').match(/^base_url:\s*"?([^"\s]+)"?/m);
+  if (m) base = new URL(m[1]).pathname.replace(/\/+$/, '');
+} catch {}
 
 export default defineConfig({
   testDir: './tests',
@@ -20,7 +29,7 @@ export default defineConfig({
     // sees the parent exit. process.execPath because the spawned shell has no
     // `node` on PATH (known local issue — see 08-impl-notes W5.0 §5).
     command: `${process.execPath} lib/static-server.mjs 4180`,
-    url: 'http://127.0.0.1:4180/',
+    url: `http://127.0.0.1:4180${base}/`,
     reuseExistingServer: true,
     timeout: 60_000,
   },
