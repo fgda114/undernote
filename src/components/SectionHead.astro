@@ -1,0 +1,77 @@
+---
+/**
+ * SectionHead — the home's section header: an English section name over a
+ * Korean heading, optionally a caption.
+ *
+ *   CHARTS                      ← FormatLabel: mono 12, uppercase, 0.16em
+ *   올해의 앨범 2026             ← the heading, display 27/34
+ *   평론이 쌓일 때마다 바뀝니다 …  ← optional caption, 14 muted
+ *
+ * The English name is the fixed vocabulary (Reviews / Notes / Charts /
+ * Archive / About) that the masthead also uses, so a reader arriving from
+ * the nav lands on the same word. The Korean line is the heading proper —
+ * pairing them is how the reference sets a section head, and it keeps the
+ * uppercase + 0.16em tracking on Latin only, which is the rule that exists
+ * because tracked-out Hangul measurably slows reading (design §4.4).
+ *
+ * `level` exists so the page can keep exactly ONE h1: the first section that
+ * actually renders takes it, the rest are h2. Which sections render depends
+ * on content, so the level cannot be hardcoded per section.
+ *
+ * `sheen` opts the heading into the gradient display treatment (`.head-sheen`
+ * in global.css). It is a per-call-site decision, not a default, and the rule
+ * for turning it on lives in tokens.css: only headings that name the list the
+ * SCORES produced. This component does not — and should not — know that rule;
+ * the page does.
+ */
+import FormatLabel from './FormatLabel.astro';
+
+interface Props {
+  /** English section name — Charts / Latest Reviews / Notes. */
+  label: string;
+  /** Korean heading. */
+  title: string;
+  caption?: string;
+  level?: 'h1' | 'h2';
+  /** Gradient display treatment — see the intro before switching this on. */
+  sheen?: boolean;
+}
+
+const { label, title, caption, level = 'h2', sheen = false } = Astro.props;
+const Heading = level;
+---
+
+<header class="section-head">
+  <FormatLabel text={label} />
+  <Heading class:list={['title', { 'head-sheen': sheen }]}>{title}</Heading>
+  {caption && <p class="caption">{caption}</p>}
+</header>
+
+<style>
+  .section-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+  }
+  .title {
+    font-family: var(--display);
+    font-size: var(--fs-34);
+    line-height: 40px;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .caption {
+    font-size: var(--fs-14);
+    line-height: 20px;
+    color: var(--muted);
+  }
+  @media (max-width: 640px) {
+    .title {
+      font-size: var(--fs-27);
+      line-height: 32px;
+      letter-spacing: -0.02em;
+    }
+  }
+</style>

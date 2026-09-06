@@ -1,47 +1,59 @@
 ---
 /**
- * Home `/` — the nominate board (D5) with the 3+1 states of ui-spec §1:
- *   normal        — board panels (bucket grid) + latest card grid
- *   early         — progress strip + a single feature card (board too thin)
- *   post-finalize — finalized-list link card + fresh (empty-ish) new board
- *   empty         — pre-launch line (no reviews at all)
- * Variant selection is clock-free (derive layer). The board caption date is
- * REPO-DERIVED (latest publication date) — the build clock never reaches the
- * page output (R-10; a wall-clock caption would break the hash gate).
- * Board rows animate once on load (240ms/60ms stagger, CSS only) and the
- * stagger disappears under prefers-reduced-motion.
+ * Home `/` — three editorial sections, each a cover grid (W5 rebuild
+ * 2026-09-06, replacing the board-panels + "최신 글" list):
  *
- * Card-count layout (layouts.md §2.4): 0 cards → no section at all, 1 → one
- * full-width feature, 2 → two columns, 3+ → the auto-fit grid. A three-column
- * grid holding one card reads as a defect; a full-width feature reads as an
- * editorial choice. The count is known at build time, so the switch is a
- * class name — no JS, no measurement.
+ *   Charts        · 올해의 앨범   — the nominate board. A LIST surface, so it
+ *                                   shows and ranks scores (D2).
+ *   Latest Reviews · 최신 리뷰     — a BROWSING surface: ArticleItem has no
+ *                                   score field at all, so no figure can
+ *                                   reach it (D2 enforced by the type).
+ *   Notes         · 음악 이야기    — browsing, typographic cards (a story has
+ *                                   no album art and never will).
  *
- * In the `early` state the feature card and the "최신 글" list would show the
- * SAME review twice (there is only one), so the hero item is removed from the
- * list and the section disappears when nothing is left.
+ * WHICH sections appear is decided in the derive layer (`homeSections`), not
+ * here; the page renders the result and picks a layout from the count (P1).
+ * Section order is also the score-exposure order: everything below the
+ * Charts section is score-free, which is what build.dist-matrix asserts.
+ *
+ * Card-count layout, per section (layouts.md §2.4): 0 → the section is not
+ * rendered at all, 1 → one full-width feature, 2 → two columns, 3+ → the
+ * auto-fit grid. A three-column grid holding one card reads as a defect; a
+ * full-width feature reads as an editorial choice. Counts are known at build
+ * time, so the switch is a class name — no JS, no measurement.
+ *
+ * The two remaining variant faces are unchanged: `empty` (no reviews at all)
+ * prints the two-line declaration, and `post-finalize` puts last year's
+ * finalized-list card above the sections. `early` and `normal` now render
+ * through the same path — the difference between them was the progress strip
+ * ("올해의 앨범 후보가 여기서 자랍니다 — 지금까지 평론 n편"), which the brief
+ * cut, and the card-count system covers the thin state better than a banner.
+ *
+ * The board caption date is REPO-DERIVED (latest publication date) — the
+ * build clock never reaches page output (R-10; a wall-clock caption would
+ * break the double-build hash gate).
  */
 import ArticleCard from '../components/ArticleCard.astro';
-import BoardPanel from '../components/BoardPanel.astro';
+import ChartCard from '../components/ChartCard.astro';
 import FormatLabel from '../components/FormatLabel.astro';
+import SectionHead from '../components/SectionHead.astro';
 import Base from '../layouts/Base.astro';
 import { getSiteData } from '../lib/derive/site-data.ts';
-import { latestReviewHero } from '../lib/derive/lists.ts';
 import { formatReleaseDate } from '../lib/derive/review-page.ts';
 import { withBase } from '../lib/paths.ts';
 
-const { site, board, latestArticles, latestPubDate, homeVariant, joined, data, articleByUrl } = getSiteData();
+const { site, homeSections, latestPubDate, homeVariant, data } = getSiteData();
+const { charts, latestReviews, notes } = homeSections;
 
-// Latest review hero for the early variant (ui-spec §1.5) — judgment lives in
-// the derive layer (P1); the page only renders the result. It is looked up in
-// the article index so the feature card is the exact same object the grid
-// renders, not a second shape that could drift from it.
-const heroEntry = homeVariant === 'early' ? latestReviewHero(joined) : null;
-const heroArticle = heroEntry ? (articleByUrl.get(heroEntry.review_url) ?? null) : null;
+// 1 / 2 / 3 are the three layouts; anything above 3 uses the same auto-fit
+// grid, so the class saturates at n-3.
+const countClass = (n: number) => `n-${Math.min(n, 3)}`;
 
-const listedArticles = heroArticle ? latestArticles.filter((item) => item.url !== heroArticle.url) : latestArticles;
-// 1 / 2 / 3 are the three layouts; anything above 3 uses the same auto-fit grid.
-const cardCount = Math.min(listedArticles.length, 3);
+// Exactly one <h1> per document: whichever section renders first takes it.
+// Section presence is content-dependent, so the level cannot be hardcoded.
+const present = [charts.length > 0, latestReviews.length > 0, notes.length > 0];
+const firstPresent = present.indexOf(true);
+const levelOf = (i: number) => (i === firstPresent ? 'h1' : 'h2');
 
 const previousYear = site.active_year - 1;
 const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear);
@@ -52,7 +64,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     {
       homeVariant === 'empty' && (
         <section class="empty-state">
-          <p class="lede">여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</p>
+          <h1 class="lede">여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</h1>
           <p class="status">첫 평론을 준비하고 있습니다.</p>
         </section>
       )
@@ -71,53 +83,59 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     }
 
     {
-      homeVariant === 'early' && heroArticle && (
-        <>
-          <section class="progress-strip">
-            <FormatLabel text={`${site.active_year} 올해의 앨범`} />
-            <p class="strip-line">
-              올해의 앨범 후보가 여기서 자랍니다 — 지금까지 평론 {data.reviews.length}편
-              <a class="strip-link" href={withBase(`/list/${site.active_year}/`)}>전체 보기 →</a>
-            </p>
-          </section>
-          <section aria-label="최신 평론">
-            <ul class="cards n-1">
-              <ArticleCard item={heroArticle} variant="card" eager />
-            </ul>
-          </section>
-        </>
-      )
-    }
-
-    {
-      (homeVariant === 'normal' || homeVariant === 'post-finalize') && (
-        <section class="board" aria-label="현재 노미네이트">
-          <FormatLabel text={`${site.active_year} 올해의 앨범`} />
-          <h1 class="board-title">현재 노미네이트</h1>
-          <p class="board-caption">
-            평론이 쌓일 때마다 바뀝니다 · 12월에 확정됩니다{latestPubDate && ` · ${formatReleaseDate(latestPubDate)} 기준`}
-          </p>
-          <div class="bucket-grid stagger">
-            {board.buckets.map((bucket) => (
-              <BoardPanel bucket={bucket} />
+      charts.length > 0 && (
+        <section class="board" aria-label="올해의 앨범">
+          {/* `sheen` — the only heading on this page allowed the gradient
+              display treatment: the annual list is what the scores produced,
+              which is exactly what --accent is reserved for (tokens.css). */}
+          <SectionHead
+            label="Charts"
+            title={`${site.active_year} 올해의 앨범`}
+            caption={`평론이 쌓일 때마다 바뀝니다 · 12월에 확정됩니다${latestPubDate ? ` · ${formatReleaseDate(latestPubDate)} 기준` : ''}`}
+            level={levelOf(0)}
+            sheen
+          />
+          {/* <ol>, because markup order IS rank order within each bucket.
+              Empty buckets contribute nothing here — the complete annual
+              structure, empty buckets included, is one click away on
+              /list/{year}/ (R-4: a conditional block is omitted, not shown
+              empty). */}
+          <ol class:list={['chart-cards', 'stagger', countClass(charts.length)]}>
+            {charts.map((entry, i) => (
+              /* Only the first row is eager: three covers is the whole
+                 above-the-fold image cost, the rest stream in on scroll. */
+              <ChartCard entry={entry} feature={charts.length === 1} eager={i < 3} />
             ))}
-          </div>
-          <a class="board-more" href={withBase(`/list/${site.active_year}/`)}>올해의 앨범 전체 보기 →</a>
+          </ol>
+          <a class="section-more" href={withBase(`/list/${site.active_year}/`)}>올해의 앨범 전체 보기 →</a>
         </section>
       )
     }
 
     {
-      listedArticles.length > 0 && homeVariant !== 'empty' && (
-        <section class="latest" aria-label="최신 글">
-          <h2 class="latest-title">최신 글</h2>
-          <ul class:list={['cards', `n-${cardCount}`]}>
-            {listedArticles.map((item, i) => (
-              /* Only the first row is eager: three covers is the whole
-                 above-the-fold image cost, the rest stream in on scroll. */
-              <ArticleCard item={item} variant="card" eager={i < 3} />
+      latestReviews.length > 0 && (
+        <section aria-label="최신 리뷰">
+          <SectionHead label="Latest Reviews" title="최신 리뷰" level={levelOf(1)} />
+          <ul class:list={['cards', countClass(latestReviews.length)]}>
+            {latestReviews.map((item) => (
+              <ArticleCard item={item} variant="card" feature={latestReviews.length === 1} />
             ))}
           </ul>
+          <a class="section-more" href={withBase('/archive/reviews/')}>평론 전체 보기 →</a>
+        </section>
+      )
+    }
+
+    {
+      notes.length > 0 && (
+        <section aria-label="음악 이야기">
+          <SectionHead label="Notes" title="음악 이야기" level={levelOf(2)} />
+          <ul class:list={['cards', countClass(notes.length)]}>
+            {notes.map((item) => (
+              <ArticleCard item={item} variant="card" feature={notes.length === 1} />
+            ))}
+          </ul>
+          <a class="section-more" href={withBase('/archive/stories/')}>이야기 전체 보기 →</a>
         </section>
       )
     }
@@ -139,6 +157,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     line-height: 32px;
     letter-spacing: -0.015em;
     font-weight: 800;
+    margin: 0;
     text-wrap: balance;
   }
   .empty-state .status {
@@ -171,60 +190,8 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     color: var(--accent-2-ink);
   }
 
-  /* ── early: the progress strip ── */
-  .progress-strip {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    padding: var(--s-12) var(--s-16);
-  }
-  .strip-line {
-    margin-top: var(--s-4);
-    font-size: var(--fs-14);
-    line-height: 20px;
-    color: var(--ink);
-    display: flex;
-    align-items: center;
-    gap: var(--s-16);
-    flex-wrap: wrap;
-  }
-  .strip-link {
-    color: var(--accent-2-ink);
-    font-size: var(--fs-15);
-    line-height: 20px;
-    font-weight: 600;
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: text-decoration-thickness var(--t-micro);
-  }
-  .strip-link:hover {
-    text-decoration-thickness: 2px;
-  }
-
-  .board-title {
-    font-family: var(--display);
-    font-size: var(--fs-34);
-    line-height: 40px;
-    letter-spacing: -0.025em;
-    font-weight: 800;
-    margin-top: var(--s-12);
-    text-wrap: balance;
-  }
-  .board-caption {
-    margin-top: var(--s-8);
-    font-size: var(--fs-14);
-    line-height: 20px;
-    color: var(--muted);
-  }
-  .bucket-grid {
-    margin-top: var(--s-24);
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--s-16);
-  }
-  .board-more {
+  /* Section tail link — same object in all three sections. */
+  .section-more {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
@@ -233,27 +200,29 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     line-height: 20px;
     font-weight: 600;
   }
-  .board-more:hover {
+  .section-more:hover {
     color: var(--accent-2-ink);
   }
 
-  .latest-title {
-    font-family: var(--display);
-    font-size: var(--fs-21);
-    line-height: 26px;
-    letter-spacing: -0.01em;
-    font-weight: 800;
-  }
-
-  /* ── Card grid: one rule set per card count (layouts.md §2.4) ── */
+  /* ── Grids: one rule set per card count (layouts.md §2.4) ──────────────
+     Two grids, two densities. Chart cards are compact (cover + a 32px
+     plate + two short lines), so five fit the 1040px frame; article cards
+     carry a headline and an excerpt line and need 336px to stay readable. */
+  .chart-cards,
   .cards {
     list-style: none;
     margin: var(--s-16) 0 0;
     padding: 0;
   }
+  .chart-cards.n-2,
   .cards.n-2 {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
+    gap: var(--s-16);
+  }
+  .chart-cards.n-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: var(--s-16);
   }
   .cards.n-3 {
@@ -261,79 +230,38 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--s-16);
   }
-  /* One card = the page's face. The cover goes left at its full rail width
-     and the headline takes the display scale's top step. */
+  /* One card = the section's face; the card itself owns the two-column
+     feature layout (ArticleCard/ChartCard `feature`). */
+  .chart-cards.n-1,
   .cards.n-1 {
     display: block;
-    margin-top: 0;
-  }
-  .cards.n-1 :global(.card-link) {
-    display: grid;
-    grid-template-columns: 440px minmax(0, 1fr);
-    gap: var(--s-32);
-    align-items: center;
-  }
-  .cards.n-1 :global(.visual) {
-    border-bottom: 0;
-  }
-  .cards.n-1 :global(.body) {
-    padding: var(--s-24) var(--s-24) var(--s-24) 0;
-  }
-  .cards.n-1 :global(.title) {
-    font-size: var(--fs-56);
-    line-height: 58px;
-    letter-spacing: -0.035em;
-    font-weight: 800;
-  }
-  .cards.n-1 :global(.subtitle) {
-    font-size: var(--fs-17);
-    line-height: 24px;
   }
 
-  @media (max-width: 900px) {
-    /* Below the point where a 440px cover leaves a readable text column, the
-       feature card stacks like every other card. */
-    .cards.n-1 :global(.card-link) {
-      display: flex;
-      flex-direction: column;
-    }
-    .cards.n-1 :global(.visual) {
-      border-bottom: 1px solid var(--line);
-    }
-    .cards.n-1 :global(.body) {
-      padding: var(--s-12);
-    }
-    .cards.n-1 :global(.title) {
-      font-size: var(--fs-34);
-      line-height: 38px;
-      letter-spacing: -0.025em;
-    }
-  }
   @media (max-width: 640px) {
     .home {
       padding-top: var(--s-32);
     }
-    .board-title {
-      font-size: var(--fs-27);
-      line-height: 32px;
-      letter-spacing: -0.02em;
-    }
+    .chart-cards.n-2,
     .cards.n-2 {
       grid-template-columns: 1fr;
     }
   }
 
   /* Board load orchestration — the site's ONE entrance animation:
-     opacity+8px rise, 240ms per panel, 60ms stagger, max 5 slots.
-     The card grid deliberately does NOT animate: the motion vocabulary is
-     two entries long and stays that way. */
+     opacity + 8px rise, 240ms per card, 60ms stagger.
+     Only the Charts grid animates: the motion vocabulary is two entries long
+     and stays that way. Slots past the fifth SATURATE at the last delay
+     rather than restarting from 0 — a card grid holds more items than the
+     three-panel board did, and a restarted stagger reads as two separate
+     animations rather than one entrance. */
   .stagger > :global(*) {
-    animation: board-in 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    animation: board-in var(--t-board-row) var(--t-board-ease) both;
+    animation-delay: calc(var(--t-board-stagger) * 4);
   }
-  .stagger > :global(*:nth-child(2)) { animation-delay: 60ms; }
-  .stagger > :global(*:nth-child(3)) { animation-delay: 120ms; }
-  .stagger > :global(*:nth-child(4)) { animation-delay: 180ms; }
-  .stagger > :global(*:nth-child(5)) { animation-delay: 240ms; }
+  .stagger > :global(*:nth-child(1)) { animation-delay: 0ms; }
+  .stagger > :global(*:nth-child(2)) { animation-delay: var(--t-board-stagger); }
+  .stagger > :global(*:nth-child(3)) { animation-delay: calc(var(--t-board-stagger) * 2); }
+  .stagger > :global(*:nth-child(4)) { animation-delay: calc(var(--t-board-stagger) * 3); }
   @keyframes board-in {
     from {
       opacity: 0;

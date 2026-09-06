@@ -3,7 +3,12 @@
  * ArticleCard (components.md §4) — two variants of the same object.
  *
  *   row  — archive listings, artist pages, "다른 글": dense one-line entries.
- *   card — the home grid: cover on top, text below.
+ *   card — the home's browsing grids: cover on top, text below. A card can
+ *          additionally be the `feature`, which is the layout a section uses
+ *          when it holds exactly ONE item: cover in its own column, headline
+ *          two steps up. A single card sitting in a three-column grid reads
+ *          as a defect; a full-width feature reads as an editorial choice
+ *          (layouts.md §2.4 — "빈 껍데기 금지" applied to grids).
  *
  * NO score property exists on this interface — that is the contract (D2:
  * browsing surfaces never receive score data at all). Class names here must
@@ -13,7 +18,9 @@
  * A story has no album art and never will, so the card variant gives it a
  * typographic block instead of a stock image or a gradient — fabricating
  * imagery to keep a grid tidy is exactly what the no-fabrication rule
- * forbids.
+ * forbids. The `feature` layout drops that block entirely: the block IS the
+ * headline, and next to a 44px headline it is the same words twice at two
+ * sizes. A story feature is therefore pure type across the full width.
  */
 import type { ArticleItem } from '../lib/derive/lists.ts';
 import CoverImage from './CoverImage.astro';
@@ -25,18 +32,36 @@ interface Props {
   variant?: 'row' | 'card';
   /** First grid row loads its covers eagerly; everything below is lazy. */
   eager?: boolean;
+  /** Sole card in its section — see the intro. */
+  feature?: boolean;
 }
 
-const { item, variant = 'row', eager = false } = Astro.props;
+const { item, variant = 'row', eager = false, feature = false } = Astro.props;
+
+// Rendered box: 336px in the 3-up grid, 440px as the feature card. Without
+// this hint the feature would pull the 320 source into a 440px box.
+const FILL_SIZES = feature
+  ? '(min-width: 900px) 440px, 100vw'
+  : '(min-width: 960px) 336px, (min-width: 641px) 50vw, 100vw';
+
+// See the intro: the story type-block is redundant at feature size.
+const showVisual = item.type === 'review' || !feature;
 ---
 
 {
   variant === 'card' ? (
-    <li class="article-card card">
+    <li class:list={['article-card', 'card', { feature, 'no-visual': !showVisual }]}>
       <a href={withBase(item.url)} class="card-link">
+        {showVisual && (
         <span class="visual">
           {item.type === 'review' ? (
-            <CoverImage cover={item.cover ?? null} size="fill" albumTitle={item.title} loading={eager ? 'eager' : 'lazy'} />
+            <CoverImage
+              cover={item.cover ?? null}
+              size="fill"
+              albumTitle={item.title}
+              loading={eager ? 'eager' : 'lazy'}
+              fillSizes={FILL_SIZES}
+            />
           ) : (
             /* aria-hidden: the same words are the card title one line below,
                and hearing the headline twice helps nobody. */
@@ -45,6 +70,7 @@ const { item, variant = 'row', eager = false } = Astro.props;
             </span>
           )}
         </span>
+        )}
         <span class="body">
           <FormatLabel text={item.formatLabel} variant="chip" />
           <span class="title">{item.title}</span>
@@ -197,5 +223,61 @@ const { item, variant = 'row', eager = false } = Astro.props;
   }
   .card .subtitle {
     max-width: 100%;
+  }
+
+  /* ── feature: the section's only card ── */
+  .card.feature .card-link {
+    display: grid;
+    grid-template-columns: 440px minmax(0, 1fr);
+    gap: var(--s-32);
+    align-items: center;
+  }
+  .card.feature .visual {
+    border-bottom: 0;
+  }
+  .card.feature .body {
+    padding: var(--s-24) var(--s-24) var(--s-24) 0;
+  }
+  /* A story feature has no cover column, so the text takes the whole frame
+     and gets its left padding back. */
+  .card.feature.no-visual .card-link {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .card.feature.no-visual .body {
+    padding: var(--s-32);
+  }
+  .card.feature .title {
+    font-size: var(--fs-44);
+    line-height: 48px;
+    letter-spacing: -0.03em;
+    font-weight: 800;
+  }
+  .card.feature .subtitle {
+    font-size: var(--fs-17);
+    line-height: 24px;
+  }
+  @media (max-width: 900px) {
+    /* Below the width where a 440px cover still leaves a readable text
+       column, the feature stacks like every other card. */
+    .card.feature .card-link {
+      display: flex;
+      flex-direction: column;
+      /* MUST reset: the desktop rule sets align-items:center for the grid,
+         and a column flex inherits it as "shrink each child to its content
+         and centre it" — the nowrap subtitle then sizes to max-content and
+         pushes the page into horizontal scroll at 360px. */
+      align-items: stretch;
+    }
+    .card.feature .visual {
+      border-bottom: 1px solid var(--line);
+    }
+    .card.feature .body {
+      padding: var(--s-12);
+    }
+    .card.feature .title {
+      font-size: var(--fs-27);
+      line-height: 32px;
+      letter-spacing: -0.02em;
+    }
   }
 </style>

@@ -239,6 +239,59 @@ export function deriveLatestArticles(
   return items.slice(0, limit);
 }
 
+// ── Home sections (W5 home rebuild, 2026-09-06) ────────────────────────
+
+/** A board entry carried onto the home chart grid. */
+export interface ChartCardEntry extends ListEntry {
+  bucketLabel: string;
+  /** Rank INSIDE its own bucket (1..5), not a position in the flat grid —
+   * the card prints it, and rank 1 is what earns the accent plate. */
+  rank: number;
+}
+
+/**
+ * The home's three sections (W5 editorial rebuild): Charts / Latest Reviews
+ * / Notes. Which sections exist and what goes in them is a data judgment, so
+ * it lives here and the page renders the result verbatim (P1).
+ */
+export interface HomeSections {
+  /** Board entries flattened in board order (bucket order → rank). The
+   * bucket columns collapse into one grid because the home shows covers, not
+   * three text columns; each card still carries its bucket label, and the
+   * full bucket structure — empty buckets included — stays on /list/{year}/. */
+  charts: ChartCardEntry[];
+  latestReviews: ArticleItem[];
+  notes: ArticleItem[];
+}
+
+/**
+ * @param totalReviews every published review, not just this year's — it is
+ *   the denominator of the "the chart already IS the whole catalogue" test.
+ * @param limit cards per browsing section (2 rows of 3 at desktop).
+ */
+export function deriveHomeSections(
+  board: Board,
+  allArticles: ArticleItem[],
+  totalReviews: number,
+  limit = 6,
+): HomeSections {
+  const charts = board.buckets.flatMap((bucket) =>
+    bucket.entries.map((entry, i) => ({ ...entry, bucketLabel: bucket.label, rank: i + 1 })),
+  );
+  // Overlap between "best of the year" and "most recent" is normal in any
+  // magazine and is NOT deduplicated — the two sections answer different
+  // questions. The one case that must not ship is total repetition: when the
+  // chart already lists every review there is, "최신 리뷰" is the same cards a
+  // second time, which on a young site reads as a rendering fault rather than
+  // an editorial choice (R-4 in spirit — nothing padded, nothing doubled).
+  const chartCoversEverything = totalReviews > 0 && charts.length >= totalReviews;
+  return {
+    charts,
+    latestReviews: chartCoversEverything ? [] : allArticles.filter((a) => a.type === 'review').slice(0, limit),
+    notes: allArticles.filter((a) => a.type === 'story').slice(0, limit),
+  };
+}
+
 /** Latest review hero (ui-spec §1.5 'early' variant) — newest by publication
  * date; equal dates fall through to the R-1 comparator (score desc → date →
  * slug), so the tiebreak follows the SAME total order as every other list

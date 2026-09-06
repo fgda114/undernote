@@ -2,23 +2,28 @@
  * Satori element trees for the three card templates (ui-spec §11 · ADR-0010):
  * base (title typography — the universal fallback), review (cover composite),
  * list (rank stack). 1200×630, dark ground, pale typography, exactly one
- * lime accent per card — the same identity as the site, in image form.
+ * mint accent per card — the same identity as the site, in image form.
  *
  * The 2026-09 reskin turned these dark. A white card next to a dark site is
  * a different publication's object, and a dark tile actually stands out in a
- * feed. Colors are the DARK palette constants from reskin-2026-09/tokens.md
- * §2 — cards are static images, so there are no media queries here.
+ * feed. Colors are the DARK palette constants from src/styles/tokens.css —
+ * cards are static images, so there are no media queries here. The W5
+ * palette pass (2026-09-06) re-toned them from lime on neutral dark to mint
+ * on deep navy; a share card still carrying the old accent is a card from a
+ * site that no longer exists.
  *
  * Unchanged by that decision: share cards of every type carry NO score
  * (E-115, enforced structurally — the input types have no score field).
  */
 import type { BaseCardInput, CardInput, ListCardInput, ReviewCardInput } from './types.ts';
 
-// reskin-2026-09/tokens.md §2 dark values — keep in sync with src/styles/tokens.css.
-const BG = '#0E0F14';
-const INK = '#E8E7EE';
-const MUTED = '#9A9AAB';
-const ACCENT = '#D2F53C';
+// Dark palette values — keep in sync with src/styles/tokens.css. ACCENT is
+// used as TEXT here (wordmark period, section label, rank 1), so it is the
+// --accent-ink value: 13.62:1 on BG.
+const BG = '#080C16';
+const INK = '#E8E9F2';
+const MUTED = '#98A0B8';
+const ACCENT = '#63EFC0';
 
 type El = { type: string; props: Record<string, unknown> };
 
@@ -42,7 +47,7 @@ function overline(text: string): El {
   return el('div', { fontFamily: 'sans', fontSize: '26px', fontWeight: 700, letterSpacing: '0.14em', color: ACCENT }, text);
 }
 
-/** Wordmark row — the site name plus its lime period (the favicon motif in
+/** Wordmark row — the site name plus its accent period (the favicon motif in
  * type form). The face stays the serif satori already has loaded: adding a
  * display weight would mean shipping another build-only TTF for one glyph
  * row, and the card's identity is carried by the palette and the plate. */

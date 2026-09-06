@@ -12,6 +12,7 @@ import {
   currentYearMonthSeoul,
   deriveBadgeMap,
   deriveBoard,
+  deriveHomeSections,
   deriveHomeVariant,
   deriveLatestArticles,
   deriveMonthlyRecaps,
@@ -21,6 +22,7 @@ import {
   type ArticleItem,
   type BadgeInfo,
   type Board,
+  type HomeSections,
   type HomeVariant,
   type JoinedReview,
   type MonthlyRecap,
@@ -47,7 +49,11 @@ export interface SiteData {
    * ArchiveItem urls through this (single conversion point). */
   allArticles: ArticleItem[];
   articleByUrl: Map<string, ArticleItem>;
+  /** Every article, newest first, capped at 8. Retained for callers that want
+   * a flat recent feed; the home now consumes `homeSections` instead. */
   latestArticles: ArticleItem[];
+  /** The home's Charts / Latest Reviews / Notes sections. */
+  homeSections: HomeSections;
   latestPubDate: string | null;
   archive: ArchiveIndex;
   /** Prepared ladder inputs (story list + reverse index) — review pages call
@@ -82,6 +88,7 @@ export function getSiteData(): SiteData {
     allArticles,
     articleByUrl: new Map(allArticles.map((a) => [a.url, a])),
     latestArticles: allArticles.slice(0, 8),
+    homeSections: deriveHomeSections(board, allArticles, data.reviews.length),
     latestPubDate: latestPublicationDate(data),
     archive: deriveArchiveIndex(data),
     ladder: prepareLadder(data, excerptFrom),

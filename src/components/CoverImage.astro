@@ -4,9 +4,13 @@
  *
  * Display size → source mapping targets 2x pixel density:
  *   44/48px → w96 · 64px → w320 (w96 is short at 2x) · 160px → w320 · 320px → w640
- *   'fill'  → responsive: the home card grid renders 336px on desktop and a
- *             full-bleed square on mobile, so it ships both w320 and w640 and
- *             lets `sizes` pick.
+ *   'fill'  → responsive: ships both w320 and w640 and lets `sizes` pick.
+ *             The default `sizes` describes the 3-up article grid (336px on
+ *             desktop); the home's denser chart grid and its full-width
+ *             feature card are different boxes, so they pass `fillSizes`.
+ *             Getting this wrong is not a layout bug — it silently downloads
+ *             the 640 source for a 192px box, or a 320 source for a 440px
+ *             one (visibly soft).
  *
  * null → placeholder: a --surface-3 square with the album's first letter in
  * --muted (SS-14/E-202 — a designed state, not an error). The colors are
@@ -25,9 +29,13 @@ interface Props {
   /** Album title — placeholder letter + accessible name. */
   albumTitle: string;
   loading?: 'lazy' | 'eager';
+  /** `sizes` for size="fill" only — see the intro. */
+  fillSizes?: string;
 }
 
-const { cover, size, albumTitle, loading = 'lazy' } = Astro.props;
+const FILL_SIZES_DEFAULT = '(min-width: 960px) 336px, (min-width: 641px) 50vw, 100vw';
+
+const { cover, size, albumTitle, loading = 'lazy', fillSizes = FILL_SIZES_DEFAULT } = Astro.props;
 
 const sourceBySize: Record<number, keyof Pick<CoverSet, 'w96' | 'w320' | 'w640'>> = {
   44: 'w96',
@@ -51,7 +59,7 @@ const letter = Array.from(albumTitle.trim())[0] ?? '';
       <source
         type="image/webp"
         srcset={fill ? `${withBase(cover.w320)} 320w, ${withBase(cover.w640)} 640w` : withBase(src)}
-        sizes={fill ? '(min-width: 960px) 336px, (min-width: 641px) 50vw, 100vw' : undefined}
+        sizes={fill ? fillSizes : undefined}
       />
       <img
         class:list={['cover', { fill }]}

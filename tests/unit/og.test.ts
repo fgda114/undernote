@@ -77,9 +77,14 @@ describe('cardTree', () => {
     expect(json).not.toContain('score');
   });
 
-  it('기본형 카드에 워드마크(사이트명 + seal 마침표)가 있다', () => {
+  // The accent period is the wordmark's only surviving piece of colour, so
+  // it doubles as the check that the card tracks the site palette. The hex
+  // is the CURRENT --accent value; when tokens.css changes, og/template.ts
+  // and this literal move together or the share cards silently keep the old
+  // identity (W5 palette pass, 2026-09-06: lime #D2F53C → mint #63EFC0).
+  it('기본형 카드에 워드마크(사이트명 + 악센트 마침표)가 있다', () => {
     const json = JSON.stringify(cardTree(assembleBaseCard('제목', 'undernote')));
     expect(json).toContain('undernote');
-    expect(json).toContain('#D2F53C');
+    expect(json).toContain('#63EFC0');
   });
 });

@@ -2,8 +2,18 @@
  * US-11 AC2 / SS-9 — retroactive link round-trip, measured on real builds:
  * delete the review → the story row degrades to the honest non-link
  * ("평론 준비 중"), restore it → the next build regenerates the link with
- * zero editor intervention. Also captures home 'empty' and 'early' states
+ * zero editor intervention. Also captures the home's two content states
  * (US home 4-state coverage, states 1–2).
+ *
+ * HOME ASSERTIONS, 2026-09-06 (W5 home rebuild — editor-approved): the home
+ * used to be pinned by two copy strings, one of which ("지금까지 평론 1편")
+ * was deleted with the progress strip. Copy is the weakest possible anchor
+ * anyway — `indexOf` misses silently and a slice-based check then passes on
+ * an empty string. The states are now pinned STRUCTURALLY: no reviews → no
+ * Charts section and no review link anywhere on the home; one review → the
+ * Charts section is back, carrying the restored review's link AND its score
+ * plate. That also proves the retroactive round-trip reaches the home, which
+ * the old string pair never did.
  */
 import { expect, test } from '@playwright/test';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -40,7 +50,12 @@ test('평론 삭제 → 이야기 행이 "평론 준비 중"(비링크)으로 �
   expect(story).not.toContain(`href="${B}/reviews/`);
 
   const home = readPage(dir, '/');
+  // 'empty' variant: the declaration line survives (it is the only copy the
+  // home has in this state) …
   expect(home).toContain('첫 평론을 준비하고 있습니다.');
+  // … and nothing else does. No Charts section, no review anywhere.
+  expect(home).not.toContain('aria-label="올해의 앨범"');
+  expect(home).not.toContain(`href="${B}/reviews/`);
 });
 
 test('평론 복원 → 다음 빌드에서 자동 링크 소급 생성 (원 개입 0) + 홈 early 상태', () => {
@@ -60,6 +75,12 @@ test('평론 복원 → 다음 빌드에서 자동 링크 소급 생성 (원 개
   expect(review).toContain('이 점수가 낯설다면');
   expect(review).toContain(`href="${B}/stories/fixture-story/"`);
 
+  // The home swings back to its content face: the Charts section exists
+  // again, holds the restored review, and prints its score plate (Charts is
+  // a LIST surface — D2 — so the figure belongs there).
   const home = readPage(dir, '/');
-  expect(home).toContain('지금까지 평론 1편');
+  expect(home).not.toContain('첫 평론을 준비하고 있습니다.');
+  expect(home).toContain('aria-label="올해의 앨범"');
+  expect(home).toContain(`href="${B}/reviews/fixture-artist-fixture-album/"`);
+  expect(home).toContain('>8.3<');
 });

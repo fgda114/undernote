@@ -50,9 +50,16 @@ test('D2 — 리스트 지면은 점수 표시·정렬 / 홈 보드 top5 컷 / �
   // …but never the two below the cut (US-2 AC — top 5 only).
   expect(home).not.toContain(scoreToken('7.2'));
   expect(home).not.toContain(scoreToken('6.8'));
-  // The "최신 글" section carries no scores (slice from section start).
-  const latest = home.slice(home.indexOf('aria-label="최신 글"'));
-  for (const s of SCORES) expect(latest, `latest leaks ${s}`).not.toContain(scoreToken(s));
+  // Everything BELOW the Charts section is a browsing surface and carries no
+  // scores. The home's section order is the score-exposure order, so slicing
+  // at the first browsing section covers 최신 리뷰 AND 음악 이야기 at once.
+  // The explicit index check matters: indexOf(-1) would make slice() return
+  // the last character and the loop below would pass on nothing at all —
+  // that is how this assertion used to die quietly when the anchor moved.
+  const browsingAt = home.indexOf('aria-label="최신 리뷰"');
+  expect(browsingAt, '홈 최신 리뷰 섹션 앵커 부재').toBeGreaterThan(-1);
+  const browsing = home.slice(browsingAt);
+  for (const s of SCORES) expect(browsing, `browsing sections leak ${s}`).not.toContain(scoreToken(s));
 
   // Progressive annual list: all 8, descending.
   const list = readPage(dir, '/list/2026/');
@@ -68,7 +75,17 @@ test('D2 — 리스트 지면은 점수 표시·정렬 / 홈 보드 top5 컷 / �
 test('D2-R — 평론 히어로에 자기 점수 1회, 본문 이후 중복 없음', () => {
   for (const a of RICH_SET) {
     const html = readPage(dir, `/reviews/${a.slug}/`);
-    const hero = html.slice(html.indexOf('class="hero'), html.indexOf('review-body'));
+    // Both anchors are asserted BEFORE they are used to slice. indexOf(-1)
+    // does not throw: `slice(-1, n)` yields '' and `slice(-1)` yields '>',
+    // so a renamed class turns the "no duplicate downstream" check into an
+    // unconditional pass and the hero check into a misleading "score
+    // missing" failure. Locating the anchor is its own assertion now.
+    const heroAt = html.indexOf('class="hero');
+    const bodyAt = html.indexOf('review-body');
+    expect(heroAt, `${a.slug} hero 앵커(class="hero) 부재`).toBeGreaterThan(-1);
+    expect(bodyAt, `${a.slug} 본문 앵커(review-body) 부재`).toBeGreaterThan(heroAt);
+
+    const hero = html.slice(heroAt, bodyAt);
     // The dial carries this album's score — and only this album's.
     expect(hero, `${a.slug} hero missing ${a.score}`).toContain(scoreToken(a.score));
     for (const s of SCORES) {
@@ -76,7 +93,7 @@ test('D2-R — 평론 히어로에 자기 점수 1회, 본문 이후 중복 없�
       expect(hero, `${a.slug} hero leaks ${s}`).not.toContain(scoreToken(s));
     }
     // The old verdict block is gone: no second copy of the figure downstream.
-    const tail = html.slice(html.indexOf('review-body'));
+    const tail = html.slice(bodyAt);
     expect(tail, `${a.slug} score duplicated after body`).not.toContain(scoreToken(a.score));
   }
 });

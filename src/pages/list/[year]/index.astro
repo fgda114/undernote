@@ -57,7 +57,10 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
   <main class="list-page">
     <header class="head">
       <FormatLabel text={snapshot ? `${year} 올해의 앨범 — 확정` : `${year} 올해의 앨범`} />
-      <h1 class="title">{snapshot ? `${year} 올해의 앨범` : '진행 중인 한 해'}</h1>
+      {/* `head-sheen` (global.css) — the second and last heading allowed the
+          gradient display treatment. This page IS the list the scores
+          produced, which is what --accent is reserved for (tokens.css). */}
+      <h1 class="title head-sheen">{snapshot ? `${year} 올해의 앨범` : '진행 중인 한 해'}</h1>
       <p class="caption">
         {
           snapshot

@@ -1,0 +1,239 @@
+---
+/**
+ * ChartCard — one album on the home's "올해의 앨범" (Charts) grid.
+ *
+ * Charts is a LIST surface (D2), so unlike ArticleCard this card is allowed
+ * to carry a score, and it does: cover, then a plate butted straight against
+ * the cover's bottom edge holding the rank and the figure.
+ *
+ * Why under and not over the cover: the brief asked for a plate "on" the
+ * cover, and the reference does overlay it — but album art is the one asset
+ * on this site the publication does not own (that is what the `cover_source`
+ * field is for), and design direction §4.5 forbids cropping or covering it.
+ * A full-width plate at zero gap reads as one object with the art while
+ * leaving every pixel of it visible. Flipping to a real overlay later is a
+ * position/inset change in `.art`, nothing else.
+ *
+ * Accent budget: only the bucket leader (rank 1) gets the filled accent
+ * plate; ranks 2..5 get a neutral --surface-3 plate. Six accent plates on
+ * one page would flatten the "the accent means the score made this" rule
+ * into wallpaper, and rank 1 stays marked three ways — plate colour, the
+ * rank NUMBER, and the left border — never by colour alone (WCAG 1.4.1).
+ *
+ * e2e contracts this markup satisfies:
+ *   · the anchor keeps `class="row-link"` inside `.board` (one click from
+ *     home to a review — browser.flows.spec.ts)
+ *   · the figure is the ONLY text node of its element, so scores are still
+ *     locatable as `>8.4<` (build.dist-matrix.spec.ts)
+ */
+import type { ChartCardEntry } from '../lib/derive/lists.ts';
+import CoverImage from './CoverImage.astro';
+import { withBase } from '../lib/paths.ts';
+
+interface Props {
+  entry: ChartCardEntry;
+  /** True for the single card that fills the row on its own (count === 1). */
+  feature?: boolean;
+  /** Above-the-fold cards load their cover eagerly; the rest stream in. */
+  eager?: boolean;
+}
+
+const { entry, feature = false, eager = false } = Astro.props;
+
+// Rendered box widths: 192px in the 5-up grid, 440px as the feature card.
+// The srcset only holds w320 and w640, so these two hints are what decide
+// which one the browser pulls.
+const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 960px) 200px, (min-width: 641px) 33vw, 100vw';
+---
+
+<li class:list={['chart-card', { first: entry.rank === 1, feature }]}>
+  <a href={withBase(entry.review_url)} class="row-link">
+    <span class="art">
+      <CoverImage
+        cover={entry.cover}
+        size="fill"
+        albumTitle={entry.title}
+        loading={eager ? 'eager' : 'lazy'}
+        fillSizes={FILL_SIZES}
+      />
+      {/* `.plate` (global.css) supplies the accent fill, the sheen and the
+          light-mode border for rank 1. Pulling it from the global sheet is
+          what keeps a prefers-color-scheme query out of this component. */}
+      <span class:list={['rank-plate', { plate: entry.rank === 1 }]}>
+        <span class="rank tnum" aria-hidden="true">{entry.rank}</span>
+        <span class="score tnum" aria-hidden="true">{entry.score}</span>
+        {/* Two bare numerals are meaningless read aloud; this sentence is
+            what assistive tech announces instead. The bucket is deliberately
+            NOT repeated here — `.bucket` below is real text and follows one
+            node later in reading order. */}
+        <span class="sr-only">{entry.rank}위 · 평점 {entry.score} / 10점 만점</span>
+      </span>
+    </span>
+    <span class="body">
+      <span class="bucket">{entry.bucketLabel}</span>
+      <span class="title">{entry.title}</span>
+      <span class="artists">{entry.artists_label}</span>
+    </span>
+  </a>
+</li>
+
+<style>
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    /* Reserved in every card so the leader's marker cannot shift the grid. */
+    border-left: 3px solid transparent;
+    transition: background var(--t-micro), border-color var(--t-micro);
+  }
+  .chart-card.first {
+    border-left-color: var(--accent);
+  }
+  .chart-card:hover {
+    background: var(--surface-2);
+    border-color: var(--line-strong);
+  }
+  .chart-card.first:hover {
+    border-left-color: var(--accent);
+  }
+  .row-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .art {
+    display: block;
+  }
+
+  /* ── The plate ── */
+  .rank-plate {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-8);
+    min-height: 32px;
+    padding: var(--s-4) var(--s-8);
+    /* Matches .plate's reserved border so leader and non-leader plates are
+       exactly the same height. */
+    border: 2px solid transparent;
+  }
+  /* :not(.plate) keeps this out of the leader's way. Astro scopes component
+     rules with an attribute selector, which would otherwise outrank the
+     global .plate class and repaint the leader neutral. */
+  .rank-plate:not(.plate) {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+  .rank {
+    font-family: var(--mono);
+    font-size: var(--fs-13);
+    line-height: 16px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .score {
+    font-family: var(--mono);
+    font-size: var(--fs-15);
+    line-height: 20px;
+    font-weight: 800;
+  }
+
+  /* ── Text ── */
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    padding: var(--s-8) var(--s-12) var(--s-12);
+  }
+  .bucket {
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    font-weight: 700;
+    /* Bucket labels are Korean ("힙합/R&B", "록") — the wide English tracking
+       would hurt them, so this label uses the Korean value. */
+    letter-spacing: var(--label-ls-ko);
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .title {
+    font-family: var(--display);
+    font-size: var(--fs-16);
+    line-height: 22px;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+    color: var(--ink);
+    /* Two lines max: a third would push the artist line out of alignment
+       with the neighbouring cards. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    transition: color var(--t-micro);
+  }
+  .row-link:hover .title {
+    color: var(--accent-2-ink);
+  }
+  .artists {
+    font-size: var(--fs-13);
+    line-height: 18px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Feature (the section holds exactly one card) ──
+     Not a scaled-up grid card: the cover takes its own column and the title
+     steps up two sizes, because a lone card in a 5-column grid reads as a
+     defect while a full-width feature reads as an editorial choice. */
+  .chart-card.feature .row-link {
+    display: grid;
+    grid-template-columns: 440px minmax(0, 1fr);
+    gap: var(--s-32);
+    align-items: center;
+  }
+  .chart-card.feature .body {
+    gap: var(--s-8);
+    padding: var(--s-24) var(--s-24) var(--s-24) 0;
+  }
+  .chart-card.feature .title {
+    font-size: var(--fs-44);
+    line-height: 48px;
+    letter-spacing: -0.03em;
+    font-weight: 800;
+  }
+  .chart-card.feature .artists {
+    font-size: var(--fs-17);
+    line-height: 24px;
+  }
+  .chart-card.feature .rank-plate {
+    min-height: 48px;
+    padding: var(--s-8) var(--s-16);
+  }
+  .chart-card.feature .score {
+    font-size: var(--fs-27);
+    line-height: 32px;
+  }
+
+  @media (max-width: 900px) {
+    /* Below the width where a 440px cover still leaves a readable text
+       column, the feature card stacks like every other card. */
+    .chart-card.feature .row-link {
+      display: flex;
+      flex-direction: column;
+      /* MUST reset — see ArticleCard: the desktop grid's align-items:center
+         would make the column flex shrink-wrap its children, and the nowrap
+         artist line then overflows the viewport at 360px. */
+      align-items: stretch;
+    }
+    .chart-card.feature .body {
+      padding: var(--s-8) var(--s-12) var(--s-12);
+    }
+    .chart-card.feature .title {
+      font-size: var(--fs-27);
+      line-height: 32px;
+      letter-spacing: -0.02em;
+    }
+  }
+</style>

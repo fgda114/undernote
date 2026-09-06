@@ -15,6 +15,7 @@ import {
   currentYearMonthSeoul,
   deriveBadgeMap,
   deriveBoard,
+  deriveHomeSections,
   deriveHomeVariant,
   deriveLatestArticles,
   deriveMonthlyRecaps,
@@ -325,5 +326,109 @@ describe('latestReviewHero (ui-spec §1.5 early variant, W6 m-4 — 페이지에
 
   it('평론이 없으면 null', () => {
     expect(latestReviewHero(joinReviews(repoOf({})))).toBeNull();
+  });
+});
+
+describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
+  const storyOf = (slug: string, date: string) =>
+    entry<Story>(slug, { title: `이야기 ${slug}`, date, albums: [], tags: [] } as Story, '이야기 본문.');
+
+  /** Board + articles for a repo, in the same order the home consumes them. */
+  const sectionsFor = (repo: RepoData, limit?: number) => {
+    const joined = joinReviews(repo);
+    const board = deriveBoard(joined, genres, 2026);
+    const articles = deriveLatestArticles(repo, joined, excerptFrom, Number.MAX_SAFE_INTEGER);
+    return deriveHomeSections(board, articles, repo.reviews.length, limit);
+  };
+
+  it('charts = 보드를 버킷 순서 → 순위 순으로 평탄화하고 버킷 라벨·버킷 내 순위를 싣는다', () => {
+    const repo = repoOf({
+      albums: [albumOf('pop-hi'), albumOf('pop-lo'), albumOf('hip', { bucket: 'hiphop-rnb' })],
+      reviews: [
+        reviewOf('pop-hi', '9.0', '2026-01-01'),
+        reviewOf('pop-lo', '7.0', '2026-01-02'),
+        reviewOf('hip', '8.0', '2026-01-03'),
+      ],
+    });
+    const { charts } = sectionsFor(repo);
+    // genres.yaml order is hiphop-rnb(1) → pop(2) → rock(3), and rank is the
+    // position INSIDE the bucket, so both buckets start again at 1.
+    expect(charts.map((c) => [c.album, c.bucketLabel, c.rank])).toEqual([
+      ['hip', '힙합/R&B', 1],
+      ['pop-hi', '팝', 1],
+      ['pop-lo', '팝', 2],
+    ]);
+  });
+
+  it('빈 버킷은 charts에 아무것도 기여하지 않는다 (R-4 — 홈은 미출력, 구조는 /list/{year}/가 보인다)', () => {
+    const repo = repoOf({
+      albums: [albumOf('only-pop')],
+      reviews: [reviewOf('only-pop', '8.0', '2026-01-01')],
+    });
+    const { charts } = sectionsFor(repo);
+    expect(charts).toHaveLength(1);
+    expect(charts.every((c) => c.bucketLabel === '팝')).toBe(true);
+  });
+
+  it('차트가 전 평론을 이미 싣고 있으면 최신 리뷰 섹션을 생략한다 (같은 카드 두 번 금지)', () => {
+    const repo = repoOf({
+      albums: [albumOf('one')],
+      reviews: [reviewOf('one', '8.0', '2026-01-01')],
+    });
+    const { charts, latestReviews } = sectionsFor(repo);
+    expect(charts).toHaveLength(1);
+    expect(latestReviews).toEqual([]);
+  });
+
+  it('차트 밖 평론이 하나라도 있으면 최신 리뷰가 발행일 내림차순으로 나온다 (중복 허용)', () => {
+    // 6 pop albums: the board keeps 5, so 'sixth' can never be in charts.
+    const albums = ['a', 'b', 'c', 'd', 'e', 'f'].map((k) => albumOf(`pop-${k}`));
+    const reviews = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) =>
+      reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`),
+    );
+    const { charts, latestReviews } = sectionsFor(repoOf({ albums, reviews }));
+    expect(charts).toHaveLength(5); // top-5 cut
+    // Newest first; the lowest-scored album is the newest review here.
+    expect(latestReviews.map((a) => a.url)).toEqual([
+      '/reviews/pop-f/',
+      '/reviews/pop-e/',
+      '/reviews/pop-d/',
+      '/reviews/pop-c/',
+      '/reviews/pop-b/',
+      '/reviews/pop-a/',
+    ]);
+  });
+
+  it('연도 밖 발매작만 있으면 charts는 비고 최신 리뷰가 그 평론을 싣는다 (R-3 귀속 2축)', () => {
+    const repo = repoOf({
+      albums: [albumOf('old', { release_date: '2024-05-01' })],
+      reviews: [reviewOf('old', '9.5', '2026-01-01')],
+    });
+    const { charts, latestReviews } = sectionsFor(repo);
+    expect(charts).toEqual([]);
+    expect(latestReviews.map((a) => a.url)).toEqual(['/reviews/old/']);
+  });
+
+  it('notes는 이야기만, 발행일 내림차순, limit까지', () => {
+    const repo = repoOf({
+      stories: [storyOf('s-old', '2026-01-01'), storyOf('s-new', '2026-03-01'), storyOf('s-mid', '2026-02-01')],
+    });
+    const { notes } = sectionsFor(repo, 2);
+    expect(notes.map((n) => n.url)).toEqual(['/stories/s-new/', '/stories/s-mid/']);
+    expect(notes.every((n) => n.type === 'story')).toBe(true);
+  });
+
+  it('콘텐츠 0 = 세 섹션 모두 빈 배열 (지면에 껍데기가 남지 않는다)', () => {
+    const { charts, latestReviews, notes } = sectionsFor(repoOf({}));
+    expect([charts, latestReviews, notes]).toEqual([[], [], []]);
+  });
+
+  it('D2 — 탐색 섹션 항목에는 score 필드 자체가 없다', () => {
+    const albums = ['a', 'b', 'c', 'd', 'e', 'f'].map((k) => albumOf(`pop-${k}`));
+    const reviews = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) =>
+      reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`),
+    );
+    const { latestReviews, notes } = sectionsFor(repoOf({ albums, reviews }));
+    expect(JSON.stringify([latestReviews, notes])).not.toContain('"score"');
   });
 });

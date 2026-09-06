@@ -2,7 +2,7 @@
 /**
  * Masthead (components.md §1): wordmark + 5-item nav. No scroll pinning —
  * long-form reading owns the viewport. The current page item is marked
- * THREE ways — lime border, ink color, weight 800 — so it never depends on
+ * THREE ways — accent border, ink color, weight 800 — so it never depends on
  * color alone (WCAG 1.4.1).
  *
  * Nav targets: /archive/ presets for Reviews/Notes (ui-spec §6), the active
@@ -32,7 +32,7 @@ const items = [
 
 <header class="masthead">
   <nav aria-label="주 메뉴" class="masthead-inner">
-    {/* Wordmark: display 800 + lime period. The period is the one physical
+    {/* Wordmark: display 800 + accent period. The period is the one physical
         survivor of the old ink-and-seal identity — the seal shrank to a dot. */}
     <a href={withBase('/')} class="wordmark">{site.site_name}<span class="wordmark-dot" aria-hidden="true">.</span></a>
     <ul class="nav-list">

@@ -20,9 +20,25 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* The page ground: a flat token colour plus one iridescent wash pinned to
+   the top of the document. The brief's reference has mint and lavender
+   bleeding into each other across the ground, and this is the cheapest way
+   to get that field — two radial gradients, no extra element, no JS, no
+   repaint on scroll (no background-attachment: fixed, which janks on
+   mobile). It is also the ONE place the two accent families are allowed to
+   touch: the wash carries no meaning, so mixing them there costs the
+   doctrine nothing.
+   background-color stays a plain token on purpose: browser.a11y.spec.ts
+   samples getComputedStyle(body).backgroundColor to prove the dark/light
+   token switch, and a gradient would report as `rgba(0,0,0,0)` there.
+   Worst case (both radials at peak) the ground lifts to #1E2D38 in dark and
+   #E2EBF2 in light; every text token still clears AA on those — the measured
+   table is in 08-impl-notes/frontend.md. */
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--bg-sheen);
+  background-repeat: no-repeat;
   color: var(--ink);
   font-family: var(--sans);
   font-size: var(--fs-17);
@@ -75,13 +91,17 @@ a {
   outline-offset: 2px;
 }
 
-/* ── Accent plates (score plate, filled chips) ─────────────────────────
-   A filled lime surface. The transparent border is a placeholder that light
-   mode turns into a real edge: lime on #F7F7F9 is 1.16:1, so without it the
-   plate's SHAPE disappears. Keeping the border in both schemes means the
-   box model never shifts between them. */
+/* ── Accent plates (score plate, chart leader plate) ───────────────────
+   A filled mint surface carrying the iridescent sheen. background-color is
+   declared under background-image so the flat token still paints if the
+   gradient is dropped (forced-colors, very old engines).
+   The transparent border is a placeholder that light mode turns into a real
+   edge: mint on #F5F6FA is 1.32:1, so without it the plate's SHAPE
+   disappears. Keeping the border in both schemes means the box model never
+   shifts between them. */
 .plate {
-  background: var(--accent);
+  background-color: var(--accent);
+  background-image: var(--accent-sheen);
   color: var(--on-accent);
   border: 2px solid transparent;
   border-radius: var(--r-0);
@@ -91,11 +111,49 @@ a {
     border-color: var(--ink);
   }
 }
-/* A lime outline is invisible against a lime fill — flip to the on-accent
+/* A mint outline is invisible against a mint fill — flip to the on-accent
    ink for anything focusable that sits on one. */
 .plate:focus-visible,
 .plate :focus-visible {
   outline-color: var(--on-accent);
+}
+
+/* -- Gradient display headings -------------------------------------------
+   The reference's signature: mint flowing through a large headline. Allowed
+   on exactly two headings, both of which name the list the SCORES produced
+   (see tokens.css) -- the home's Charts head and /list/{year}/'s H1. It is
+   opt-in per call site, never a default, because --accent on a heading the
+   score did not make turns the doctrine back into decoration.
+
+   Three guards, all load-bearing:
+   1. `color` is set to a real token FIRST. background-clip:text needs
+      `color: transparent` to reveal the gradient, and an engine that parses
+      the clip but not the rest would render an invisible headline. The
+      transparent only lands inside @supports.
+   2. `width: fit-content` — the gradient box is the element's box, and a
+      block-level h1 is as wide as its container, so a short title would
+      sample only the leftmost sliver of the ramp and read as a flat colour.
+   3. forced-colors puts the system ink back: a gradient is not a colour the
+      user's high-contrast palette can override. */
+.head-sheen {
+  color: var(--accent-ink);
+  width: fit-content;
+  max-width: 100%;
+}
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .head-sheen {
+    background-image: var(--head-sheen);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+@media (forced-colors: active) {
+  .head-sheen {
+    background-image: none;
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
 }
 
 /* ── Numbers align in columns (scores, ranks, dates) ── */
@@ -137,11 +195,12 @@ a {
   }
 }
 
-/* ── Windows high contrast: system colors replace the lime fill, so the
-   plate would lose its shape — keep it as a border instead. ── */
+/* ── Windows high contrast: system colors replace the mint fill and drop
+   the gradient, so the plate would lose its shape — keep it as a border
+   instead. `.rank-plate` is the home chart card's compact variant. ── */
 @media (forced-colors: active) {
   .plate,
-  .chip-fill {
+  .rank-plate {
     border: 2px solid;
     forced-color-adjust: none;
   }

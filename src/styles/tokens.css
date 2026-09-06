@@ -1,17 +1,24 @@
 /**
  * Design tokens — the CSS translation of
- * 07-design/reskin-2026-09/tokens.md (the single source of truth since the
- * 2026-09 reskin; the older design-system/tokens.md is kept as history).
- * Every component references these variables; hardcoded values are a review
- * reject.
+ * 07-design/reskin-2026-09/tokens.md, re-coloured for the W5 palette pass
+ * (2026-09-06). Every component references these variables; hardcoded values
+ * are a review reject.
  *
- * Identity: "야간 인쇄(night print)" — a dark neutral ramp biased towards
- * blue-violet, on which editorial judgement is stamped as a lime plate.
- * The accent doctrine is two series, and nothing else may use them:
- *   --accent   (lime) = whatever the score made — score plate, #1 rank,
- *                       nominate badge, wordmark period, focus outline
- *   --accent-2 (cyan) = the way out — body links, listen links, artist
- *                       links, hovered card/row titles
+ * Identity: still "야간 인쇄(night print)", but the reference the editorial
+ * side pointed at is a different colour world from the first reskin's
+ * fluorescent lime on a neutral dark: a near-black-to-deep-navy ground, mint
+ * green FLOWING AS A GRADIENT through large display type, lavender/purple
+ * underneath it, the whole thing iridescent. The target is that world, not
+ * "the same thing but quieter" — the mint here is bright and chromatic
+ * (#63EFC0), not a pastel wash.
+ *
+ * The two-series doctrine is unchanged; only the values moved:
+ *   --accent   (mint)     = whatever the score made — score plate, #1 rank,
+ *                           nominate badge, wordmark period, focus outline
+ *   --accent-2 (lavender) = the way out — body links, listen links, artist
+ *                           links, hovered card/row titles
+ * No component gained or lost an accent slot in this pass, so nothing below
+ * needs a media query.
  *
  * Light/dark is prefers-color-scheme only (a toggle would mean client JS,
  * which this site does not ship — ADR-0002).
@@ -19,35 +26,72 @@
  * The one rule that keeps BOTH schemes working without a single media query
  * inside any component: use --accent-ink / --accent-2-ink when the color is
  * TEXT, and --accent / --accent-2 when it is a FILL (with --on-accent* on
- * top). Lime as text on a light background is 1.16:1 — effectively
- * invisible — so the split is a structural guard, not a preference.
+ * top). Mint as text on a light background is 1.32:1 — effectively invisible
+ * — so the split is a structural guard, not a preference. The gradient
+ * tokens below extend the SAME split (--accent-sheen fills, --head-sheen is
+ * text and therefore has a dark light-mode variant).
+ *
+ * Every ratio quoted in this file was computed with the WCAG 2.x formula and
+ * is reproduced in full in 08-impl-notes/frontend.md (W5 palette pass).
  */
 :root {
   color-scheme: light dark;
 
-  /* ── Color (dark is the base identity; light lives in the media query) ── */
-  --bg: #0e0f14;
-  --surface: #16171d;
-  --surface-2: #1d1f26;
-  --surface-3: #262932;
-  --ink: #e8e7ee;
-  --ink-prose: #d5d4de; /* body text only — 13.03:1 avoids halation on long Korean prose */
-  --muted: #9a9aab;
-  --line: #2c2e38; /* hairline, DECORATION ONLY (1.41:1 — never carries meaning) */
-  --line-strong: #6a6d80; /* borders that mean something (3.74:1) */
+  /* ── Color (dark is the base identity; light lives in the media query) ──
+     The neutral ramp is a deep NAVY, not a blue-violet grey: the reference's
+     ground is where its mint gets its glow, and a hue-neutral dark makes the
+     same mint read as mineral green. */
+  --bg: #080c16;
+  --surface: #0f1420;
+  --surface-2: #161c2a;
+  --surface-3: #1f2637;
+  --ink: #e8e9f2;
+  --ink-prose: #d3d6e4; /* body text only — 13.50:1 avoids halation on long Korean prose */
+  --muted: #98a0b8;
+  --line: #242c3d; /* hairline, DECORATION ONLY (1.39:1 — never carries meaning) */
+  --line-strong: #6f7791; /* borders that mean something (4.39:1 on --bg) */
 
-  --accent: #d2f53c; /* fill */
-  --accent-dim: #b4d62b; /* fill hover/active */
-  --accent-ink: #d2f53c; /* text — identical to the fill in dark */
-  --on-accent: #10160b; /* text on an --accent fill (14.77:1) */
+  --accent: #63efc0; /* fill — mint */
+  --accent-dim: #45d3a5; /* fill hover/active */
+  --accent-ink: #63efc0; /* text — identical to the fill in dark */
+  --on-accent: #04170f; /* text on an --accent fill (12.90:1) */
 
-  --accent-2: #5ce1e6; /* fill */
-  --accent-2-ink: #5ce1e6; /* text */
-  --on-accent-2: #06222a; /* text on an --accent-2 fill */
+  --accent-2: #b9a5f7; /* fill — lavender */
+  --accent-2-ink: #b9a5f7; /* text */
+  --on-accent-2: #140c2e; /* text on an --accent-2 fill (8.72:1) */
 
-  --good: #7ce0a6;
-  --warn: #f2c94c;
-  --critical: #ff6b5e;
+  --good: #7ce8b4;
+  --warn: #f0ce7c;
+  --critical: #ff8a80;
+
+  /* ── Iridescence: three gradient tokens, deliberately NOT colour tokens ──
+     The reference's signature is a mint gradient running through big display
+     type, over a ground where mint and lavender bleed into each other. CSS
+     does all of it with zero JS. What keeps it from dissolving the token
+     system is a hard boundary, one token per job:
+
+       --accent-sheen  FILLS only — the review score plate and the home chart
+                       leader plate. All three stops clear AA against
+                       --on-accent (14.39 / 12.90 / 10.78:1), so the figure
+                       on top is legible wherever the ramp lands.
+       --head-sheen    TEXT only, and only on the annual-list headings (see
+                       below). Because it is text it obeys the ink/fill
+                       split: dark stops in light mode.
+       --bg-sheen      the page wash on <body>, under everything.
+
+     WHERE --head-sheen may be used, exactly: the home's Charts section
+     heading and /list/{year}/'s H1. Those two headings name the list the
+     SCORES produced, which is what --accent means. Painting "최신 리뷰" or a
+     review's album title with it would put the score's colour on something
+     the score did not make, and the doctrine would be decoration again.
+
+     --accent-sheen and --head-sheen carry the same stops in dark and split
+     in light: a fill keeps its colour in both schemes, text cannot. */
+  --accent-sheen: linear-gradient(135deg, #8bf7d2 0%, #63efc0 45%, #46d9de 100%);
+  --head-sheen: linear-gradient(100deg, #8bf7d2 0%, #63efc0 42%, #46d9de 100%);
+  --bg-sheen:
+    radial-gradient(1100px 620px at 18% -12%, rgba(99, 239, 192, 0.1), transparent 72%),
+    radial-gradient(900px 520px at 88% -4%, rgba(185, 165, 247, 0.08), transparent 68%);
 
   /* ── Type: role tokens. Adding faces later is a 4-line change here and a
      @font-face pair in Base.astro — components never name a family. ── */
@@ -111,30 +155,44 @@
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f7f7f9;
+    --bg: #f5f6fa;
     --surface: #ffffff;
-    --surface-2: #ededf1;
-    --surface-3: #e2e2e8;
-    --ink: #16171d;
-    --ink-prose: #24252e;
-    --muted: #5c5c6b;
-    --line: #e2e2e8;
-    --line-strong: #8b8b99;
+    --surface-2: #eaecf3;
+    --surface-3: #dfe2ec;
+    --ink: #12161f;
+    --ink-prose: #21252f;
+    --muted: #585e70;
+    --line: #dfe2ec;
+    /* Darkened from the first reskin's #8B8B99, which was 2.88:1 against
+       --surface-2 — below the 3:1 floor a meaningful border has to clear. */
+    --line-strong: #787e92;
 
     /* Fills stay identical in both schemes; on light they REQUIRE the 2px
-       --ink border (.plate below) — lime on near-white is 1.16:1, so the
-       shape of the plate would otherwise not exist. */
-    --accent: #d2f53c;
-    --accent-dim: #c2e52c;
-    --accent-ink: #3d5200; /* lime as TEXT on light — 8.16:1 */
-    --on-accent: #10160b;
+       --ink border (.plate in global.css) — mint on near-white is 1.32:1 and
+       lavender 1.98:1, so without it the plate's SHAPE would not exist. */
+    --accent: #63efc0;
+    --accent-dim: #45d3a5;
+    --accent-ink: #0a5c46; /* mint as TEXT on light — 7.38:1 */
+    --on-accent: #04170f;
 
-    --accent-2: #5ce1e6;
-    --accent-2-ink: #0a6a72;
-    --on-accent-2: #06222a;
+    --accent-2: #b9a5f7;
+    --accent-2-ink: #46349b; /* lavender as TEXT on light — 8.73:1 */
+    --on-accent-2: #140c2e;
 
-    --good: #1b7a4b;
-    --warn: #8a6a00;
+    --good: #16653e;
+    --warn: #6e5400;
     --critical: #b3261e;
+
+    /* --accent-sheen is a FILL and does not change. --head-sheen is TEXT, so
+       it takes the same dive --accent-ink does: the bright stops would be
+       1.3–1.5:1 on near-white. The gradient still travels mint → teal → deep
+       cyan, so the headline still flows; it just flows in ink. */
+    --head-sheen: linear-gradient(100deg, #0a5c46 0%, #0b6154 42%, #0a5570 100%);
+
+    /* Same wash, weaker: on a light ground the dark alphas tint the page
+       visibly blue and push --line-strong under 3:1. */
+    --bg-sheen:
+      radial-gradient(1100px 620px at 18% -12%, rgba(70, 200, 165, 0.08), transparent 72%),
+      radial-gradient(900px 520px at 88% -4%, rgba(140, 120, 220, 0.06), transparent 68%);
   }
 }

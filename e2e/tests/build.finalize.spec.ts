@@ -54,8 +54,16 @@ test('확정 빌드 — 동결 리스트 지면 + 홈 post-finalize 상태', () 
   expect(home).toContain('finalized-card');
   expect(home).toContain('2026 올해의 앨범 — 확정');
   expect(home).toContain(`href="${B}/list/2026/"`);
-  // New-year board starts empty: all 3 buckets show the empty copy.
-  expect(home.match(/아직 이 장르의 후보가 없습니다/g)?.length).toBe(3);
+  // The new year starts with an empty chart. Since the W5 home rebuild the
+  // home omits an empty Charts section outright (R-4: a conditional block is
+  // omitted, not shown empty), so the proof is its ABSENCE plus the fact
+  // that last year's albums no longer sit on the home as nominees.
+  expect(home).not.toContain('aria-label="올해의 앨범"');
+  expect(home).not.toContain('>9.1<');
+  // The bucket structure itself did not disappear — it moved to where a
+  // reader goes for it. 2027's list page still declares all three buckets.
+  const newYearList = readPage(dir, '/list/2027/');
+  expect(newYearList.match(/아직 이 장르의 후보가 없습니다/g)?.length).toBe(3);
 });
 
 test('점수 수정 → 평론은 반영, 확정 스냅샷 지면은 불변 (US-12 AC1)', () => {
