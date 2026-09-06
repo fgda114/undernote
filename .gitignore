@@ -4,19 +4,8 @@
 .agent-team/
 .claude/
 
-# ─── BATHOS 파이프라인 ──────────────────────────────────────
-# BATHOS 기본 정책은 .agent-team/ 전체를 제외하는 것이나, 이 프로젝트에서는
-# 기획·결정 이력(charter, wave-log, 조사 산출물)이 코드보다 값이 크다.
-# 왜 이렇게 정했는지가 남아야 하므로 추적한다. 휘발성·비밀 파일만 제외한다.
-
-# 감사 로그와 그 해시 체인 키 (키는 절대 커밋 금지)
-.agent-team/_state/audit-log.jsonl
-.agent-team/_state/audit-log.jsonl.*
+# 감사 로그 해시 체인 (키는 절대 커밋 금지)
 **/*.audit.jsonl
-
-# 세션 휘발 상태
-.agent-team/_state/session-flags.json
-.agent-team/_state/panes/
 
 # 락 · 백업 · 격리본
 *.lock
