@@ -6,19 +6,25 @@
  * (US home 4-state coverage, states 1–2).
  */
 import { expect, test } from '@playwright/test';
-import { copyFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { basePathOf, build, makeSandbox, pageExists, readPage, REPO } from '../lib/sandbox.mjs';
+import { basePathOf, build, makeSandbox, pageExists, readPage } from '../lib/sandbox.mjs';
+import { writeBaseContent } from '../lib/rich-content.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
 let dir: string;
 let B: string; // deploy base path — assertions must survive a base change
 const REVIEW = 'content/reviews/fixture-artist-fixture-album.md';
+/** Captured at seed time so the restore step needs no repo file (published
+ *  content is removable — see writeBaseContent). */
+let reviewSource: string;
 
-test.beforeAll(() => {
+test.beforeAll(async () => {
   dir = makeSandbox('retro');
   B = basePathOf(dir);
+  await writeBaseContent(dir);
+  reviewSource = readFileSync(join(dir, REVIEW), 'utf8');
 });
 
 test('평론 삭제 → 이야기 행이 "평론 준비 중"(비링크)으로 강등 + 홈 empty 상태', () => {
@@ -38,7 +44,7 @@ test('평론 삭제 → 이야기 행이 "평론 준비 중"(비링크)으로 �
 });
 
 test('평론 복원 → 다음 빌드에서 자동 링크 소급 생성 (원 개입 0) + 홈 early 상태', () => {
-  copyFileSync(join(REPO, REVIEW), join(dir, REVIEW));
+  writeFileSync(join(dir, REVIEW), reviewSource, 'utf8');
   const result = build(dir);
   expect(result.status, result.out.slice(-2000)).toBe(0);
 

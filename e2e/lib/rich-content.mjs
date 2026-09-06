@@ -2,12 +2,21 @@
  * Rich fixture content — 8 reviews across 3 buckets, written into a sandbox.
  * Scores mirror the W5 manual QA set so the board cut (top 5) is exercised.
  * Bodies contain no digits so score-leak greps stay unambiguous.
+ *
+ * SELF-SUFFICIENT (2026-09-06): the harness used to lean on the repo's
+ * committed fixture set — the base album/story the specs address by name, and
+ * its .jpg as the source for every generated cover. That made the E2E suite
+ * hostage to whatever the editor has published: removing the fixtures (a
+ * launch-checklist step, operations.md §8) broke setup outright. The sandbox's
+ * content tree is now WIPED and rewritten from this file, and covers are
+ * generated with sharp — no repo content reaches the sandbox any more.
  */
-import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import sharp from 'sharp';
 
 export const RICH_SET = [
-  // 6 generated pop reviews + the committed fixture (pop 8.3) = 7 pop → board keeps top 5.
+  // 6 generated pop reviews + the base fixture (pop 8.3) = 7 pop → board keeps top 5.
   { slug: 'aurora-line-first-light',  title: '퍼스트 라이트',   artists: ['shared-artist'],              bucket: 'pop',        score: '9.1', reviewDate: '2026-08-21', release: '2026-03-20', cover: true,  tags: [] },
   { slug: 'aurora-line-second-wind',  title: '세컨드 윈드',     artists: ['shared-artist'],              bucket: 'pop',        score: '8.8', reviewDate: '2026-08-14', release: '2026-02-06', cover: true,  tags: ['city-pop'] },
   { slug: 'twin-motif-duet',          title: '듀엣',            artists: ['motif-one', 'motif-two'],     bucket: 'pop',        score: '7.9', reviewDate: '2026-07-10', release: '2026-01-30', cover: true,  tags: [] },
@@ -31,11 +40,104 @@ const BODY = `합성음이 방을 채우고, 문장은 결론을 향해 천천�
 
 논증이 끝나기 전에는 판정이 나오지 않는다 — 그 순서가 이 매체의 문법이다.`;
 
-export function writeRichContent(dir) {
+/** The base album/story the specs address by name (ladder · retro-link ·
+ *  listen-link override · story→review flow). */
+export const BASE_SLUG = 'fixture-artist-fixture-album';
+
+/** Empty every content collection + covers the sandbox inherited from the
+ *  repo, so the suite sees exactly the set below and nothing else. */
+function resetContent(dir) {
+  for (const c of ['albums', 'artists', 'reviews', 'stories', 'snapshots']) {
+    const d = join(dir, 'content', c);
+    mkdirSync(d, { recursive: true });
+    for (const f of readdirSync(d)) if (f !== '.gitkeep') rmSync(join(d, f), { recursive: true, force: true });
+  }
+  const covers = join(dir, 'public', 'covers');
+  mkdirSync(covers, { recursive: true });
+  for (const f of readdirSync(covers)) if (f !== '.gitkeep') rmSync(join(covers, f), { force: true });
+}
+
+/** A real 640px JPEG — the derived-cover route decodes it with sharp at build
+ *  time, so arbitrary bytes would not do. */
+async function makeCover(path) {
+  await sharp({ create: { width: 640, height: 640, channels: 3, background: { r: 32, g: 30, b: 27 } } })
+    .jpeg({ quality: 70 })
+    .toFile(path);
+}
+
+async function writeBaseFixture(dir) {
+  writeFileSync(
+    join(dir, 'content', 'artists', 'fixture-artist.md'),
+    ['---', 'name: 픽스처 아티스트', '---', '', '소개글 본문입니다 (빈 본문도 허용되지만 여기서는 채워 둡니다).', ''].join('\n'),
+    'utf8',
+  );
+  await makeCover(join(dir, 'public', 'covers', `${BASE_SLUG}.jpg`));
+  writeFileSync(
+    join(dir, 'content', 'albums', `${BASE_SLUG}.yaml`),
+    [
+      'title: 픽스처 앨범',
+      'artists: [fixture-artist]',
+      'release_date: "2026-05-01"',
+      'bucket: pop',
+      `cover: covers/${BASE_SLUG}.jpg`,
+      'cover_source: "fixture (generated placeholder art)"',
+      'tags: [city-pop]',
+      'listen_links:',
+      '  - { service: spotify, url: "https://open.spotify.com/album/fixture" }',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  writeFileSync(
+    join(dir, 'content', 'reviews', `${BASE_SLUG}.md`),
+    [
+      '---',
+      `album: ${BASE_SLUG}`,
+      'score: "8.3"',
+      'date: 2026-09-02',
+      'editorial_check: true',
+      '---',
+      '',
+      '이 앨범은 픽스처지만, 본문은 실제 평론처럼 흐른다. 1983년의 어떤 순간을',
+      '떠올리게 하는 신시사이저가 첫 곡부터 공간을 채운다.',
+      '',
+      '논증이 끝나는 지점에서 점수가 나온다 — 그 전에는 나오지 않는다.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  writeFileSync(
+    join(dir, 'content', 'stories', 'fixture-story.md'),
+    [
+      '---',
+      'title: 픽스처 이야기',
+      'date: 2026-09-01',
+      'albums:',
+      `  - { ref: ${BASE_SLUG} }`,
+      '  - { text: "미등록 명반", artist: "어떤 아티스트" }',
+      'tags: [city-pop]',
+      '---',
+      '',
+      '이야기 본문. 등록 앨범 하나와 미등록 표기 하나를 참조한다.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+}
+
+/** Just the base set — for specs that used to rely on the sandbox inheriting
+ *  the repo's committed fixture and nothing else (ladder · retro-link). */
+export async function writeBaseContent(dir) {
+  resetContent(dir);
+  await writeBaseFixture(dir);
+}
+
+export async function writeRichContent(dir) {
+  resetContent(dir);
+  await writeBaseFixture(dir);
   for (const [slug, name] of Object.entries(ARTIST_NAMES)) {
     writeFileSync(join(dir, 'content', 'artists', `${slug}.md`), `---\nname: ${name}\n---\n`, 'utf8');
   }
-  const fixtureCover = join(dir, 'public', 'covers', 'fixture-artist-fixture-album.jpg');
   for (const a of RICH_SET) {
     const lines = [
       `title: ${a.title}`,
@@ -45,8 +147,8 @@ export function writeRichContent(dir) {
     ];
     if (a.tags.length > 0) lines.push(`tags: [${a.tags.join(', ')}]`);
     if (a.cover) {
-      cpSync(fixtureCover, join(dir, 'public', 'covers', `${a.slug}.jpg`));
-      lines.push(`cover: covers/${a.slug}.jpg`, `cover_source: "fixture copy (E2E)"`);
+      await makeCover(join(dir, 'public', 'covers', `${a.slug}.jpg`));
+      lines.push(`cover: covers/${a.slug}.jpg`, `cover_source: "generated placeholder (E2E)"`);
     }
     writeFileSync(join(dir, 'content', 'albums', `${a.slug}.yaml`), lines.join('\n') + '\n', 'utf8');
     writeFileSync(

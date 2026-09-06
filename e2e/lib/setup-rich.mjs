@@ -9,7 +9,7 @@ import { build, makeSandbox, SANDBOX_ROOT } from './sandbox.mjs';
 import { writeRichContent } from './rich-content.mjs';
 
 const dir = makeSandbox('rich');
-writeRichContent(dir);
+await writeRichContent(dir);
 console.log('rich sandbox 빌드 중...');
 const result = build(dir);
 if (result.status !== 0) {

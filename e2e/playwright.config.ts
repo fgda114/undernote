@@ -27,8 +27,10 @@ export default defineConfig({
   webServer: {
     // Own static server: astro preview daemonizes (Astro 7) and Playwright
     // sees the parent exit. process.execPath because the spawned shell has no
-    // `node` on PATH (known local issue — see 08-impl-notes W5.0 §5).
-    command: `${process.execPath} lib/static-server.mjs 4180`,
+    // `node` on PATH (known local issue — see 08-impl-notes W5.0 §5); QUOTED
+    // because a default Windows install puts it under "C:\Program Files\…"
+    // and the spawning shell splits the unquoted path at the space.
+    command: `"${process.execPath}" lib/static-server.mjs 4180`,
     url: `http://127.0.0.1:4180${base}/`,
     reuseExistingServer: true,
     timeout: 60_000,

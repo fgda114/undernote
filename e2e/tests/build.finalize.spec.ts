@@ -15,10 +15,10 @@ test.describe.configure({ mode: 'serial' });
 let dir: string;
 let B: string;
 
-test.beforeAll(() => {
+test.beforeAll(async () => {
   dir = makeSandbox('finalize');
   B = basePathOf(dir);
-  writeRichContent(dir);
+  await writeRichContent(dir);
 });
 
 test('finalize CLI — 스냅샷 동결 + active_year 전이 + 이듬해 버킷 블록', () => {

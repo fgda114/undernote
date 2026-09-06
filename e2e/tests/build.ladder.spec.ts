@@ -9,6 +9,7 @@ import { expect, test } from '@playwright/test';
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { basePathOf, build, makeSandbox, readPage } from '../lib/sandbox.mjs';
+import { writeBaseContent } from '../lib/rich-content.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -17,9 +18,13 @@ let B: string;
 const REVIEW_PATH = '/reviews/fixture-artist-fixture-album/';
 const STORY = 'content/stories/fixture-story.md';
 
-test.beforeAll(() => {
+// The base album/story is seeded here, not inherited from the repo: published
+// content comes and goes (the fixture set is a launch-checklist removal), the
+// suite must not.
+test.beforeAll(async () => {
   dir = makeSandbox('ladder');
   B = basePathOf(dir);
+  await writeBaseContent(dir);
 });
 
 test('① direct — 직접 참조 이야기가 평론에 표시', () => {

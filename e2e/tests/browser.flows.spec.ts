@@ -17,7 +17,7 @@ test('US-2/US-1 — 홈 보드 행 클릭 → 평론 도달 (클릭 1회)', asyn
   await expect(page.locator('.board')).toBeVisible();
   await page.locator('.board a.row-link').first().click();
   await expect(page).toHaveURL(/\/reviews\/[^/]+\/$/);
-  await expect(page.locator('.verdict')).toBeVisible();
+  await expect(page.locator('.score-mark')).toBeVisible(); // D2-R: the dial IS the landing proof
 });
 
 test('US-9 — 평론 히어로 아티스트명 클릭 → 아티스트 페이지', async ({ page }) => {
@@ -39,7 +39,7 @@ test('US-4 — 이야기 AlbumBox "평론 읽기" 클릭 → 평론 / 미등록�
 
 test('US-8 — 전역 내비 "소개" → 기준 3문 명문', async ({ page }) => {
   await page.goto(u('/archive/2026/'));
-  await page.getByRole('link', { name: '소개' }).first().click();
+  await page.getByRole('link', { name: 'About' }).first().click();
   await expect(page).toHaveURL(/\/about\/$/);
   const body = await page.locator('main').innerText();
   expect(body).toContain('안 들으면 손해');
@@ -51,7 +51,7 @@ test('404 — 없는 주소는 404 지면', async ({ page }) => {
   const response = await page.goto(u('/no-such-page/'));
   expect(response?.status()).toBe(404);
   await expect(page.locator('h1')).toContainText('이 주소에는 글이 없습니다');
-  await expect(page.getByRole('link', { name: '아카이브' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Archive' }).first()).toBeVisible();
 });
 
 test('NFR — 주요 흐름 전체에서 JS 요청 0 (클라이언트 JS 0 실측)', async ({ page }) => {

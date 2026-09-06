@@ -1,6 +1,6 @@
 /**
  * Dist-wide invariants on the shared rich sandbox (built by lib/setup-rich.mjs):
- *  - D2 score-exposure matrix (list surfaces show/sort · review = after body ·
+ *  - D2-R score-exposure matrix (list surfaces show/sort · review = hero dial ·
  *    browsing surfaces none · share cards none — all types)
  *  - board top-5 cut (US-2), monthly recap ordering (US-5)
  *  - OG 5-element completeness + PNG assets (US-15/SS-15, E-111 positive)
@@ -65,15 +65,19 @@ test('D2 — 리스트 지면은 점수 표시·정렬 / 홈 보드 top5 컷 / �
   }
 });
 
-test('D2 — 평론 히어로 무점수, 평결은 본문 종료 후 1회', () => {
+test('D2-R — 평론 히어로에 자기 점수 1회, 본문 이후 중복 없음', () => {
   for (const a of RICH_SET) {
     const html = readPage(dir, `/reviews/${a.slug}/`);
-    const hero = html.slice(html.indexOf('class="hero"'), html.indexOf('review-body'));
-    for (const s of SCORES) expect(hero, `${a.slug} hero leaks ${s}`).not.toContain(scoreToken(s));
-    const bodyAt = html.indexOf('review-body');
-    const verdictAt = html.indexOf('aria-label="평결"');
-    expect(verdictAt, `${a.slug} verdict missing`).toBeGreaterThan(bodyAt);
-    expect(html.slice(verdictAt)).toContain(scoreToken(a.score));
+    const hero = html.slice(html.indexOf('class="hero'), html.indexOf('review-body'));
+    // The dial carries this album's score — and only this album's.
+    expect(hero, `${a.slug} hero missing ${a.score}`).toContain(scoreToken(a.score));
+    for (const s of SCORES) {
+      if (s === a.score) continue;
+      expect(hero, `${a.slug} hero leaks ${s}`).not.toContain(scoreToken(s));
+    }
+    // The old verdict block is gone: no second copy of the figure downstream.
+    const tail = html.slice(html.indexOf('review-body'));
+    expect(tail, `${a.slug} score duplicated after body`).not.toContain(scoreToken(a.score));
   }
 });
 
