@@ -1,6 +1,6 @@
 ---
 /**
- * /archive/stories/ — type preset — the global nav's 평론/이야기 target (full listing).
+ * /archive/stories/ — type preset — the global nav's Notes target (full listing).
  * Lists stories as ArticleCards (no scores — browsing surface, D2).
  */
 import ArticleCard from '../../components/ArticleCard.astro';
@@ -11,9 +11,9 @@ const { allArticles } = getSiteData();
 const stories = allArticles.filter((item) => item.type === 'story');
 ---
 
-<Base title="이야기" description="발행된 음악 이야기 전체." path="/archive/stories/" current="stories">
+<Base title="Notes" description="발행된 음악 이야기 전체." path="/archive/stories/" current="stories">
   <main class="listing">
-    <h1 class="page-title">음악 이야기</h1>
+    <h1 class="page-title">Notes</h1>
     {
       stories.length > 0 ? (
         <ul class="cards">
@@ -30,7 +30,7 @@ const stories = allArticles.filter((item) => item.type === 'story');
 
 <style>
   .listing {
-    max-width: var(--column);
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
   }

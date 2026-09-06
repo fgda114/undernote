@@ -69,7 +69,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
             <a href={withBase(heroEntry.review_url)} class="hero-link">
               <CoverImage cover={heroEntry.cover} size={320} albumTitle={heroEntry.title} loading="eager" />
               <span class="hero-text">
-                <FormatLabel text="평론" />
+                <FormatLabel text="Reviews" />
                 <span class="hero-title">{heroEntry.title}</span>
                 <span class="hero-artists">{heroEntry.artists_label}</span>
               </span>
@@ -114,7 +114,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
 
 <style>
   .home {
-    max-width: 960px;
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
     display: flex;

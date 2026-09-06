@@ -4,7 +4,7 @@
  * long-form reading owns the viewport. The current page item is marked with
  * ink weight + a 2px bottom border (never color alone — WCAG 1.4.1).
  *
- * Nav targets: /archive/ presets for 평론/이야기 (ui-spec §6), the active
+ * Nav targets: /archive/ presets for Reviews/Notes (ui-spec §6), the active
  * year's list, archive and about. Shell pages for these routes are a W5.2
  * obligation (E-112 readiness).
  */
@@ -21,11 +21,11 @@ const site = getSiteConfig();
 
 // Every href passes withBase — subpath deploys 404 otherwise (B-1).
 const items = [
-  { key: 'reviews', label: '평론', href: withBase('/archive/reviews/') },
-  { key: 'stories', label: '이야기', href: withBase('/archive/stories/') },
-  { key: 'list', label: '올해의앨범', href: withBase(`/list/${site.active_year}/`) },
-  { key: 'archive', label: '아카이브', href: withBase('/archive/') },
-  { key: 'about', label: '소개', href: withBase('/about/') },
+  { key: 'reviews', label: 'Reviews', href: withBase('/archive/reviews/') },
+  { key: 'stories', label: 'Notes', href: withBase('/archive/stories/') },
+  { key: 'list', label: 'Charts', href: withBase(`/list/${site.active_year}/`) },
+  { key: 'archive', label: 'Archive', href: withBase('/archive/') },
+  { key: 'about', label: 'About', href: withBase('/about/') },
 ] as const;
 ---
 
@@ -52,7 +52,7 @@ const items = [
     border-bottom: 1px solid var(--line);
   }
   .masthead-inner {
-    max-width: 960px;
+    max-width: var(--shell);
     margin: 0 auto;
     min-height: var(--masthead-h);
     padding: 0 20px;

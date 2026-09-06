@@ -12,15 +12,15 @@ import { withBase } from '../lib/paths.ts';
   <main class="notfound">
     <h1 class="line">이 주소에는 글이 없습니다.</h1>
     <ul class="links">
-      <li><a href={withBase('/')}>홈</a></li>
-      <li><a href={withBase('/archive/')}>아카이브</a></li>
+      <li><a href={withBase('/')}>Home</a></li>
+      <li><a href={withBase('/archive/')}>Archive</a></li>
     </ul>
   </main>
 </Base>
 
 <style>
   .notfound {
-    max-width: var(--column);
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-96) 20px 0;
   }

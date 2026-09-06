@@ -18,7 +18,7 @@ const items = (archive.by_tag.get(tag!) ?? []).map((i) => articleByUrl.get(i.url
 const label = (data.tags?.tags ?? []).find((t) => t.slug === tag)?.label ?? tag!;
 ---
 
-<Base title={`${label} — 아카이브`} description={`태그 ${label}의 전체 글.`} path={`/archive/tag/${tag}/`} current="archive">
+<Base title={`${label} — Archive`} description={`태그 ${label}의 전체 글.`} path={`/archive/tag/${tag}/`} current="archive">
   <main class="listing">
     <h1 class="page-title">{label}</h1>
     <ul class="cards">
@@ -29,7 +29,7 @@ const label = (data.tags?.tags ?? []).find((t) => t.slug === tag)?.label ?? tag!
 
 <style>
   .listing {
-    max-width: var(--column);
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
   }

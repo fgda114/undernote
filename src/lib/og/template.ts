@@ -59,7 +59,7 @@ function reviewCard(input: ReviewCardInput): El {
     return baseCard({
       kind: 'base',
       title: input.albumTitle,
-      formatLabel: '평론',
+      formatLabel: 'Reviews',
       siteName: input.siteName,
     });
   }
@@ -74,7 +74,7 @@ function reviewCard(input: ReviewCardInput): El {
       },
     },
     el('div', { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '400px', flexGrow: 1 }, [
-      overline('평론'),
+      overline('Reviews'),
       el('div', { display: 'flex', flexDirection: 'column', gap: '16px' }, [
         el('div', { fontSize: '60px', fontWeight: 700, lineHeight: 1.3 }, input.albumTitle),
         el('div', { fontFamily: 'sans', fontSize: '34px', color: MUTED }, input.artistsLabel),

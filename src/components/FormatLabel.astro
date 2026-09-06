@@ -5,7 +5,7 @@
  * context). One of the five sanctioned --seal slots.
  */
 interface Props {
-  /** Label text: 평론 / 음악 이야기 / 아티스트 / page overlines (e.g. "2026 올해의 앨범"). */
+  /** Label text: Reviews / Notes / Artists / page overlines (e.g. "2026 올해의 앨범"). */
   text: string;
 }
 
@@ -21,6 +21,9 @@ const { text } = Astro.props;
     font-weight: 700;
     line-height: 1;
     letter-spacing: 0.14em;
+    /* Section names are English (D2-R sibling decision); uppercase is a
+       no-op on the Korean page overlines that still pass through here. */
+    text-transform: uppercase;
     color: var(--seal);
   }
 </style>

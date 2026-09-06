@@ -14,10 +14,10 @@ import { getSiteConfig } from '../lib/site.ts';
 const site = getSiteConfig();
 ---
 
-<Base title="소개/기준" description="이 매체의 기준 — 안 들으면 손해 문턱을 통과한 앨범만 싣습니다." path="/about/" current="about">
+<Base title="About" description="이 매체의 기준 — 안 들으면 손해 문턱을 통과한 앨범만 싣습니다." path="/about/" current="about">
   <main class="about">
     <header>
-      <FormatLabel text="소개/기준" />
+      <FormatLabel text="About" />
       <h1 class="page-title">실림 = 추천</h1>
     </header>
 
@@ -43,7 +43,7 @@ const site = getSiteConfig();
 
 <style>
   .about {
-    max-width: var(--column);
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
     display: flex;
@@ -57,6 +57,8 @@ const site = getSiteConfig();
     margin-top: var(--s-12);
   }
   .statement-line {
+    /* Frame is shell-wide; the sentence itself keeps reading measure. */
+    max-width: var(--column);
     font-family: var(--serif);
     font-size: var(--fs-21);
     font-weight: 700;
@@ -64,6 +66,7 @@ const site = getSiteConfig();
     text-wrap: balance;
   }
   .contact {
+    max-width: var(--column);
     border-top: 1px solid var(--line);
     padding-top: var(--s-16);
     font-size: var(--fs-15);

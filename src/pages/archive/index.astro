@@ -1,7 +1,7 @@
 ---
 /**
  * /archive/ — the 4-axis browse hub (ui-spec §6), replacing the W5.2 shell.
- * Axes: 연도(발행 기준) / 장르(버킷 — bold labels) / 태그(muted chips — the
+ * Axes: Year(발행 기준) / Genre(버킷 — bold labels) / Tags(muted chips — the
  * tab itself disappears while the registry is empty) / 아티스트. Type presets
  * (평론·이야기) sit on top — the global nav lands there. Empty axis values
  * simply don't exist (R-4). No scores anywhere on browsing surfaces (D2).
@@ -30,19 +30,19 @@ const artistNames = new Map(data.artists.map((a) => [a.slug, a.data.name]));
 const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name: artistNames.get(slug) ?? slug }));
 ---
 
-<Base title="아카이브" description="연도·장르·태그·아티스트로 찾아보는 전체 글." path="/archive/" current="archive">
+<Base title="Archive" description="연도·장르·태그·아티스트로 찾아보는 전체 글." path="/archive/" current="archive">
   <main class="archive">
-    <h1 class="page-title">아카이브</h1>
+    <h1 class="page-title">Archive</h1>
 
     <ul class="presets">
-      <li><a href={withBase('/archive/reviews/')}>평론</a></li>
-      <li><a href={withBase('/archive/stories/')}>이야기</a></li>
+      <li><a href={withBase('/archive/reviews/')}>Reviews</a></li>
+      <li><a href={withBase('/archive/stories/')}>Notes</a></li>
     </ul>
 
     {
       years.length > 0 && (
         <section class="axis">
-          <h2 class="axis-title">연도</h2>
+          <h2 class="axis-title">Year</h2>
           <ul class="values">
             {years.map((year) => (
               <li>
@@ -57,7 +57,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
     {
       buckets.length > 0 && (
         <section class="axis">
-          <h2 class="axis-title">장르</h2>
+          <h2 class="axis-title">Genre</h2>
           <ul class="values">
             {buckets.map((bucket) => (
               <li>
@@ -73,7 +73,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
       /* Tag tab hidden entirely while no tags exist (ui-spec §6). */
       tags.length > 0 && (
         <section class="axis">
-          <h2 class="axis-title">태그</h2>
+          <h2 class="axis-title">Tags</h2>
           <ul class="values">
             {tags.map((tag) => (
               <li>
@@ -88,7 +88,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
     {
       artists.length > 0 && (
         <section class="axis">
-          <h2 class="axis-title">아티스트</h2>
+          <h2 class="axis-title">Artists</h2>
           <ul class="values">
             {artists.map((artist) => (
               <li>
@@ -104,7 +104,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
 
 <style>
   .archive {
-    max-width: var(--column);
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
     display: flex;

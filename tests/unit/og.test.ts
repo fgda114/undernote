@@ -3,11 +3,25 @@
  * never carry a score key (type-level exclusion, verified at runtime here so
  * a future refactor cannot quietly widen the input).
  */
-import { describe, expect, it } from 'vitest';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { assembleBaseCard, assembleReviewCard } from '../../src/lib/og/assemble';
 import { cardTree } from '../../src/lib/og/template';
 
 const site = { site_name: 'undernote', og_use_cover: true };
+
+// assembleReviewCard reads public/<cover> off disk and base64s the bytes (it
+// never decodes them), so the test owns a throwaway file instead of pointing
+// at whichever album happens to be published — published content comes and
+// goes (the fixture set is on the launch checklist), this test must not.
+const TMP_COVER = 'covers/tmp-og-test-cover.jpg';
+const TMP_PATH = join('public', TMP_COVER);
+beforeAll(() => {
+  mkdirSync(join('public', 'covers'), { recursive: true });
+  writeFileSync(TMP_PATH, Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x01]));
+});
+afterAll(() => rmSync(TMP_PATH, { force: true }));
 
 describe('assembleReviewCard', () => {
   it('조립 결과에 score 키가 존재하지 않는다 (E-115 데이터 레벨 강제)', () => {
@@ -27,7 +41,7 @@ describe('assembleReviewCard', () => {
 
   it('og_use_cover=false 킬스위치 → 커버가 있어도 미사용 (ADR-0008 §5)', () => {
     const card = assembleReviewCard({
-      album: { title: 'T', cover: 'covers/fixture-artist-fixture-album.jpg' },
+      album: { title: 'T', cover: TMP_COVER },
       artistsLabel: 'A',
       site: { site_name: 'undernote', og_use_cover: false },
     });
@@ -36,7 +50,7 @@ describe('assembleReviewCard', () => {
 
   it('커버 + 킬스위치 on → data URL 포함', () => {
     const card = assembleReviewCard({
-      album: { title: 'T', cover: 'covers/fixture-artist-fixture-album.jpg' },
+      album: { title: 'T', cover: TMP_COVER },
       artistsLabel: 'A',
       site,
     });
@@ -47,7 +61,7 @@ describe('assembleReviewCard', () => {
 describe('cardTree', () => {
   it('커버 없는 평론 카드는 기본형 트리로 내려간다', () => {
     const tree = cardTree(assembleReviewCard({ album: { title: '앨범', cover: undefined }, artistsLabel: 'A', site }));
-    expect(JSON.stringify(tree)).toContain('평론'); // format label survives
+    expect(JSON.stringify(tree)).toContain('Reviews'); // format label survives
     expect(JSON.stringify(tree)).not.toContain('data:image');
   });
 

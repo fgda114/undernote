@@ -3,8 +3,9 @@
  * NominateBadge (components.md §10) — "● 지금 {버킷} 노미네이트 {n}위",
  * linking to the year list (the review→board reverse path, D6-3).
  *
- * Lives ONLY inside ScoreVerdict: the badge is derived from the score
- * (SS-4), so surfacing it in the hero would leak the verdict early (D2).
+ * Lives in the review hero, under the album line (D2-R): the badge is
+ * derived from the score (SS-4), and since the score itself now opens the
+ * page there is nothing left to leak.
  * Not nominated → the caller simply doesn't render this (no empty shell).
  * Color-independence: the text says everything; seal is reinforcement.
  */

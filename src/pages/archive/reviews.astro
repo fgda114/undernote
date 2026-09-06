@@ -1,6 +1,6 @@
 ---
 /**
- * /archive/reviews/ — type preset — the global nav's 평론/이야기 target (full listing).
+ * /archive/reviews/ — type preset — the global nav's Reviews target (full listing).
  * Lists all reviews as ArticleCards (no scores — browsing surface, D2).
  */
 import ArticleCard from '../../components/ArticleCard.astro';
@@ -11,9 +11,9 @@ const { allArticles } = getSiteData();
 const reviews = allArticles.filter((item) => item.type === 'review');
 ---
 
-<Base title="평론" description="발행된 평론 전체." path="/archive/reviews/" current="reviews">
+<Base title="Reviews" description="발행된 평론 전체." path="/archive/reviews/" current="reviews">
   <main class="listing">
-    <h1 class="page-title">평론</h1>
+    <h1 class="page-title">Reviews</h1>
     {
       reviews.length > 0 ? (
         <ul class="cards">
@@ -30,7 +30,7 @@ const reviews = allArticles.filter((item) => item.type === 'review');
 
 <style>
   .listing {
-    max-width: var(--column);
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
   }

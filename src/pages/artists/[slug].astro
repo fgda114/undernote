@@ -33,7 +33,7 @@ const items = (archive.by_artist.get(artist.id) ?? []).map((i) => articleByUrl.g
 >
   <main class="artist">
     <header>
-      <FormatLabel text="아티스트" />
+      <FormatLabel text="Artists" />
       <h1 class="name">{artist.data.name}</h1>
     </header>
 
@@ -62,7 +62,7 @@ const items = (archive.by_artist.get(artist.id) ?? []).map((i) => articleByUrl.g
 
 <style>
   .artist {
-    max-width: var(--column);
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
     display: flex;

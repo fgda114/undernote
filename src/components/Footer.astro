@@ -17,8 +17,8 @@ const site = getSiteConfig();
 <footer class="footer">
   <div class="footer-inner">
     <ul class="footer-nav">
-      <li><a href={withBase('/about/')}>소개/기준</a></li>
-      <li><a href={withBase('/archive/')}>아카이브</a></li>
+      <li><a href={withBase('/about/')}>About</a></li>
+      <li><a href={withBase('/archive/')}>Archive</a></li>
     </ul>
     <p class="copyright">© {site.active_year} {site.site_name}</p>
   </div>
@@ -30,7 +30,7 @@ const site = getSiteConfig();
     margin-top: var(--s-96);
   }
   .footer-inner {
-    max-width: 960px;
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-32) 20px var(--s-48);
     display: flex;

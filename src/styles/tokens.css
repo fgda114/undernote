@@ -68,6 +68,10 @@
 
   /* ── Layout ── */
   --column: 660px;                                 /* reading column ≈ 38 Korean chars */
+  /* Page shell — EVERY page frame uses this so the layout does not jump
+     width as the reader moves between nav items. --column is only for
+     running prose sitting inside the shell. */
+  --shell: 960px;
   --masthead-h: 64px;
   --masthead-h-mobile: 56px;
 }

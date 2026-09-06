@@ -1,19 +1,21 @@
 ---
 /**
- * Review page /reviews/{slug}/ (ui-spec §2 · CF-1 · D2).
+ * Review page /reviews/{slug}/ (ui-spec §2 · CF-1 · D2-R).
  *
  * The frontmatter here only LOADS data and calls the derive layer — every
  * judgment (labels, cover set, listen links, formatting) lives in
  * src/lib/derive/review-page.ts (P1: templates render, they don't decide).
  *
- * D2 placement: hero = 4 fields, NO score/badge; the verdict block renders
- * after the body. Hero artist names link to /artists/{slug}/ (promotion
- * done in W5.3 once the routes exist — US-9 AC1).
+ * D2-R placement (2026-09-06, editor's call — supersedes D2 "말미 배치"):
+ * hero = score dial + 4 fields + nominate badge; the tail keeps only the
+ * listen row. Hero artist names link to /artists/{slug}/ (US-9 AC1).
  */
 import { getCollection, getEntry, render } from 'astro:content';
 import CoverImage from '../../components/CoverImage.astro';
 import FormatLabel from '../../components/FormatLabel.astro';
-import ScoreVerdict from '../../components/ScoreVerdict.astro';
+import ScoreMark from '../../components/ScoreMark.astro';
+import NominateBadge from '../../components/NominateBadge.astro';
+import ListenBlock from '../../components/ListenBlock.astro';
 import Base from '../../layouts/Base.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
 import LadderBlock from '../../components/LadderBlock.astro';
@@ -84,10 +86,12 @@ const otherByArtist = otherWorkByArtist(
 >
   <main>
     <article>
-      {/* ── Hero: exactly 4 fields, no score, no badge (D2) ── */}
+      {/* ── Hero: score dial + 4 fields + badge, cover right (D2-R) ──
+          DOM order keeps the overline and h1 first (FormatLabel is read
+          first on purpose); the dial is placed left by grid, not by DOM. */}
       <header class="hero">
         <div class="hero-text">
-          <FormatLabel text="평론" />
+          <FormatLabel text="Reviews" />
           <h1 class="hero-title">{page.title}</h1>
           <p class="hero-sub">
             {page.artistLinks.map((artist, i) => (
@@ -97,6 +101,10 @@ const otherByArtist = otherWorkByArtist(
               </>
             ))} · {page.bucketLabel} · {page.releaseDateText}
           </p>
+          {nominate && <NominateBadge bucketLabel={nominate.bucketLabel} rank={nominate.rank} year={nominate.year} />}
+        </div>
+        <div class="hero-score">
+          <ScoreMark score={page.score} />
         </div>
         <div class="hero-cover">
           <CoverImage cover={page.cover} size={320} albumTitle={page.title} loading="eager" />
@@ -108,9 +116,9 @@ const otherByArtist = otherWorkByArtist(
         <Content />
       </div>
 
-      {/* ── Verdict after the body only (D2) — badge fed by the board derive ── */}
+      {/* ── Tail: listen row only — score and badge now live in the hero (D2-R) ── */}
       <div class="column">
-        <ScoreVerdict score={page.score} listenLinks={page.listenLinks} nominate={nominate} />
+        <ListenBlock listenLinks={page.listenLinks} />
       </div>
 
       {/* ── Follow blocks — fixed order (§2.5); each renders only with data (R-4) ── */}
@@ -139,18 +147,30 @@ const otherByArtist = otherWorkByArtist(
 
 <style>
   .hero {
-    max-width: 960px;
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
     display: grid;
-    grid-template-columns: 1fr auto;
+    /* dial · text · cover — explicit placement so the DOM can keep h1 first */
+    grid-template-columns: auto 1fr auto;
     gap: var(--s-32);
     align-items: end;
   }
+  .hero-score {
+    grid-column: 1;
+    grid-row: 1;
+  }
   .hero-text {
+    grid-column: 2;
+    grid-row: 1;
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: var(--s-12);
+  }
+  .hero-cover {
+    grid-column: 3;
+    grid-row: 1;
   }
   .hero-title {
     font-family: var(--serif);
@@ -216,8 +236,19 @@ const otherByArtist = otherWorkByArtist(
     .hero {
       grid-template-columns: 1fr;
     }
+    /* cover on top, then the dial, then the text (ui-spec §2.1 — the score
+       stays above the fold, which is the whole point of D2-R) */
     .hero-cover {
-      order: -1; /* cover on top for mobile (ui-spec §2.1) */
+      grid-column: 1;
+      grid-row: 1;
+    }
+    .hero-score {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .hero-text {
+      grid-column: 1;
+      grid-row: 3;
     }
   }
 </style>

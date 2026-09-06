@@ -24,7 +24,7 @@ for (const block of data.genres?.years ?? []) {
 const label = bucket === 'etc' ? ETC_BUCKET_LABEL : (labels.get(bucket!) ?? bucket!);
 ---
 
-<Base title={`${label} — 아카이브`} description={`${label} 장르의 전체 글.`} path={`/archive/genre/${bucket}/`} current="archive">
+<Base title={`${label} — Archive`} description={`${label} 장르의 전체 글.`} path={`/archive/genre/${bucket}/`} current="archive">
   <main class="listing">
     <h1 class="page-title">{label}</h1>
     <ul class="cards">
@@ -35,7 +35,7 @@ const label = bucket === 'etc' ? ETC_BUCKET_LABEL : (labels.get(bucket!) ?? buck
 
 <style>
   .listing {
-    max-width: var(--column);
+    max-width: var(--shell);
     margin: 0 auto;
     padding: var(--s-48) 20px 0;
   }

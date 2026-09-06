@@ -210,7 +210,7 @@ export function deriveLatestArticles(
       title: j.album.title,
       subtitle: j.artistsLabel,
       date: j.review.date,
-      formatLabel: '평론',
+      formatLabel: 'Reviews',
     });
   }
   for (const story of data.stories) {
@@ -220,7 +220,7 @@ export function deriveLatestArticles(
       title: story.data.title,
       subtitle: excerpt(story.body),
       date: story.data.date,
-      formatLabel: '음악 이야기',
+      formatLabel: 'Notes',
     });
   }
   // date desc → url asc: total order without a clock.

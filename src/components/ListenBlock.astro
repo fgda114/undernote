@@ -1,0 +1,74 @@
+---
+/**
+ * ListenBlock (components.md §9) — the tail of a review: where to go hear it.
+ *
+ * Was ScoreVerdict until D2-R (2026-09-06). The score and the nominate badge
+ * both moved to the hero (ScoreMark / hero-text), so what remains is the
+ * outbound row — and a block that would render as a bare rule + overline is
+ * an empty shell (R-4), hence the caller-side guard below is enforced here:
+ * no links, no block.
+ */
+import type { ListenLink } from '../lib/listen-links.ts';
+import FormatLabel from './FormatLabel.astro';
+
+interface Props {
+  listenLinks: ListenLink[];
+}
+
+const { listenLinks } = Astro.props;
+---
+
+{
+  listenLinks.length > 0 && (
+    <section class="listen-block" aria-label="듣기">
+      <hr class="rule" aria-hidden="true" />
+      <FormatLabel text="Listen" />
+      <ul class="listen">
+        {listenLinks.map((link) => (
+          <li>
+            {/* Same-tab outlink (a11y contract): no target=_blank, rel=noopener only. */}
+            <a href={link.url} rel="noopener">
+              {link.label} <span aria-hidden="true">↗</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+<style>
+  .listen-block {
+    margin-top: var(--s-48);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+    align-items: flex-start;
+  }
+  .rule {
+    width: 48px;
+    height: 2px;
+    margin: 0;
+    border: 0;
+    background: var(--seal);
+  }
+  .listen {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-16);
+  }
+  .listen a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: var(--fs-15);
+    color: var(--muted);
+    transition: color var(--t-micro);
+  }
+  .listen a:hover {
+    color: var(--seal);
+  }
+</style>

@@ -124,7 +124,7 @@ describe('coverSetFor (ADR-0008 §3)', () => {
 
 describe('otherWorkByArtist — "{아티스트}의 다른 글" (§2.5 ②, W6 m-4 — 페이지에서 이관)', () => {
   function article(url: string): ArticleItem {
-    return { type: 'review', url, title: url, subtitle: '', date: '2026-01-01', formatLabel: '평론' };
+    return { type: 'review', url, title: url, subtitle: '', date: '2026-01-01', formatLabel: 'Reviews' };
   }
   function archiveItem(url: string, date: string): ArchiveItem {
     return { type: 'review', url, title: url, date };
