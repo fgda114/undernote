@@ -1,30 +1,77 @@
 ---
 /**
- * ArticleCard (components.md §7) — browsing rows (home latest, archive in
- * W5.3). NO score property exists on this interface — that is the contract
- * (D2: browsing surfaces never receive score data at all).
+ * ArticleCard (components.md §4) — two variants of the same object.
+ *
+ *   row  — archive listings, artist pages, "다른 글": dense one-line entries.
+ *   card — the home grid: cover on top, text below.
+ *
+ * NO score property exists on this interface — that is the contract (D2:
+ * browsing surfaces never receive score data at all). Class names here must
+ * not start with "score" either; a dist-wide test greps browsing pages for
+ * the string `class="score`.
+ *
+ * A story has no album art and never will, so the card variant gives it a
+ * typographic block instead of a stock image or a gradient — fabricating
+ * imagery to keep a grid tidy is exactly what the no-fabrication rule
+ * forbids.
  */
 import type { ArticleItem } from '../lib/derive/lists.ts';
+import CoverImage from './CoverImage.astro';
+import FormatLabel from './FormatLabel.astro';
 import { withBase } from '../lib/paths.ts';
 
 interface Props {
   item: ArticleItem;
+  variant?: 'row' | 'card';
+  /** First grid row loads its covers eagerly; everything below is lazy. */
+  eager?: boolean;
 }
 
-const { item } = Astro.props;
+const { item, variant = 'row', eager = false } = Astro.props;
 ---
 
-<li class="article-card">
-  <a href={withBase(item.url)} class="card-link">
-    <span class="format">{item.formatLabel}</span>
-    <span class="title">{item.title}</span>
-    {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
-    <time class="date tnum" datetime={item.date}>{item.date}</time>
-  </a>
-</li>
+{
+  variant === 'card' ? (
+    <li class="article-card card">
+      <a href={withBase(item.url)} class="card-link">
+        <span class="visual">
+          {item.type === 'review' ? (
+            <CoverImage cover={item.cover ?? null} size="fill" albumTitle={item.title} loading={eager ? 'eager' : 'lazy'} />
+          ) : (
+            /* aria-hidden: the same words are the card title one line below,
+               and hearing the headline twice helps nobody. */
+            <span class="type-block" aria-hidden="true">
+              <span class="type-block-text">{item.title}</span>
+            </span>
+          )}
+        </span>
+        <span class="body">
+          <FormatLabel text={item.formatLabel} variant="chip" />
+          <span class="title">{item.title}</span>
+          {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
+          <time class="date tnum" datetime={item.date}>
+            {item.date}
+          </time>
+        </span>
+      </a>
+    </li>
+  ) : (
+    <li class="article-card">
+      <a href={withBase(item.url)} class="row-card-link">
+        <span class="format">{item.formatLabel}</span>
+        <span class="title">{item.title}</span>
+        {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
+        <time class="date tnum" datetime={item.date}>
+          {item.date}
+        </time>
+      </a>
+    </li>
+  )
+}
 
 <style>
-  .card-link {
+  /* ── row ─────────────────────────────────────────────────────────── */
+  .row-card-link {
     display: grid;
     grid-template-columns: 1fr auto;
     grid-template-areas:
@@ -38,35 +85,117 @@ const { item } = Astro.props;
   }
   .format {
     grid-area: format;
-    font-size: var(--fs-13);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
     font-weight: 700;
-    letter-spacing: 0.14em;
-    /* Same treatment as FormatLabel — the card overline is the same object. */
+    letter-spacing: var(--label-ls);
+    /* Same treatment as FormatLabel — the row overline is the same object. */
     text-transform: uppercase;
-    color: var(--seal);
+    color: var(--muted);
   }
-  .title {
+  .row-card-link .title {
     grid-area: title;
-    font-size: var(--fs-17);
+    font-size: var(--fs-16);
+    line-height: 22px;
+    letter-spacing: -0.01em;
     font-weight: 700;
+    color: var(--ink);
     transition: color var(--t-micro);
   }
-  .card-link:hover .title {
-    color: var(--seal);
+  .row-card-link:hover .title {
+    color: var(--accent-2-ink);
     text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .subtitle {
+  .row-card-link .subtitle {
     grid-area: subtitle;
-    font-size: var(--fs-15);
+  }
+  .row-card-link .date {
+    grid-area: date;
+  }
+  .subtitle {
+    font-size: var(--fs-14);
+    line-height: 20px;
     color: var(--muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .date {
-    grid-area: date;
-    font-size: var(--fs-13);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    letter-spacing: 0.04em;
+    font-weight: 500;
     color: var(--muted);
+  }
+
+  /* ── card ────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-0);
+    transition: background var(--t-micro), border-color var(--t-micro);
+  }
+  .card:hover {
+    background: var(--surface-2);
+    border-color: var(--line-strong);
+  }
+  .card-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .visual {
+    display: block;
+    border-bottom: 1px solid var(--line);
+  }
+  /* Story card: the headline IS the artwork. Bottom-left set, clipped by
+     the square — a page of type, not a picture of one. */
+  .type-block {
+    display: flex;
+    align-items: flex-end;
+    aspect-ratio: 1 / 1;
+    padding: var(--s-12);
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .type-block-text {
+    font-family: var(--display);
+    font-size: var(--fs-27);
+    line-height: 30px;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-8);
+    padding: var(--s-12);
+  }
+  .card .title {
+    font-family: var(--display);
+    font-size: var(--fs-21);
+    line-height: 26px;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    color: var(--ink);
+    /* Two-line clamp with zero JS; the third line would push the date out of
+       alignment with the neighbouring cards. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    transition: color var(--t-micro);
+  }
+  .card-link:hover .title {
+    color: var(--accent-2-ink);
+  }
+  .card .subtitle {
+    max-width: 100%;
   }
 </style>

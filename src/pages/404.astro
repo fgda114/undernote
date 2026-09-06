@@ -1,6 +1,6 @@
 ---
 /**
- * 404 — one serif line, two links, zero decoration (ui-spec §9). The only
+ * 404 — one display line, two links, zero decoration (ui-spec §9). The only
  * error state a reader can ever reach: everything else is blocked at build
  * time (SS-1·8 — zero broken states shipped is the design goal).
  */
@@ -25,9 +25,11 @@ import { withBase } from '../lib/paths.ts';
     padding: var(--s-96) 20px 0;
   }
   .line {
-    font-family: var(--serif);
+    font-family: var(--display);
     font-size: var(--fs-27);
-    font-weight: 700;
+    line-height: 32px;
+    letter-spacing: -0.02em;
+    font-weight: 800;
   }
   .links {
     list-style: none;
@@ -41,9 +43,10 @@ import { withBase } from '../lib/paths.ts';
     align-items: center;
     min-height: 44px;
     font-size: var(--fs-15);
+    line-height: 20px;
     font-weight: 600;
   }
   .links a:hover {
-    color: var(--seal);
+    color: var(--accent-2-ink);
   }
 </style>

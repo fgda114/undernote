@@ -184,8 +184,14 @@ export function deriveBadgeMap(board: Board): Map<string, BadgeInfo> {
 
 // ── Home surface data ──────────────────────────────────────────────────
 
-/** ArticleCard data (components.md §7) — NO score field by contract (D2:
- * browsing surfaces never see scores; the field simply doesn't exist here). */
+/** ArticleCard data (components.md §4) — NO score field by contract (D2:
+ * browsing surfaces never see scores; the field simply doesn't exist here).
+ *
+ * `cover` was added for the home card grid (reskin 2026-09): the card
+ * variant shows the album art, and a story — which has no art by definition
+ * — falls back to a typographic block rather than a fabricated image. It is
+ * declared optional so the many hand-built ArticleItems in tests and
+ * fixtures stay valid; deriveLatestArticles always populates it. */
 export interface ArticleItem {
   type: 'review' | 'story';
   url: string;
@@ -194,6 +200,9 @@ export interface ArticleItem {
   subtitle: string;
   date: string;
   formatLabel: string;
+  /** Album art for review items; null when the album has no cover, absent
+   * for stories (which never have one). */
+  cover?: CoverSet | null;
 }
 
 export function deriveLatestArticles(
@@ -211,6 +220,7 @@ export function deriveLatestArticles(
       subtitle: j.artistsLabel,
       date: j.review.date,
       formatLabel: 'Reviews',
+      cover: coverSetFor({ slug: j.slug, title: j.album.title, artistsLabel: j.artistsLabel, cover: j.album.cover }),
     });
   }
   for (const story of data.stories) {
@@ -221,6 +231,7 @@ export function deriveLatestArticles(
       subtitle: excerpt(story.body),
       date: story.data.date,
       formatLabel: 'Notes',
+      cover: null,
     });
   }
   // date desc → url asc: total order without a clock.

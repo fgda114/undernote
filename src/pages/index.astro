@@ -1,8 +1,8 @@
 ---
 /**
  * Home `/` — the nominate board (D5) with the 3+1 states of ui-spec §1:
- *   normal        — board panel (bucket grid) + latest articles
- *   early         — progress banner + latest review hero (board too thin)
+ *   normal        — board panels (bucket grid) + latest card grid
+ *   early         — progress strip + a single feature card (board too thin)
  *   post-finalize — finalized-list link card + fresh (empty-ish) new board
  *   empty         — pre-launch line (no reviews at all)
  * Variant selection is clock-free (derive layer). The board caption date is
@@ -10,10 +10,19 @@
  * page output (R-10; a wall-clock caption would break the hash gate).
  * Board rows animate once on load (240ms/60ms stagger, CSS only) and the
  * stagger disappears under prefers-reduced-motion.
+ *
+ * Card-count layout (layouts.md §2.4): 0 cards → no section at all, 1 → one
+ * full-width feature, 2 → two columns, 3+ → the auto-fit grid. A three-column
+ * grid holding one card reads as a defect; a full-width feature reads as an
+ * editorial choice. The count is known at build time, so the switch is a
+ * class name — no JS, no measurement.
+ *
+ * In the `early` state the feature card and the "최신 글" list would show the
+ * SAME review twice (there is only one), so the hero item is removed from the
+ * list and the section disappears when nothing is left.
  */
 import ArticleCard from '../components/ArticleCard.astro';
 import BoardPanel from '../components/BoardPanel.astro';
-import CoverImage from '../components/CoverImage.astro';
 import FormatLabel from '../components/FormatLabel.astro';
 import Base from '../layouts/Base.astro';
 import { getSiteData } from '../lib/derive/site-data.ts';
@@ -21,12 +30,18 @@ import { latestReviewHero } from '../lib/derive/lists.ts';
 import { formatReleaseDate } from '../lib/derive/review-page.ts';
 import { withBase } from '../lib/paths.ts';
 
-const { site, board, latestArticles, latestPubDate, homeVariant, joined, data } = getSiteData();
-const nominateTotal = board.buckets.reduce((n, b) => n + b.entries.length, 0);
+const { site, board, latestArticles, latestPubDate, homeVariant, joined, data, articleByUrl } = getSiteData();
 
 // Latest review hero for the early variant (ui-spec §1.5) — judgment lives in
-// the derive layer (P1); the page only renders the result.
-const heroEntry = latestReviewHero(joined);
+// the derive layer (P1); the page only renders the result. It is looked up in
+// the article index so the feature card is the exact same object the grid
+// renders, not a second shape that could drift from it.
+const heroEntry = homeVariant === 'early' ? latestReviewHero(joined) : null;
+const heroArticle = heroEntry ? (articleByUrl.get(heroEntry.review_url) ?? null) : null;
+
+const listedArticles = heroArticle ? latestArticles.filter((item) => item.url !== heroArticle.url) : latestArticles;
+// 1 / 2 / 3 are the three layouts; anything above 3 uses the same auto-fit grid.
+const cardCount = Math.min(listedArticles.length, 3);
 
 const previousYear = site.active_year - 1;
 const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear);
@@ -56,24 +71,19 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     }
 
     {
-      homeVariant === 'early' && heroEntry && (
+      homeVariant === 'early' && heroArticle && (
         <>
-          <section class="progress-banner">
+          <section class="progress-strip">
             <FormatLabel text={`${site.active_year} 올해의 앨범`} />
-            <p class="banner-line">
+            <p class="strip-line">
               올해의 앨범 후보가 여기서 자랍니다 — 지금까지 평론 {data.reviews.length}편
-              <a class="banner-link" href={withBase(`/list/${site.active_year}/`)}>전체 보기 →</a>
+              <a class="strip-link" href={withBase(`/list/${site.active_year}/`)}>전체 보기 →</a>
             </p>
           </section>
-          <section class="review-hero">
-            <a href={withBase(heroEntry.review_url)} class="hero-link">
-              <CoverImage cover={heroEntry.cover} size={320} albumTitle={heroEntry.title} loading="eager" />
-              <span class="hero-text">
-                <FormatLabel text="Reviews" />
-                <span class="hero-title">{heroEntry.title}</span>
-                <span class="hero-artists">{heroEntry.artists_label}</span>
-              </span>
-            </a>
+          <section aria-label="최신 평론">
+            <ul class="cards n-1">
+              <ArticleCard item={heroArticle} variant="card" eager />
+            </ul>
           </section>
         </>
       )
@@ -98,12 +108,14 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     }
 
     {
-      latestArticles.length > 0 && homeVariant !== 'empty' && (
+      listedArticles.length > 0 && homeVariant !== 'empty' && (
         <section class="latest" aria-label="최신 글">
           <h2 class="latest-title">최신 글</h2>
-          <ul class="cards">
-            {latestArticles.map((item) => (
-              <ArticleCard item={item} />
+          <ul class:list={['cards', `n-${cardCount}`]}>
+            {listedArticles.map((item, i) => (
+              /* Only the first row is eager: three covers is the whole
+                 above-the-fold image cost, the rest stream in on scroll. */
+              <ArticleCard item={item} variant="card" eager={i < 3} />
             ))}
           </ul>
         </section>
@@ -119,19 +131,21 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     padding: var(--s-48) 20px 0;
     display: flex;
     flex-direction: column;
-    gap: var(--s-64);
+    gap: var(--s-48);
   }
   .empty-state .lede {
-    font-family: var(--serif);
-    font-size: var(--fs-21);
-    font-weight: 700;
-    line-height: 1.5;
+    font-family: var(--display);
+    font-size: var(--fs-27);
+    line-height: 32px;
+    letter-spacing: -0.015em;
+    font-weight: 800;
     text-wrap: balance;
   }
   .empty-state .status {
     margin-top: var(--s-16);
     color: var(--muted);
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
   }
 
   .finalized-card {
@@ -144,78 +158,71 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     align-items: center;
     gap: var(--s-12);
     min-height: 44px;
-    font-family: var(--serif);
-    font-size: var(--fs-21);
-    font-weight: 700;
+    font-family: var(--display);
+    font-size: var(--fs-27);
+    line-height: 32px;
+    letter-spacing: -0.02em;
+    font-weight: 800;
   }
-  .finalized-link:hover {
-    color: var(--seal);
+  .finalized-link:hover .finalized-title {
+    color: var(--accent-2-ink);
   }
   .arrow {
-    color: var(--seal);
+    color: var(--accent-2-ink);
   }
 
-  .progress-banner .banner-line {
-    margin-top: var(--s-12);
-    font-size: var(--fs-15);
-    color: var(--muted);
+  /* ── early: the progress strip ── */
+  .progress-strip {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: var(--s-12) var(--s-16);
+  }
+  .strip-line {
+    margin-top: var(--s-4);
+    font-size: var(--fs-14);
+    line-height: 20px;
+    color: var(--ink);
     display: flex;
     align-items: center;
     gap: var(--s-16);
     flex-wrap: wrap;
   }
-  .banner-link {
-    color: var(--ink);
+  .strip-link {
+    color: var(--accent-2-ink);
+    font-size: var(--fs-15);
+    line-height: 20px;
     font-weight: 600;
     min-height: 44px;
     display: inline-flex;
     align-items: center;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: text-decoration-thickness var(--t-micro);
   }
-  .banner-link:hover {
-    color: var(--seal);
-  }
-  .hero-link {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: var(--s-32);
-    align-items: center;
-  }
-  .hero-text {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-12);
-  }
-  .hero-title {
-    font-family: var(--serif);
-    font-size: var(--fs-34);
-    font-weight: 700;
-    line-height: 1.35;
-    text-wrap: balance;
-  }
-  .hero-link:hover .hero-title {
-    color: var(--seal);
-  }
-  .hero-artists {
-    font-size: var(--fs-17);
-    color: var(--muted);
+  .strip-link:hover {
+    text-decoration-thickness: 2px;
   }
 
   .board-title {
-    font-family: var(--serif);
+    font-family: var(--display);
     font-size: var(--fs-34);
-    font-weight: 700;
+    line-height: 40px;
+    letter-spacing: -0.025em;
+    font-weight: 800;
     margin-top: var(--s-12);
+    text-wrap: balance;
   }
   .board-caption {
     margin-top: var(--s-8);
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
     color: var(--muted);
   }
   .bucket-grid {
     margin-top: var(--s-24);
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: var(--s-24);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--s-16);
   }
   .board-more {
     display: inline-flex;
@@ -223,25 +230,103 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     min-height: 44px;
     margin-top: var(--s-16);
     font-size: var(--fs-15);
+    line-height: 20px;
     font-weight: 600;
   }
   .board-more:hover {
-    color: var(--seal);
+    color: var(--accent-2-ink);
   }
 
   .latest-title {
-    font-family: var(--serif);
+    font-family: var(--display);
     font-size: var(--fs-21);
-    font-weight: 700;
+    line-height: 26px;
+    letter-spacing: -0.01em;
+    font-weight: 800;
   }
+
+  /* ── Card grid: one rule set per card count (layouts.md §2.4) ── */
   .cards {
     list-style: none;
     margin: var(--s-16) 0 0;
     padding: 0;
   }
+  .cards.n-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--s-16);
+  }
+  .cards.n-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--s-16);
+  }
+  /* One card = the page's face. The cover goes left at its full rail width
+     and the headline takes the display scale's top step. */
+  .cards.n-1 {
+    display: block;
+    margin-top: 0;
+  }
+  .cards.n-1 :global(.card-link) {
+    display: grid;
+    grid-template-columns: 440px minmax(0, 1fr);
+    gap: var(--s-32);
+    align-items: center;
+  }
+  .cards.n-1 :global(.visual) {
+    border-bottom: 0;
+  }
+  .cards.n-1 :global(.body) {
+    padding: var(--s-24) var(--s-24) var(--s-24) 0;
+  }
+  .cards.n-1 :global(.title) {
+    font-size: var(--fs-56);
+    line-height: 58px;
+    letter-spacing: -0.035em;
+    font-weight: 800;
+  }
+  .cards.n-1 :global(.subtitle) {
+    font-size: var(--fs-17);
+    line-height: 24px;
+  }
+
+  @media (max-width: 900px) {
+    /* Below the point where a 440px cover leaves a readable text column, the
+       feature card stacks like every other card. */
+    .cards.n-1 :global(.card-link) {
+      display: flex;
+      flex-direction: column;
+    }
+    .cards.n-1 :global(.visual) {
+      border-bottom: 1px solid var(--line);
+    }
+    .cards.n-1 :global(.body) {
+      padding: var(--s-12);
+    }
+    .cards.n-1 :global(.title) {
+      font-size: var(--fs-34);
+      line-height: 38px;
+      letter-spacing: -0.025em;
+    }
+  }
+  @media (max-width: 640px) {
+    .home {
+      padding-top: var(--s-32);
+    }
+    .board-title {
+      font-size: var(--fs-27);
+      line-height: 32px;
+      letter-spacing: -0.02em;
+    }
+    .cards.n-2 {
+      grid-template-columns: 1fr;
+    }
+  }
 
   /* Board load orchestration — the site's ONE entrance animation:
-     opacity+8px rise, 240ms per panel, 60ms stagger, max 5 slots. */
+     opacity+8px rise, 240ms per panel, 60ms stagger, max 5 slots.
+     The card grid deliberately does NOT animate: the motion vocabulary is
+     two entries long and stays that way. */
   .stagger > :global(*) {
     animation: board-in 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
   }

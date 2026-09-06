@@ -80,6 +80,6 @@ describe('cardTree', () => {
   it('기본형 카드에 워드마크(사이트명 + seal 마침표)가 있다', () => {
     const json = JSON.stringify(cardTree(assembleBaseCard('제목', 'undernote')));
     expect(json).toContain('undernote');
-    expect(json).toContain('#B23A2F');
+    expect(json).toContain('#D2F53C');
   });
 });

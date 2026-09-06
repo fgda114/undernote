@@ -1,19 +1,27 @@
 ---
 /**
- * Review page /reviews/{slug}/ (ui-spec §2 · CF-1 · D2-R).
+ * Review page /reviews/{slug}/ (ui-spec §2 · CF-1 · D2-R · layouts.md §3).
  *
  * The frontmatter here only LOADS data and calls the derive layer — every
  * judgment (labels, cover set, listen links, formatting) lives in
  * src/lib/derive/review-page.ts (P1: templates render, they don't decide).
  *
- * D2-R placement (2026-09-06, editor's call — supersedes D2 "말미 배치"):
- * hero = score dial + 4 fields + nominate badge; the tail keeps only the
- * listen row. Hero artist names link to /artists/{slug}/ (US-9 AC1).
+ * Layout (2026-09 reskin): a full-width title block, then two columns — a
+ * 320px rail (cover · score plate · cover credit · spec block) and the
+ * criticism itself. The score sits directly beneath the cover with no gap so
+ * the pair reads as one object, and it is never laid OVER the artwork: the
+ * cover is not ours to crop or obscure (ADR-0008).
+ *
+ * DOM order is load-bearing. The dist matrix test slices the page at the
+ * first `class="hero` and again at `review-body`, then asserts the score
+ * appears exactly once in between and never after — that is the machine
+ * version of "the verdict is the entry point, not a spoiler at the end".
  */
 import { getCollection, getEntry, render } from 'astro:content';
 import CoverImage from '../../components/CoverImage.astro';
 import FormatLabel from '../../components/FormatLabel.astro';
 import ScoreMark from '../../components/ScoreMark.astro';
+import SpecMeta from '../../components/SpecMeta.astro';
 import NominateBadge from '../../components/NominateBadge.astro';
 import ListenBlock from '../../components/ListenBlock.astro';
 import Base from '../../layouts/Base.astro';
@@ -51,13 +59,14 @@ const page = buildReviewPageData({
   artists,
   genres: siteData.data.genres!,
   site: getSiteConfig(),
+  tagLabels: new Map((siteData.data.tags?.tags ?? []).map((t) => [t.slug, t.label])),
 });
 
 const { Content } = await render(review);
 const description = excerptFrom(review.body ?? '');
 
 // Nominate badge (SS-4 derive): present only while this album sits on the
-// active board — the verdict block hides the row otherwise (R-4).
+// active board — the hero hides the row otherwise (R-4).
 const badge = siteData.badgeMap.get(review.id) ?? null;
 const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, year: badge.year } : null;
 
@@ -83,64 +92,79 @@ const otherByArtist = otherWorkByArtist(
   ogImage={`/og/reviews/${page.slug}.png`}
   path={`/reviews/${page.slug}/`}
   current="reviews"
+  preloadSerif
 >
   <main>
     <article>
-      {/* ── Hero: score dial + 4 fields + badge, cover right (D2-R) ──
-          DOM order keeps the overline and h1 first (FormatLabel is read
-          first on purpose); the dial is placed left by grid, not by DOM. */}
+      {/* ── Title block: full width, above both columns ── */}
       <header class="hero">
-        <div class="hero-text">
-          <FormatLabel text="Reviews" />
-          <h1 class="hero-title">{page.title}</h1>
-          <p class="hero-sub">
-            {page.artistLinks.map((artist, i) => (
-              <>
-                {i > 0 && ', '}
-                <a class="artist-link" href={withBase(`/artists/${artist.slug}/`)}>{artist.name}</a>
-              </>
-            ))} · {page.bucketLabel} · {page.releaseDateText}
-          </p>
-          {nominate && <NominateBadge bucketLabel={nominate.bucketLabel} rank={nominate.rank} year={nominate.year} />}
-        </div>
-        <div class="hero-score">
-          <ScoreMark score={page.score} />
-        </div>
-        <div class="hero-cover">
-          <CoverImage cover={page.cover} size={320} albumTitle={page.title} loading="eager" />
-        </div>
+        <FormatLabel text="Reviews" variant="chip" />
+        <h1 class="hero-title">{page.title}</h1>
+        <p class="hero-sub">
+          {page.artistLinks.map((artist, i) => (
+            <>
+              {i > 0 && ', '}
+              <a class="artist-link" href={withBase(`/artists/${artist.slug}/`)}>{artist.name}</a>
+            </>
+          ))} · {page.bucketLabel} · {page.releaseDateText}
+        </p>
+        {nominate && <NominateBadge bucketLabel={nominate.bucketLabel} rank={nominate.rank} year={nominate.year} />}
       </header>
 
-      {/* ── Body: serif 17/1.8, 660px column — the product itself ── */}
-      <div class="prose review-body">
-        <Content />
-      </div>
-
-      {/* ── Tail: listen row only — score and badge now live in the hero (D2-R) ── */}
-      <div class="column">
-        <ListenBlock listenLinks={page.listenLinks} />
-      </div>
-
-      {/* ── Follow blocks — fixed order (§2.5); each renders only with data (R-4) ── */}
-      {
-        backlinks.mode !== 'none' && (
-          <div class="column">
-            <LadderBlock mode={backlinks.mode} bucketLabel={page.bucketLabel} stories={backlinks.stories} />
+      <div class="review-layout">
+        {/* ── Rail: cover → score → credit → spec. Not sticky: the spec block
+            is something you check before reading, not a running reference,
+            and a 700px rail gets clipped in a short window. ── */}
+        <aside class="hero-rail">
+          <div class="rail-cover">
+            <CoverImage cover={page.cover} size={320} albumTitle={page.title} loading="eager" />
           </div>
-        )
-      }
-      {
-        otherByArtist.length > 0 && (
-          <section class="column other-articles" aria-label={`${page.artistsLabel}의 다른 글`}>
-            <h2 class="other-title">{page.artistsLabel}의 다른 글</h2>
-            <ul class="other-cards">
-              {otherByArtist.map((item) => (
-                <ArticleCard item={item} />
-              ))}
-            </ul>
-          </section>
-        )
-      }
+          <ScoreMark score={page.score} />
+          {page.coverSource && <p class="cover-credit">{page.coverSource}</p>}
+          <SpecMeta
+            artistLinks={page.artistLinks}
+            releaseDateText={page.releaseDateText}
+            bucketId={page.bucketId}
+            bucketLabel={page.bucketLabel}
+            reviewDate={page.reviewDate}
+            label={page.label}
+            tags={page.tags}
+          />
+        </aside>
+
+        <div class="review-main">
+          {/* ── Body: serif 17/1.85, 660px column — the product itself ── */}
+          <div class="prose review-body">
+            <Content />
+          </div>
+
+          {/* ── Tail: listen row only — score and badge live in the hero (D2-R) ── */}
+          <div class="column">
+            <ListenBlock listenLinks={page.listenLinks} />
+          </div>
+
+          {/* ── Follow blocks — fixed order (§2.5); each renders only with data (R-4) ── */}
+          {
+            backlinks.mode !== 'none' && (
+              <div class="column">
+                <LadderBlock mode={backlinks.mode} bucketLabel={page.bucketLabel} stories={backlinks.stories} />
+              </div>
+            )
+          }
+          {
+            otherByArtist.length > 0 && (
+              <section class="column other-articles" aria-label={`${page.artistsLabel}의 다른 글`}>
+                <h2 class="other-title">{page.artistsLabel}의 다른 글</h2>
+                <ul class="other-cards">
+                  {otherByArtist.map((item) => (
+                    <ArticleCard item={item} />
+                  ))}
+                </ul>
+              </section>
+            )
+          }
+        </div>
+      </div>
     </article>
   </main>
 </Base>
@@ -149,82 +173,106 @@ const otherByArtist = otherWorkByArtist(
   .hero {
     max-width: var(--shell);
     margin: 0 auto;
-    padding: var(--s-48) 20px 0;
-    display: grid;
-    /* dial · text · cover — explicit placement so the DOM can keep h1 first */
-    grid-template-columns: auto 1fr auto;
-    gap: var(--s-32);
-    align-items: end;
-  }
-  .hero-score {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .hero-text {
-    grid-column: 2;
-    grid-row: 1;
+    padding: var(--s-48) 20px var(--s-32);
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: var(--s-12);
-  }
-  .hero-cover {
-    grid-column: 3;
-    grid-row: 1;
+    border-bottom: 1px solid var(--line);
   }
   .hero-title {
-    font-family: var(--serif);
-    font-size: var(--fs-34);
-    font-weight: 700;
-    line-height: 1.35;
+    font-family: var(--display);
+    font-size: var(--fs-44);
+    line-height: 48px;
+    letter-spacing: -0.03em;
+    font-weight: 800;
     text-wrap: balance;
   }
   .hero-sub {
     font-size: var(--fs-17);
+    line-height: 24px;
     color: var(--muted);
   }
   /* Underline keeps the link visible without color alone (WCAG 1.4.1). */
   .artist-link {
+    color: var(--accent-2-ink);
     text-decoration: underline;
     text-underline-offset: 3px;
-    transition: color var(--t-micro);
+    transition: text-decoration-thickness var(--t-micro);
   }
   .artist-link:hover {
-    color: var(--seal);
+    text-decoration-thickness: 2px;
+  }
+
+  .review-layout {
+    max-width: var(--shell);
+    margin: 0 auto;
+    padding: var(--s-32) 20px 0;
+    display: grid;
+    /* The rail is a fixed 320 (= the cover's edge) and the body takes the
+       rest; at --shell 1080 that leaves 672px, so the prose reaches its full
+       660px measure. Changing --shell alone re-balances both columns. */
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    gap: var(--s-48);
+    align-items: start;
+  }
+  /* No gap between the cover and the plate directly under it — the two
+     read as a single stamped object. Everything below sets its own margin. */
+  .hero-rail {
+    display: flex;
+    flex-direction: column;
+  }
+  .cover-credit {
+    margin-top: var(--s-8);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .hero-rail :global(.spec) {
+    margin-top: var(--s-16);
+  }
+
+  .review-main {
+    min-width: 0;
   }
   .column,
   .review-body {
     max-width: var(--column);
-    margin: 0 auto;
-    padding: 0 20px;
   }
   .review-body {
-    margin-top: var(--s-48);
     font-family: var(--serif);
     font-size: var(--fs-17);
-    line-height: 1.8;
+    line-height: 1.85;
   }
   .review-body :global(p) {
     margin: 0 0 var(--s-24);
   }
   .review-body :global(h2) {
-    font-family: var(--serif);
     font-size: var(--fs-21);
+    line-height: 30px;
+    letter-spacing: -0.005em;
     font-weight: 700;
+    color: var(--ink);
     margin: var(--s-32) 0 var(--s-16);
   }
   .review-body :global(blockquote) {
     margin: 0 0 var(--s-24);
     padding-left: var(--s-16);
-    border-left: 2px solid var(--line);
+    border-left: 2px solid var(--line-strong);
     color: var(--muted);
   }
   .other-articles {
     margin-top: var(--s-48);
   }
   .other-title {
-    font-size: var(--fs-17);
-    font-weight: 700;
+    font-family: var(--display);
+    font-size: var(--fs-21);
+    line-height: 26px;
+    letter-spacing: -0.01em;
+    font-weight: 800;
     margin-bottom: var(--s-8);
   }
   .other-cards {
@@ -232,23 +280,43 @@ const otherByArtist = otherWorkByArtist(
     margin: 0;
     padding: 0;
   }
+
+  @media (max-width: 959px) {
+    .review-layout {
+      grid-template-columns: 1fr;
+      gap: var(--s-24);
+    }
+    .hero-rail {
+      gap: var(--s-12);
+    }
+    /* The plate moves above the cover on narrow screens: a full-width score
+       right under the title keeps "this album = this score" in one glance,
+       instead of pushing it below a 360px square (D2-R's entry point). */
+    .hero-rail :global(.score-mark) {
+      order: -1;
+    }
+    .rail-cover {
+      max-width: 360px;
+    }
+    .hero-rail :global(.spec) {
+      margin-top: 0;
+    }
+  }
   @media (max-width: 640px) {
     .hero {
-      grid-template-columns: 1fr;
+      padding-top: var(--s-32);
     }
-    /* cover on top, then the dial, then the text (ui-spec §2.1 — the score
-       stays above the fold, which is the whole point of D2-R) */
-    .hero-cover {
-      grid-column: 1;
-      grid-row: 1;
+    .hero-title {
+      font-size: var(--fs-34);
+      line-height: 36px;
+      letter-spacing: -0.02em;
     }
-    .hero-score {
-      grid-column: 1;
-      grid-row: 2;
+    .hero-sub {
+      font-size: var(--fs-15);
+      line-height: 22px;
     }
-    .hero-text {
-      grid-column: 1;
-      grid-row: 3;
+    .review-body {
+      line-height: 1.8;
     }
   }
 </style>

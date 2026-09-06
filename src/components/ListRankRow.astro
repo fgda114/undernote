@@ -1,8 +1,9 @@
 ---
 /**
- * ListRankRow (components.md §6) — list-page rows (top10 · monthly recap ·
- * finalized annual). BoardRow extended: 64px cover, serif 700 title, score
- * shown. Variant "champion" (finalized #1) upgrades the cover to 160px.
+ * ListRankRow (components.md §11) — list-page rows (top10 · monthly recap ·
+ * finalized annual). BoardRow extended: 64px cover, display title, score
+ * shown. Variant "champion" (finalized #1) upgrades the cover to 160px and
+ * the title one step up the scale.
  * Invariant: display order = score order — guaranteed by the derive layer
  * (SS-8); this component provides no reordering UI.
  */
@@ -36,29 +37,38 @@ const { rank, title, artistsLabel, score, reviewUrl, cover, champion = false } =
 
 <style>
   .rank-row {
-    border-left: 2px solid transparent;
+    border-left: 3px solid transparent;
   }
   .rank-row.first {
-    border-left-color: var(--seal);
+    border-left-color: var(--accent);
   }
   .rank-row.first .rank {
-    color: var(--seal);
+    color: var(--accent-ink);
   }
   .row-link {
     display: flex;
     align-items: center;
     gap: var(--s-16);
-    min-height: 64px;
-    padding: var(--s-8);
+    min-height: 72px;
+    padding: var(--s-8) var(--s-12);
     transition: background var(--t-micro);
   }
+  .champion .row-link {
+    min-height: 176px;
+  }
   .row-link:hover {
-    background: var(--wash);
+    background: var(--surface-2);
+  }
+  .row-link:hover .title {
+    color: var(--accent-2-ink);
   }
   .rank {
     width: 28px;
-    font-size: var(--fs-17);
+    font-family: var(--mono);
+    font-size: var(--fs-21);
+    line-height: 24px;
     font-weight: 700;
+    color: var(--muted);
     text-align: center;
     flex-shrink: 0;
   }
@@ -69,20 +79,44 @@ const { rank, title, artistsLabel, score, reviewUrl, cover, champion = false } =
     flex-grow: 1;
   }
   .title {
-    font-family: var(--serif);
-    font-size: var(--fs-17);
+    font-family: var(--display);
+    font-size: var(--fs-21);
+    line-height: 26px;
+    letter-spacing: -0.02em;
     font-weight: 700;
+    color: var(--ink);
+    transition: color var(--t-micro);
   }
   .champion .title {
-    font-size: var(--fs-21);
+    font-size: var(--fs-27);
+    line-height: 32px;
+    font-weight: 800;
   }
   .artists {
     font-size: var(--fs-15);
+    line-height: 22px;
     color: var(--muted);
   }
+  .champion .artists {
+    font-size: var(--fs-17);
+    line-height: 24px;
+  }
   .score {
+    font-family: var(--mono);
     font-size: var(--fs-16);
-    font-weight: 600;
+    line-height: 20px;
+    font-weight: 700;
+    color: var(--ink);
     flex-shrink: 0;
+  }
+  .champion .score {
+    font-size: var(--fs-21);
+    line-height: 24px;
+  }
+  @media (max-width: 640px) {
+    .rank {
+      font-size: var(--fs-17);
+      line-height: 20px;
+    }
   }
 </style>

@@ -1,47 +1,78 @@
 /**
- * Design tokens — the CSS translation of 07-design/design-system/tokens.md
- * (the single source of truth; every component references these variables,
- * hardcoded values are a review reject).
+ * Design tokens — the CSS translation of
+ * 07-design/reskin-2026-09/tokens.md (the single source of truth since the
+ * 2026-09 reskin; the older design-system/tokens.md is kept as history).
+ * Every component references these variables; hardcoded values are a review
+ * reject.
  *
- * Identity: "잉크와 낙관" — warm-biased neutrals (paper/ink), one accent
- * (--seal) reserved for exactly five editorial-judgement slots: verdict
- * score, #1 rank, nominate badge, format overline, body links.
+ * Identity: "야간 인쇄(night print)" — a dark neutral ramp biased towards
+ * blue-violet, on which editorial judgement is stamped as a lime plate.
+ * The accent doctrine is two series, and nothing else may use them:
+ *   --accent   (lime) = whatever the score made — score plate, #1 rank,
+ *                       nominate badge, wordmark period, focus outline
+ *   --accent-2 (cyan) = the way out — body links, listen links, artist
+ *                       links, hovered card/row titles
  *
- * Dark mode is prefers-color-scheme only — no toggle, zero client JS.
+ * Light/dark is prefers-color-scheme only (a toggle would mean client JS,
+ * which this site does not ship — ADR-0002).
+ *
+ * The one rule that keeps BOTH schemes working without a single media query
+ * inside any component: use --accent-ink / --accent-2-ink when the color is
+ * TEXT, and --accent / --accent-2 when it is a FILL (with --on-accent* on
+ * top). Lime as text on a light background is 1.16:1 — effectively
+ * invisible — so the split is a structural guard, not a preference.
  */
 :root {
-  /* ── Color (light) — contrast figures verified in tokens.md §2 ── */
-  --paper: #faf9f7;
-  --surface: #ffffff;
-  --wash: #f3f1ec;
-  --ink: #201e1b;
-  --muted: #6e6a63;
-  --line: #e7e4de;
-  --seal: #b23a2f;
-  --seal-deep: #9a2f25;
-  --good: #2e6b4f;
-  --warn: #8a6d1f;
-  --critical: #8f2b21;
+  color-scheme: light dark;
 
-  /* ── Type ── */
+  /* ── Color (dark is the base identity; light lives in the media query) ── */
+  --bg: #0e0f14;
+  --surface: #16171d;
+  --surface-2: #1d1f26;
+  --surface-3: #262932;
+  --ink: #e8e7ee;
+  --ink-prose: #d5d4de; /* body text only — 13.03:1 avoids halation on long Korean prose */
+  --muted: #9a9aab;
+  --line: #2c2e38; /* hairline, DECORATION ONLY (1.41:1 — never carries meaning) */
+  --line-strong: #6a6d80; /* borders that mean something (3.74:1) */
+
+  --accent: #d2f53c; /* fill */
+  --accent-dim: #b4d62b; /* fill hover/active */
+  --accent-ink: #d2f53c; /* text — identical to the fill in dark */
+  --on-accent: #10160b; /* text on an --accent fill (14.77:1) */
+
+  --accent-2: #5ce1e6; /* fill */
+  --accent-2-ink: #5ce1e6; /* text */
+  --on-accent-2: #06222a; /* text on an --accent-2 fill */
+
+  --good: #7ce0a6;
+  --warn: #f2c94c;
+  --critical: #ff6b5e;
+
+  /* ── Type: role tokens. Adding faces later is a 4-line change here and a
+     @font-face pair in Base.astro — components never name a family. ── */
   --sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --serif: 'Noto Serif KR', 'Apple SD Gothic Neo', serif;
-  /* Scale ratio 1.26: 13 · 15 · 17 · 21 · 27 · 34 · 42 */
+  --display: var(--sans);
+  --mono: var(--sans);
+  --label-ls: 0.16em; /* English label tracking */
+  --label-ls-ko: 0.04em; /* Korean labels NEVER get 0.16em — it slows reading */
+
+  /* Scale: 12 · 13 · 14 · 15 · 16 · 17 · 21 · 27 · 34 · 44 · 56 */
+  --fs-12: 0.75rem;
   --fs-13: 0.8125rem;
-  /* 14/16 are not on the 1.26 scale but are fixed by component contracts
-     (components.md §4·§10: BoardRow meta 14, title 16, badge 14). */
   --fs-14: 0.875rem;
   --fs-15: 0.9375rem;
   --fs-16: 1rem;
   --fs-17: 1.0625rem;
   --fs-21: 1.3125rem;
   --fs-27: 1.6875rem;
-  /* Story H1 is contract-fixed at 29/1.4/800 (tokens.md §3 type table). */
-  --fs-29: 1.8125rem;
   --fs-34: 2.125rem;
-  --fs-42: 2.625rem;
+  --fs-44: 2.75rem;
+  --fs-56: 3.5rem;
 
-  /* ── Spacing (8pt) ── */
+  /* ── Spacing (8pt + a 2px keyline correction) ── */
+  --s-2: 2px;
   --s-4: 4px;
   --s-8: 8px;
   --s-12: 12px;
@@ -52,42 +83,58 @@
   --s-64: 64px;
   --s-96: 96px;
 
-  /* ── Radius — print flatness is the default; not everything gets rounded ── */
-  --r-2: 2px;
-  --r-4: 4px;
-  --r-8: 8px;
+  /* ── Radius — square is the default. 0 is a density device, not a style:
+     rounded corners demand visual air, square blocks read when butted up. ── */
+  --r-0: 0px;
+  --r-2: 2px; /* the single exception: cover image corners */
 
-  /* ── Elevation — hairlines (--line) do the separating; one shadow level ── */
-  --e-1: 0 1px 2px rgba(32, 30, 27, 0.04), 0 8px 24px rgba(32, 30, 27, 0.05);
+  /* ── Elevation — none. Depth is surface steps + a 1px keyline; shadows do
+     not read on a dark page. ── */
+  --e-key: inset 0 0 0 1px var(--line);
 
-  /* ── Motion — the site's entire motion vocabulary is these two ── */
-  --t-micro: 120ms ease-out;                       /* hover color/underline only */
-  --t-board-row: 240ms;                            /* home board load stagger */
+  /* ── Motion — the site's entire vocabulary is still these two ── */
+  --t-micro: 120ms ease-out; /* hover color/background/border only */
+  --t-board-row: 240ms; /* home board load stagger */
   --t-board-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --t-board-stagger: 60ms;
 
   /* ── Layout ── */
-  --column: 660px;                                 /* reading column ≈ 38 Korean chars */
   /* Page shell — EVERY page frame uses this so the layout does not jump
-     width as the reader moves between nav items. --column is only for
-     running prose sitting inside the shell. */
-  --shell: 960px;
+     width as the reader moves between nav items. 1080 − 40 padding = 1040,
+     which leaves the review's right column 672px (prose caps at --column). */
+  --shell: 1080px;
+  --column: 660px; /* running prose ≈ 38 Korean chars */
+  --rail: 320px; /* review left rail = cover edge length */
   --masthead-h: 64px;
   --masthead-h-mobile: 56px;
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --paper: #191817;
-    --surface: #201f1d;
-    --wash: #242320;
-    --ink: #eceae6;
-    --muted: #a8a49c;
-    --line: #34322e;
-    --seal: #e06a5b;
-    --seal-deep: #ea8072;
-    --good: #6fbf97;
-    --warn: #d4b45a;
-    --critical: #e06a5b;
+    --bg: #f7f7f9;
+    --surface: #ffffff;
+    --surface-2: #ededf1;
+    --surface-3: #e2e2e8;
+    --ink: #16171d;
+    --ink-prose: #24252e;
+    --muted: #5c5c6b;
+    --line: #e2e2e8;
+    --line-strong: #8b8b99;
+
+    /* Fills stay identical in both schemes; on light they REQUIRE the 2px
+       --ink border (.plate below) — lime on near-white is 1.16:1, so the
+       shape of the plate would otherwise not exist. */
+    --accent: #d2f53c;
+    --accent-dim: #c2e52c;
+    --accent-ink: #3d5200; /* lime as TEXT on light — 8.16:1 */
+    --on-accent: #10160b;
+
+    --accent-2: #5ce1e6;
+    --accent-2-ink: #0a6a72;
+    --on-accent-2: #06222a;
+
+    --good: #1b7a4b;
+    --warn: #8a6a00;
+    --critical: #b3261e;
   }
 }

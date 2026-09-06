@@ -1,19 +1,24 @@
 /**
  * Satori element trees for the three card templates (ui-spec §11 · ADR-0010):
  * base (title typography — the universal fallback), review (cover composite),
- * list (rank stack). 1200×630, paper background, ink typography, exactly one
- * seal accent per card — the same identity as the site, in image form.
+ * list (rank stack). 1200×630, dark ground, pale typography, exactly one
+ * lime accent per card — the same identity as the site, in image form.
  *
- * Colors are the LIGHT palette constants from tokens.md §2 (cards are static
- * images — no media queries, and share cards render on white-ish feeds).
+ * The 2026-09 reskin turned these dark. A white card next to a dark site is
+ * a different publication's object, and a dark tile actually stands out in a
+ * feed. Colors are the DARK palette constants from reskin-2026-09/tokens.md
+ * §2 — cards are static images, so there are no media queries here.
+ *
+ * Unchanged by that decision: share cards of every type carry NO score
+ * (E-115, enforced structurally — the input types have no score field).
  */
 import type { BaseCardInput, CardInput, ListCardInput, ReviewCardInput } from './types.ts';
 
-// tokens.md §2 light values — keep in sync with src/styles/tokens.css.
-const PAPER = '#FAF9F7';
-const INK = '#201E1B';
-const MUTED = '#6E6A63';
-const SEAL = '#B23A2F';
+// reskin-2026-09/tokens.md §2 dark values — keep in sync with src/styles/tokens.css.
+const BG = '#0E0F14';
+const INK = '#E8E7EE';
+const MUTED = '#9A9AAB';
+const ACCENT = '#D2F53C';
 
 type El = { type: string; props: Record<string, unknown> };
 
@@ -28,20 +33,23 @@ const frame = {
   flexDirection: 'column',
   justifyContent: 'space-between',
   padding: '64px',
-  backgroundColor: PAPER,
+  backgroundColor: BG,
   color: INK,
   fontFamily: 'serif',
 };
 
 function overline(text: string): El {
-  return el('div', { fontFamily: 'sans', fontSize: '26px', fontWeight: 700, letterSpacing: '0.14em', color: SEAL }, text);
+  return el('div', { fontFamily: 'sans', fontSize: '26px', fontWeight: 700, letterSpacing: '0.14em', color: ACCENT }, text);
 }
 
-/** Wordmark row — serif 700 + seal period (the favicon motif in type form). */
+/** Wordmark row — the site name plus its lime period (the favicon motif in
+ * type form). The face stays the serif satori already has loaded: adding a
+ * display weight would mean shipping another build-only TTF for one glyph
+ * row, and the card's identity is carried by the palette and the plate. */
 function wordmark(siteName: string): El {
   return el('div', { display: 'flex', fontSize: '32px', fontWeight: 700 }, [
     el('span', {}, siteName),
-    el('span', { color: SEAL }, '.'),
+    el('span', { color: ACCENT }, '.'),
   ]);
 }
 
@@ -70,7 +78,8 @@ function reviewCard(input: ReviewCardInput): El {
         src: input.coverDataUrl,
         width: 400,
         height: 400,
-        style: { borderRadius: '8px' },
+        // Square, like every other surface since the reskin (--r-0).
+        style: { borderRadius: '0px' },
       },
     },
     el('div', { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '400px', flexGrow: 1 }, [
@@ -92,7 +101,7 @@ function listCard(input: ListCardInput): El {
       { display: 'flex', flexDirection: 'column', gap: '24px' },
       input.entries.slice(0, 3).map((entry, i) =>
         el('div', { display: 'flex', alignItems: 'baseline', gap: '24px' }, [
-          el('div', { fontSize: '44px', fontWeight: 700, color: i === 0 ? SEAL : INK, width: '56px' }, String(entry.rank)),
+          el('div', { fontSize: '44px', fontWeight: 700, color: i === 0 ? ACCENT : INK, width: '56px' }, String(entry.rank)),
           el('div', { fontSize: '44px', fontWeight: 700, maxWidth: '760px' }, entry.title),
           el('div', { fontFamily: 'sans', fontSize: '28px', color: MUTED }, entry.artistsLabel),
         ]),

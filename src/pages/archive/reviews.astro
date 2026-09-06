@@ -35,9 +35,11 @@ const reviews = allArticles.filter((item) => item.type === 'review');
     padding: var(--s-48) 20px 0;
   }
   .page-title {
-    font-family: var(--serif);
+    font-family: var(--display);
     font-size: var(--fs-27);
-    font-weight: 700;
+    line-height: 32px;
+    letter-spacing: -0.02em;
+    font-weight: 800;
   }
   .cards {
     list-style: none;
@@ -47,6 +49,7 @@ const reviews = allArticles.filter((item) => item.type === 'review');
   .empty {
     margin-top: var(--s-24);
     color: var(--muted);
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
   }
 </style>

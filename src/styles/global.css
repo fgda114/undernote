@@ -1,7 +1,7 @@
 /**
  * Global base styles: self-hosted subset fonts, a light reset, reading
  * defaults and the shared accessibility contracts (focus-visible outline,
- * reduced-motion) from tokens.md §5-6 and components.md 공통 계약.
+ * reduced-motion) from reskin-2026-09/tokens.md §0·§7 and components.md §0.
  */
 @import './tokens.css';
 
@@ -22,7 +22,7 @@ html {
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
   font-size: var(--fs-17);
@@ -42,33 +42,79 @@ p {
   margin: 0;
 }
 
-/* ── Links: seal underline is one of the five sanctioned accent slots ── */
+/* ── Links ── */
 a {
   color: inherit;
   text-decoration: none;
   transition: color var(--t-micro);
 }
 
-/* Body links inside articles get the seal treatment (visible affordance is
-   color + underline — never color alone, WCAG 1.4.1). */
+/* Running prose sits one step below the brightest ink: on a dark page the
+   top-luminance value halates across long Korean paragraphs (tokens.md §3.5).
+   13.03:1 — still ~3× the AA floor. */
+.prose {
+  color: var(--ink-prose);
+}
+
+/* Body links are the "way out" accent — color + underline, never color
+   alone (WCAG 1.4.1). Hover thickens the underline instead of shifting hue,
+   so the affordance survives both color schemes. */
 .prose a {
-  color: var(--seal);
+  color: var(--accent-2-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 .prose a:hover {
-  color: var(--seal-deep);
+  color: var(--accent-2-ink);
+  text-decoration-thickness: 2px;
 }
 
 /* ── Focus: identical outline on every interactive element ── */
 :focus-visible {
-  outline: 2px solid var(--seal);
+  outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
+}
+
+/* ── Accent plates (score plate, filled chips) ─────────────────────────
+   A filled lime surface. The transparent border is a placeholder that light
+   mode turns into a real edge: lime on #F7F7F9 is 1.16:1, so without it the
+   plate's SHAPE disappears. Keeping the border in both schemes means the
+   box model never shifts between them. */
+.plate {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 2px solid transparent;
+  border-radius: var(--r-0);
+}
+@media (prefers-color-scheme: light) {
+  .plate {
+    border-color: var(--ink);
+  }
+}
+/* A lime outline is invisible against a lime fill — flip to the on-accent
+   ink for anything focusable that sits on one. */
+.plate:focus-visible,
+.plate :focus-visible {
+  outline-color: var(--on-accent);
 }
 
 /* ── Numbers align in columns (scores, ranks, dates) ── */
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+/* Visually hidden but read aloud — used where a glyph carries the meaning
+   for sighted readers and a sentence has to carry it for everyone else. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ── Motion sensitivity: stagger removed, transitions collapse ── */
@@ -79,5 +125,27 @@ a {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Contrast preference: promote decorative hairlines to real borders and
+   lift secondary text to body ink (tokens.md §7). ~200B, zero JS. ── */
+@media (prefers-contrast: more) {
+  :root {
+    --line: var(--line-strong);
+    --muted: var(--ink);
+  }
+}
+
+/* ── Windows high contrast: system colors replace the lime fill, so the
+   plate would lose its shape — keep it as a border instead. ── */
+@media (forced-colors: active) {
+  .plate,
+  .chip-fill {
+    border: 2px solid;
+    forced-color-adjust: none;
+  }
+  :focus-visible {
+    outline: 2px solid CanvasText;
   }
 }

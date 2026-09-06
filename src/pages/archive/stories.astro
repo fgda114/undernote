@@ -35,8 +35,10 @@ const stories = allArticles.filter((item) => item.type === 'story');
     padding: var(--s-48) 20px 0;
   }
   .page-title {
-    font-family: var(--sans);
+    font-family: var(--display);
     font-size: var(--fs-27);
+    line-height: 32px;
+    letter-spacing: -0.02em;
     font-weight: 800;
   }
   .cards {
@@ -47,6 +49,7 @@ const stories = allArticles.filter((item) => item.type === 'story');
   .empty {
     margin-top: var(--s-24);
     color: var(--muted);
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
   }
 </style>

@@ -1,8 +1,8 @@
 ---
 /**
- * AlbumBox (components.md §12 — lineage plan A, the confirmed default):
+ * AlbumBox (components.md §14 — lineage plan A, the confirmed default):
  * "이 글에 나온 앨범" at the end of a story. Row states:
- *   reviewed     → "평론 읽기 →" (seal 600, row links to the review)
+ *   reviewed     → "평론 읽기 →" (cyan 600, row links to the review)
  *   not-reviewed → "평론 준비 중" (muted, NOT a link — US-4 AC2 forbids
  *                  pseudo-link styling; a later review upgrades the row
  *                  automatically on the next build)
@@ -45,13 +45,17 @@ const { rows } = Astro.props;
 
 <style>
   .album-box {
-    border-top: 2px solid var(--ink);
+    /* Was 2px --ink: a near-white 2px rule is far too loud on a dark page,
+       so the divider steps down to the meaningful-border token. */
+    border-top: 2px solid var(--line-strong);
     padding-top: var(--s-16);
     margin-top: var(--s-48);
   }
   .box-title {
     font-size: var(--fs-15);
+    line-height: 20px;
     font-weight: 700;
+    color: var(--ink);
   }
   .rows {
     list-style: none;
@@ -73,10 +77,13 @@ const { rows } = Astro.props;
   }
   .album-title {
     font-size: var(--fs-16);
+    line-height: 22px;
     font-weight: 700;
+    color: var(--ink);
   }
   .meta {
     font-size: var(--fs-14);
+    line-height: 20px;
     color: var(--muted);
   }
   .action {
@@ -85,18 +92,21 @@ const { rows } = Astro.props;
     align-items: center;
     gap: var(--s-4);
     min-height: 44px;
-    color: var(--seal);
+    color: var(--accent-2-ink);
     font-size: var(--fs-15);
+    line-height: 20px;
     font-weight: 600;
-  }
-  .action:hover {
-    color: var(--seal-deep);
     text-decoration: underline;
     text-underline-offset: 3px;
+    transition: text-decoration-thickness var(--t-micro);
+  }
+  .action:hover {
+    text-decoration-thickness: 2px;
   }
   .pending {
     flex-shrink: 0;
     font-size: var(--fs-13);
+    line-height: 18px;
     color: var(--muted);
   }
 </style>

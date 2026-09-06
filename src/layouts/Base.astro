@@ -23,10 +23,18 @@ interface Props {
   /** Site-relative canonical path of this page, e.g. "/reviews/foo/". */
   path: string;
   current?: 'reviews' | 'stories' | 'list' | 'archive' | 'about';
+  /**
+   * Preload the serif faces. Since the 2026-09 reskin the serif is used by
+   * exactly two surfaces — review bodies and the finalized annual preface —
+   * so every other page would otherwise pay 322.1KB for a face it never
+   * paints. The @font-face declarations stay global (a declaration alone
+   * downloads nothing); only the preload hint is conditional.
+   */
+  preloadSerif?: boolean;
 }
 
 const site = getSiteConfig();
-const { title, description, ogType = 'website', ogImage = '/og/default.png', path, current } = Astro.props;
+const { title, description, ogType = 'website', ogImage = '/og/default.png', path, current, preloadSerif = false } = Astro.props;
 const goatcounter = site.goatcounter_code;
 const fullTitle = title === site.site_name ? title : `${title} — ${site.site_name}`;
 
@@ -56,9 +64,17 @@ const fontFaceCss = `
     <meta property="og:url" content={absoluteUrl(path)} />
     <meta property="og:site_name" content={site.site_name} />
     <meta name="twitter:card" content="summary_large_image" />
-    {/* Fonts are small subsets; preloading the two first-paint faces avoids FOUT on the wordmark. */}
-    <link rel="preload" href={withBase('/fonts/NotoSerifKR-700-sub.woff2')} as="font" type="font/woff2" crossorigin />
+    {/* Pretendard paints the wordmark and every headline, so it is always
+        preloaded; the serif only on the two pages that actually set prose in it. */}
     <link rel="preload" href={withBase('/fonts/PretendardVariable-sub.woff2')} as="font" type="font/woff2" crossorigin />
+    {
+      preloadSerif && (
+        <>
+          <link rel="preload" href={withBase('/fonts/NotoSerifKR-400-sub.woff2')} as="font" type="font/woff2" crossorigin />
+          <link rel="preload" href={withBase('/fonts/NotoSerifKR-700-sub.woff2')} as="font" type="font/woff2" crossorigin />
+        </>
+      )
+    }
     <Fragment set:html={`<style>${fontFaceCss}</style>`} />
   </head>
   <body>

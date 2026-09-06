@@ -2,9 +2,10 @@
  * Review page view model (ui-spec §2) — ALL judgment happens here; the page
  * template renders the result verbatim (P1: no logic in templates).
  *
- * Hero carries exactly four fields (album · artist label · bucket label ·
- * release date) and NO score — the score appears only in the verdict block
- * after the body (D2: the verdict must not leak before the argument).
+ * The score lives in the hero and nowhere else on the page (D2-R): it is the
+ * entry point, not the conclusion. The spec block added in the 2026-09
+ * reskin is assembled here too — strictly from fields the content model
+ * already has, so an editor never has to invent metadata to fill a layout.
  */
 import { coverSetFor, type CoverSet } from '../covers.ts';
 import { buildListenLinks, defaultListenLinks, type ListenLink } from '../listen-links.ts';
@@ -19,11 +20,24 @@ export interface ReviewPageData {
   /** Per-artist link data — hero renders names as /artists/ links (US-9 AC1). */
   artistLinks: { slug: string; name: string }[];
   bucketLabel: string;
+  /** Bucket id — the /archive/genre/ link target on the spec block. */
+  bucketId: string;
   releaseDateText: string;
   cover: CoverSet | null;
   /** Stored score string, rendered verbatim in the verdict (no reformatting). */
   score: string;
   listenLinks: ListenLink[];
+  /* ── Spec block (components.md §7). Every field below already exists in
+     the content model — nothing here is invented, and fields the model does
+     NOT have (tracklist, runtime, BPM, staff) are deliberately absent. ── */
+  /** Record label — optional in the album schema, row omitted when absent. */
+  label?: string;
+  /** Detail tags resolved against the registry; empty ⇒ no TAGS row. */
+  tags: { slug: string; label: string }[];
+  /** Publication date of the review itself (<time datetime>). */
+  reviewDate: string;
+  /** Cover attribution line (ADR-0008) — caption under the cover, if given. */
+  coverSource?: string;
 }
 
 /** "2026-05-01" → "2026. 5. 1." · "2026-05" → "2026. 5." · "2026" → "2026"
@@ -67,8 +81,11 @@ export function buildReviewPageData(input: {
   artists: Map<string, Artist>;
   genres: GenresConfig;
   site: SiteConfig;
+  /** Tag registry — same resolution the archive surfaces use; an
+   * unregistered tag falls back to its own slug rather than vanishing. */
+  tagLabels?: Map<string, string>;
 }): ReviewPageData {
-  const { slug, review, album, artists, genres, site } = input;
+  const { slug, review, album, artists, genres, site, tagLabels } = input;
   const artistsLabel = artistsLabelFor(album.artists, artists);
   return {
     slug,
@@ -76,9 +93,14 @@ export function buildReviewPageData(input: {
     artistsLabel,
     artistLinks: album.artists.map((s) => ({ slug: s, name: artists.get(s)?.name ?? s })),
     bucketLabel: bucketLabelFor(album.bucket, Number(album.release_date.slice(0, 4)), genres),
+    bucketId: album.bucket,
     releaseDateText: formatReleaseDate(album.release_date),
     cover: coverSetFor({ slug, title: album.title, artistsLabel, cover: album.cover }),
     score: review.score,
+    label: album.label,
+    tags: album.tags.map((t) => ({ slug: t, label: tagLabels?.get(t) ?? t })),
+    reviewDate: review.date,
+    coverSource: album.cover_source,
     listenLinks: buildListenLinks(
       { title: album.title, artistsLabel, listen_links: album.listen_links },
       site.listen_link_patterns ?? defaultListenLinks,

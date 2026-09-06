@@ -1,6 +1,6 @@
 ---
 /**
- * /artists/{slug}/ — artist page (CF-6 · US-9/14): name (serif 27), intro
+ * /artists/{slug}/ — artist page (CF-6 · US-9/14): name (display 34), intro
  * (sans body — only when a body exists; an aggregation-only page is a
  * designed state, never an apology, R-4) and "{이름}을 다룬 글" in archive
  * row format (no scores — browsing surface, D2). Multi-artist albums
@@ -39,7 +39,7 @@ const items = (archive.by_artist.get(artist.id) ?? []).map((i) => articleByUrl.g
 
     {
       Intro && (
-        <section class="intro">
+        <section class="intro prose">
           <Intro />
         </section>
       )
@@ -70,27 +70,45 @@ const items = (archive.by_artist.get(artist.id) ?? []).map((i) => articleByUrl.g
     gap: var(--s-32);
   }
   .name {
-    font-family: var(--serif);
-    font-size: var(--fs-27);
-    font-weight: 700;
+    font-family: var(--display);
+    font-size: var(--fs-34);
+    line-height: 40px;
+    letter-spacing: -0.025em;
+    font-weight: 800;
     margin-top: var(--s-12);
+    text-wrap: balance;
   }
   .intro {
+    max-width: var(--column);
     font-family: var(--sans);
     font-size: var(--fs-17);
-    line-height: 1.75;
+    line-height: 1.8;
+    letter-spacing: -0.003em;
   }
   .intro :global(p) {
     margin: 0 0 var(--s-24);
   }
   .agg-title {
-    font-size: var(--fs-17);
-    font-weight: 700;
+    font-family: var(--display);
+    font-size: var(--fs-21);
+    line-height: 26px;
+    letter-spacing: -0.01em;
+    font-weight: 800;
     margin-bottom: var(--s-8);
   }
   .cards {
     list-style: none;
     margin: 0;
     padding: 0;
+  }
+  @media (max-width: 640px) {
+    .artist {
+      padding-top: var(--s-32);
+    }
+    .name {
+      font-size: var(--fs-27);
+      line-height: 32px;
+      letter-spacing: -0.02em;
+    }
   }
 </style>

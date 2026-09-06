@@ -65,19 +65,33 @@ const monthNum = Number(mm);
     gap: var(--s-32);
   }
   .title {
-    font-family: var(--serif);
+    font-family: var(--display);
     font-size: var(--fs-34);
-    font-weight: 700;
+    line-height: 40px;
+    letter-spacing: -0.025em;
+    font-weight: 800;
     margin-top: var(--s-12);
+    text-wrap: balance;
   }
   .caption {
     margin-top: var(--s-8);
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
     color: var(--muted);
   }
   .rows {
     list-style: none;
     margin: 0;
     padding: 0;
+  }
+  @media (max-width: 640px) {
+    .recap {
+      padding-top: var(--s-32);
+    }
+    .title {
+      font-size: var(--fs-27);
+      line-height: 32px;
+      letter-spacing: -0.02em;
+    }
   }
 </style>

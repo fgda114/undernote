@@ -1,8 +1,9 @@
 ---
 /**
  * Masthead (components.md §1): wordmark + 5-item nav. No scroll pinning —
- * long-form reading owns the viewport. The current page item is marked with
- * ink weight + a 2px bottom border (never color alone — WCAG 1.4.1).
+ * long-form reading owns the viewport. The current page item is marked
+ * THREE ways — lime border, ink color, weight 800 — so it never depends on
+ * color alone (WCAG 1.4.1).
  *
  * Nav targets: /archive/ presets for Reviews/Notes (ui-spec §6), the active
  * year's list, archive and about. Shell pages for these routes are a W5.2
@@ -31,7 +32,8 @@ const items = [
 
 <header class="masthead">
   <nav aria-label="주 메뉴" class="masthead-inner">
-    {/* Wordmark: serif 700 + seal period — text logo, single replacement point. */}
+    {/* Wordmark: display 800 + lime period. The period is the one physical
+        survivor of the old ink-and-seal identity — the seal shrank to a dot. */}
     <a href={withBase('/')} class="wordmark">{site.site_name}<span class="wordmark-dot" aria-hidden="true">.</span></a>
     <ul class="nav-list">
       {
@@ -63,14 +65,17 @@ const items = [
     flex-wrap: wrap; /* ~640px: two-row wrap allowed, no horizontal scroll */
   }
   .wordmark {
-    font-family: var(--serif);
-    font-weight: 700;
+    font-family: var(--display);
+    font-weight: 800;
     font-size: var(--fs-21);
+    line-height: 24px;
+    letter-spacing: -0.04em;
+    color: var(--ink);
     /* 44px touch target via padding, not layout height */
     padding: var(--s-8) 0;
   }
   .wordmark-dot {
-    color: var(--seal);
+    color: var(--accent-ink);
   }
   .nav-list {
     list-style: none;
@@ -78,24 +83,31 @@ const items = [
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s-16);
+    gap: var(--s-24);
   }
   .nav-link {
-    font-size: var(--fs-15);
-    font-weight: 600;
-    color: var(--ink);
+    font-family: var(--mono);
+    font-size: var(--fs-13);
+    line-height: 16px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+    /* Reserved from the start so hover/current never shift the row by 2px. */
     border-bottom: 2px solid transparent;
-    transition: color var(--t-micro);
+    transition: color var(--t-micro), border-color var(--t-micro);
   }
   .nav-link:hover {
-    color: var(--seal);
+    color: var(--ink);
+    border-bottom-color: var(--line-strong);
   }
   .nav-link.current {
-    font-weight: 700;
-    border-bottom-color: var(--ink);
+    color: var(--ink);
+    font-weight: 800;
+    border-bottom-color: var(--accent);
   }
   @media (max-width: 640px) {
     .masthead-inner {
