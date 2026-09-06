@@ -18,8 +18,8 @@
  *    blocks stay untouched) and advances active_year, which makes the next
  *    build render the post-finalize home (§1.6) with a fresh empty board.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stringify } from 'yaml';
 import { runPrePass } from '../src/lib/checker/index.ts';
@@ -135,6 +135,11 @@ async function main() {
 
   // Scores/dates stay strings through QUOTE_DOUBLE — YAML must not refold them.
   const yamlText = stringify(frontmatter, { defaultStringType: 'QUOTE_DOUBLE', defaultKeyType: 'PLAIN' });
+  // The collection directory may not exist — git does not carry empty dirs, so
+  // a fresh clone (or any repo whose snapshots dir was never populated) hits
+  // ENOENT here, AFTER the confirmation prompt. That is the worst possible
+  // moment for an irreversible operation, so create the dir before writing.
+  mkdirSync(dirname(snapshotPath), { recursive: true });
   writeFileSync(snapshotPath, `---\n${yamlText}---\n\n${preface}\n`, 'utf8');
   console.log(`스냅샷 생성: content/snapshots/${year}.md`);
 
