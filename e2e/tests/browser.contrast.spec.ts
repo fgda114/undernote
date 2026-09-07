@@ -155,15 +155,20 @@ test('대비 — 그라데이션 램프 전 구간 (41점 샘플)', async ({ pag
     }
     return ss[ss.length - 1].col;
   };
-  // --title-spot is built from two palette tokens, so it is reconstructed
-  // from them rather than parsed out of a calc()-laden var().
-  const spot = `linear-gradient(90deg, ${t.lav} 0%, ${t.mint} 50%, ${t.lav} 100%)`;
+  // TWO RAMPS, NOT FOUR (2026-09-07). --title-spot was withdrawn, so the two
+  // rows that sampled it are gone from HERE and not from the suite: a hovered
+  // list title is now a FLAT colour, which is a token pair rather than a ramp,
+  // and the token table above already asserts both of the backgrounds it lands
+  // on (--accent-2-ink on --surface-2 for the hovered card, on --bg for the
+  // archive row). A flat colour measured 41 times is 41 copies of one number.
   const ramps: [string, string, number, string | null, string | null][] = [
     ['--head-sheen 위 텍스트 on --bg', t.head, 4.5, t.bg, null],
     ['--accent-sheen 면 위의 --on-accent', t.accent, 4.5, null, t.onAccent],
-    ['--title-spot on --surface-2 (카드)', spot, 4.5, t.surface2, null],
-    ['--title-spot on --bg (아카이브 행)', spot, 4.5, t.bg, null],
   ];
+  // Kept as a live reference so the removal above cannot quietly become "the
+  // hovered title is no longer measured anywhere".
+  expect(ratio(hx(t.lav), hx(t.surface2)), 'hover된 카드 제목이 카드 면에서 AA 미달').toBeGreaterThanOrEqual(4.5);
+  expect(ratio(hx(t.lav), hx(t.bg)), 'hover된 행 제목이 지면 바탕에서 AA 미달').toBeGreaterThanOrEqual(4.5);
   const failures: string[] = [];
   const lines: string[] = [];
   for (const [name, grad, min, bg, over] of ramps) {
@@ -218,7 +223,24 @@ test('focus-visible — 링이 자기 배경에서 3:1 이상 (전 인터랙티�
 });
 
 // ── 4. Painted pixels: the effect is on the screen, not just in the CSSOM ──
-test('픽셀 실측 — 카드/행 제목이 휴지·hover·스포트라이트 전부에서 실제로 보인다', async ({ page }) => {
+/**
+ * REAIMED, NOT RETIRED (2026-09-07). These two tests were written against the
+ * cursor spotlight and asked "does the mint band move across the glyphs?".
+ * The spotlight was withdrawn, so that question has no subject — but the
+ * question UNDER it is the reason the file exists and applies to whatever the
+ * hover does: IS THE STATE CHANGE ON THE SCREEN? The W6 incident shipped a
+ * page whose computed style changed on hover and whose pixels did not, and a
+ * flat colour swap can fail that way just as silently as a gradient can (a
+ * lost specificity fight, a rule scoped to the wrong element, an inherited
+ * colour that happens to match).
+ *
+ * So the assertions are the same three, aimed at the flat lavender:
+ *   · resting ink is visible against its own background;
+ *   · hovered ink is visible;
+ *   · hovered ink is a DIFFERENT COLOUR from resting ink — measured in the
+ *     bitmap, not in the CSSOM.
+ */
+test('픽셀 실측 — 카드 제목이 휴지·hover 양쪽에서 보이고, hover가 실제로 칠을 바꾼다', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto(u('/'));
   const lines: string[] = [];
@@ -228,19 +250,19 @@ test('픽셀 실측 — 카드/행 제목이 휴지·hover·스포트라이트 �
     return r;
   };
 
-  const CARD_TITLE = 'section[aria-label="최신 리뷰"] .title-spot';
+  const CARD_TITLE = 'section[aria-label="최신 리뷰"] .card .title';
   const rest = await report('홈 카드 제목 — 휴지', CARD_TITLE);
   expect(rest.ratio, '비호버 카드 제목이 배경과 구분되지 않음 (투명 제목)').toBeGreaterThanOrEqual(4.5);
 
-  // Hover the CARD but not the title: flat lavender, still painted.
+  // Hover the CARD but not the title.
   await page.locator('section[aria-label="최신 리뷰"] .card-link .excerpt, section[aria-label="최신 리뷰"] .card-link .date').first().hover();
   await page.waitForTimeout(250);
-  const flat = await report('홈 카드 제목 — 카드 hover(단색)', CARD_TITLE);
+  const flat = await report('홈 카드 제목 — 카드 hover', CARD_TITLE);
   expect(flat.ratio).toBeGreaterThanOrEqual(4.5);
 
-  // Hover the TITLE: the mint band has to appear IN THE GLYPHS and MOVE. The
-  // W6 incident produced a page where the computed background-image changed
-  // exactly like this and not one pixel did.
+  // Hover the TITLE itself: same answer, and it has to be painted at every
+  // point along the run — a rule that only reaches part of the glyphs would
+  // show up here as a different dominant ink at one of the three positions.
   const glyph = await page.evaluate((sel) => {
     const el = document.querySelector(sel)!; const r = document.createRange(); r.selectNodeContents(el);
     const b = r.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height };
@@ -249,20 +271,22 @@ test('픽셀 실측 — 카드/행 제목이 휴지·hover·스포트라이트 �
   for (const f of [0.1, 0.5, 0.9]) {
     await page.mouse.move(glyph.x + glyph.w * f, glyph.y + glyph.h / 2);
     await page.waitForTimeout(300);
-    const r = await report(`홈 카드 제목 — 스포트라이트 x=${f}`, CARD_TITLE);
-    expect(r.ratio, `스포트라이트 상태에서 글리프가 안 보임 (x=${f})`).toBeGreaterThanOrEqual(4.5);
+    const r = await report(`홈 카드 제목 — 제목 hover x=${f}`, CARD_TITLE);
+    expect(r.ratio, `hover 상태에서 글리프가 안 보임 (x=${f})`).toBeGreaterThanOrEqual(4.5);
     painted.push(hex(r.color));
   }
-  // Mint, not lavender: the band is really in the glyphs.
-  expect(new Set(painted).size, `커서를 옮겨도 칠해진 색이 그대로: ${painted.join(' / ')}`).toBeGreaterThan(1);
+  expect(new Set([...painted, hex(flat.color)]).size, `제목 위치에 따라 칠이 달라짐: ${painted.join(' / ')}`).toBe(1);
+  // The hover REACHED THE PIXELS. Equal colours here would mean the affordance
+  // exists only in the stylesheet.
+  expect(hex(flat.color), 'hover 전후로 칠해진 색이 같음 — hover 반응이 화면에 없다').not.toBe(hex(rest.color));
 
   console.log(`픽셀 실측 (홈 카드):\n  ${lines.join('\n  ')}`);
 });
 
-test('픽셀 실측 — 아카이브 행 제목 스포트라이트가 글리프에 실제로 칠해진다', async ({ page }) => {
+test('픽셀 실측 — 아카이브 행 제목의 hover 반응이 글리프에 실제로 칠해진다', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto(u('/archive/reviews/'));
-  const SEL = '.row-card-link .title-spot';
+  const SEL = '.row-card-link .title';
   await page.locator(SEL).first().scrollIntoViewIfNeeded();
   const rest = await inkOf(page, SEL);
   expect(rest.ratio, '비호버 행 제목이 안 보임').toBeGreaterThanOrEqual(4.5);
@@ -277,12 +301,13 @@ test('픽셀 실측 — 아카이브 행 제목 스포트라이트가 글리프�
     await page.mouse.move(glyph.x + glyph.w * f, glyph.y + glyph.h / 2);
     await page.waitForTimeout(320);
     const r = await inkOf(page, SEL);
-    lines.push(`스포트라이트 x=${f}: ${hex(r.color)} ${r.ratio.toFixed(2)}:1 (${(r.share * 100).toFixed(1)}%)`);
-    expect(r.ratio, `행 제목이 스포트라이트 상태에서 안 보임 (x=${f})`).toBeGreaterThanOrEqual(4.5);
+    lines.push(`hover x=${f}: ${hex(r.color)} ${r.ratio.toFixed(2)}:1 (${(r.share * 100).toFixed(1)}%)`);
+    expect(r.ratio, `행 제목이 hover 상태에서 안 보임 (x=${f})`).toBeGreaterThanOrEqual(4.5);
     seen.push(hex(r.color));
   }
   console.log(`픽셀 실측 (아카이브 행):\n  ${lines.join('\n  ')}`);
-  expect(new Set(seen).size, `밴드가 커서를 따라가지 않음: ${seen.join(' / ')}`).toBeGreaterThan(1);
+  expect(new Set(seen).size, `제목 위치에 따라 칠이 달라짐: ${seen.join(' / ')}`).toBe(1);
+  expect(seen[0], 'hover 전후로 칠해진 색이 같음 — hover 반응이 화면에 없다').not.toBe(hex(rest.color));
 });
 
 // ── 5. forced-colors ───────────────────────────────────────────────────
@@ -306,7 +331,11 @@ test('forced-colors — 전 텍스트 역할이 시스템 캔버스에서 보인
   const lines: string[] = [`캔버스: ${hex(canvas)}`];
   const failures: string[] = [];
   const probes: [string, string][] = [
-    ['홈 카드 제목 (.title-spot)', 'section[aria-label="최신 리뷰"] .title-spot'],
+    // The selector moved with the markup: this element used to be
+    // `.title-spot`, and the 1.21:1 it reported is the defect that removing
+    // the spotlight closed. It is probed by ROLE (the browsing card's title)
+    // so the measurement survives the class going away.
+    ['홈 카드 제목', 'section[aria-label="최신 리뷰"] .card .title'],
     ['Charts 제목 (.head-sheen)', '.section-head .title.head-sheen'],
     ['카드 발췌', 'section[aria-label="최신 리뷰"] .excerpt'],
     ['차트 카드 제목', '.chart-card .title'],
@@ -320,7 +349,7 @@ test('forced-colors — 전 텍스트 역할이 시스템 캔버스에서 보인
 
   await page.goto(u('/archive/reviews/'));
   await page.waitForTimeout(200);
-  const row = await inkOf(page, '.row-card-link .title-spot');
+  const row = await inkOf(page, '.row-card-link .title');
   lines.push(`아카이브 행 제목: bg ${hex(row.bg)} · 잉크 ${hex(row.color)} ${row.ratio.toFixed(2)}:1`);
   if (row.ratio < 4.5) failures.push(`아카이브 행 제목 — 고대비 모드에서 ${row.ratio.toFixed(2)}:1`);
 

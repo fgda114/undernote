@@ -114,98 +114,50 @@
      brighter than both ends, so 6.57 is the floor. AA (4.5:1) holds across
      the whole ramp with no threshold lowered.
 
-     THE LIST, written as a list rather than a count because it moved three
+     THE LIST, written as a list rather than a count because it moved four
      times in one day (2026-09-07) and a number would have said nothing about
      what moved:
 
        --bg-sheen      the page wash, carries no meaning
        --head-sheen    the home's Charts head + /list/{year}/'s H1 — the two
                        headings that name the list the scores produced
-       --title-spot    a hovered ARTICLE-LIST title (every list but
-                       Charts), a travelling mint band
 
      The clause that matters never moved: mixing lives in a list of named
      tokens and nowhere else, and each entry states its own cost where it is
-     declared. A fourth entry (--title-sheen, a whole-element colour-mix on
-     card titles) existed between those revisions and is gone: the spotlight
-     took over its host, so keeping both would have been two answers to one
-     question. */
+     declared. Two entries have been and gone. --title-sheen (a whole-element
+     colour-mix on card titles) lost its host to the spotlight; --title-spot
+     (a mint band travelling across a hovered ARTICLE-LIST title) was itself
+     withdrawn by editorial decision, which also closed the forced-colors
+     defect its clipping rules had opened — the account is in ArticleCard's
+     style block, where the rules used to live. A hovered list title now
+     answers in flat --accent-2-ink and crosses nothing. */
   --accent-sheen: linear-gradient(135deg, #8bf7d2 0%, #63efc0 45%, #46d9de 100%);
   --head-sheen: linear-gradient(100deg, #8bf7d2 0%, #63efc0 34%, #b9a5f7 100%);
-  /* --title-spot  TEXT only, and only on a HOVERED article-list title. The
-     third — and, by the rule above, last — token allowed to cross from mint
-     into lavender.
+  /* --bg-sheen  the ground itself: two radial gradients pinned to the top of
+     the document, mint on the left and lavender on the right, both fading to
+     transparent before mid-page. It is what makes the page a FIELD rather
+     than a flat dark rectangle, and it is the one place the two accent
+     families are allowed to touch without cost — the wash names nothing, so
+     it cannot put the score's colour on something the score did not make.
 
-     WHAT IT IS. A hovered title rests in lavender and a mint band travels
-     across the glyphs the pointer passes: a gradient positioned by the
-     pointer's X and clipped to the text.
+     THE ALPHAS ARE THE CONTRAST BUDGET, NOT A TASTE SETTING. Composited over
+     --bg #080C16, the two layers at full strength lift the ground to exactly
+     #1E2D38 — 0.10 mint then 0.08 lavender, computed and confirmed against
+     the render. That number is not decoration either: every "worst-case page
+     wash" ratio quoted in this file, in global.css and in the measured
+     tables (08-impl-notes/frontend.md) is taken against #1E2D38. Raising
+     either alpha raises the floor the whole palette was cleared on, so this
+     declaration and those tables move together or not at all.
 
-     X ONLY, AND IT IS A LINEAR GRADIENT FOR THAT REASON (2026-09-07). It
-     began as a radial `circle at X Y`, which made the colour wobble when the
-     pointer merely moved up and down a single-line title — motion the reader
-     did not ask for. Dropping the pointer's Y leaves two candidate shapes,
-     and they were measured against each other on a two-line title rather
-     than argued about:
-       · a circle with its centre pinned to 50% no longer follows the pointer
-         vertically, but it still measures distance in Y FROM THE GLYPHS —
-         and on a wrapped title that centre lands in the LEADING GAP between
-         the two lines. At a 16px radius it lit 0.2% / 0.0% of the two lines'
-         ink, i.e. nothing at all; at 34px, 5.7% / 7.2%. The shape has a size
-         below which it silently stops working, and where that floor sits
-         depends on the line-height.
-       · a linear gradient has no Y term anywhere. The same two lines came
-         out at 4.5% / 3.2% and 8.6% / 14.0%: the light is a COLUMN, both
-         lines get it, and no type size can make it disappear.
-     The full table is in 08-impl-notes/frontend.md. The two converge at
-     large radii (r64: 13.9/26.3 vs 14.7/28.9), so this is not a claim that
-     the circle looks wrong everywhere — it is a claim that only one of them
-     is honestly X-only.
-
-     · --px is the pointer's horizontal offset from the tracked box's centre,
-       -0.5..0.5, written on :root by the inline module in Base.astro — the
-       same property that drives the cover zoom. No listener was added.
-       `calc((var(--px) + 0.5) * 100%)` converts that range to a position.
-       --py is still written and is simply not read here; the cover zoom uses
-       it.
-     · --spot-r IS NOW A HALF-WIDTH, not a radius, and the value changed with
-       the shape: the mint band spans 2 x --spot-r of the title's width. It
-       is DECLARED HERE, NOT BY THE HOST — this token lives on :root, so
-       every var() inside it is substituted against :ROOT's values. --px gets
-       away with that because :root is exactly where the script writes it,
-       but a --spot-r set on a title would be silently ignored and the
-       gradient would keep this value. That is not hypothetical: it happened,
-       and a radius sweep that produced six identical results is what caught
-       it. If a second host ever needs a different light, move this
-       declaration onto the hosts; do not add a second --spot-r and expect it
-       to win.
-     · FALLBACK 0 centres the band, and the host's media queries pin touch,
-       prefers-reduced-motion and no-background-clip environments to flat
-       lavender before the gradient is ever reached. NO SCRIPT IS NOT ONE OF
-       THOSE GUARDS — CSS has no selector for script absence, so a script-off
-       page on a fine hover pointer still matches :hover and paints the
-       gradient anyway, locked at this fallback 0 (a static centred band, not
-       flat lavender). That result is visible and its contrast is measured,
-       it is just not the guard the host's fallback queries claim to be.
-     · sRGB interpolation, deliberately NOT `in oklab`: an engine that parses
-       background-clip:text but not colour-space interpolation would drop the
-       whole gradient while `color: transparent` still applied — an invisible
-       title. The ramp is measured as it actually renders; the floor is
-       7.93:1 on the hovered card and 6.58:1 on the worst-case page wash
-       behind an archive row (full table in 08-impl-notes/frontend.md).
-     · Doctrine cost, stated: lavender means "the way out" and mint means
-       "what the score made". An article title IS a link, so the lavender end
-       is earned; the mint end is on loan. It is contained the same way
-       --head-sheen is — TYPE, momentary, reader-initiated, never a SURFACE —
-       and the score plates stay mint-only. The one list this is kept OFF is
-       Charts, where a mint highlight would sit 8px under a mint score plate
-       and stop reading as "the score made this"; see ChartCard. */
-  --spot-r: 34px;
-  --title-spot: linear-gradient(
-    90deg,
-    var(--accent-2-ink) calc((var(--px, 0) + 0.5) * 100% - var(--spot-r)),
-    var(--accent-ink) calc((var(--px, 0) + 0.5) * 100%),
-    var(--accent-2-ink) calc((var(--px, 0) + 0.5) * 100% + var(--spot-r))
-  );
+     It is applied on <body> in global.css. It went missing there once: a
+     comment rewrite deleted these three lines and left the prose describing
+     them, so `background-image: var(--bg-sheen)` resolved to the invalid
+     guaranteed-invalid value and computed to `none` sitewide — silently,
+     because an unresolvable var() is not an error. tests/unit/css-vars.test.ts
+     now fails on any var() this file does not declare. */
+  --bg-sheen:
+    radial-gradient(1100px 620px at 18% -12%, rgba(99, 239, 192, 0.1), transparent 72%),
+    radial-gradient(900px 520px at 88% -4%, rgba(185, 165, 247, 0.08), transparent 68%);
 
   /* ── Type: role tokens. Adding faces later is a 4-line change here and a
      @font-face pair in Base.astro — components never name a family. ── */

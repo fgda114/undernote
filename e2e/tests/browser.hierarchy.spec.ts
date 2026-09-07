@@ -46,8 +46,15 @@ const B = basePathOf(join(SANDBOX_ROOT, 'rich'));
  *  641/840/1160 are `.cards` column steps; 640/839/1159 are one pixel below
  *  each (a step that fires early or late shows up here and nowhere else);
  *  768/1024/1440 are the reported viewports; 1680 is where --shell starts
- *  capping the frame; 1920/2560 are past it. */
-const WIDTHS = [360, 640, 641, 768, 839, 840, 1024, 1159, 1160, 1440, 1680, 1920, 2560];
+ *  capping the frame; 1920/2560 are past it.
+ *
+ *  430 and 600 were added on 2026-09-07 with the defect they would have
+ *  caught. The single-column range 361–640 had exactly two audited points at
+ *  its ends (360 and 640), and 360 is the ONE width in it where the frame is
+ *  already 320px — so a browsing track capped at 320 looked correct there and
+ *  was short everywhere else in the band. Two interior points make the band a
+ *  measured range rather than two endpoints. */
+const WIDTHS = [360, 430, 600, 640, 641, 768, 839, 840, 1024, 1159, 1160, 1440, 1680, 1920, 2560];
 
 const EPS = 0.5; // sub-pixel grid track rounding
 
@@ -145,4 +152,45 @@ test('위계 불변식 — 탐색 트랙 상한 320px · 차트 카드 고정 33
 
   const chartW = await page.locator('.chart-card').first().evaluate((el) => el.getBoundingClientRect().width);
   expect(chartW, '차트 카드가 336px 고정에서 벗어남').toBeCloseTo(336, 0);
+});
+
+/**
+ * THE OTHER DIRECTION: A CARD THAT IS TOO NARROW (2026-09-07).
+ *
+ * Every measurement in this file and in browser.responsive.spec.ts asks
+ * whether something OVERFLOWS. Nothing asked whether something falls SHORT,
+ * and a layout that is short of its frame passes an overflow audit at every
+ * width, forever. That is how the browsing grid shipped capped at 320px
+ * through the whole 361–640 single-column band while the grid it sits in, the
+ * chart card, the headings and the footer all ran to the full frame — measured
+ * at 600px: grid 20→580, card 20→340.
+ *
+ * The invariant is structural rather than numeric, so it does not need
+ * updating when the gutter curve moves: IN A SINGLE-COLUMN LAYOUT THE CARD
+ * FILLS ITS GRID. Left edges and right edges both, because a card that is
+ * centred in an over-wide track would match on width and be wrong.
+ */
+test('단일 컬럼 구간 — 탐색 카드가 격자를 가득 채운다 (361~640px)', async ({ page }) => {
+  await page.goto(`${B}/`);
+  const rows: string[] = [];
+  const short: string[] = [];
+  for (const width of [361, 430, 500, 600, 640]) {
+    await page.setViewportSize({ width, height: 900 });
+    const m = await page.evaluate(() => {
+      const grid = document.querySelector('section[aria-label="최신 리뷰"] .cards') as HTMLElement;
+      const card = grid.querySelector('.article-card') as HTMLElement;
+      const g = grid.getBoundingClientRect();
+      const c = card.getBoundingClientRect();
+      return {
+        tracks: getComputedStyle(grid).gridTemplateColumns.split(/\s+/).length,
+        gLeft: g.left, gRight: g.right, cLeft: c.left, cRight: c.right,
+      };
+    });
+    rows.push(`${width}: tracks ${m.tracks} · 격자 ${m.gLeft.toFixed(1)}→${m.gRight.toFixed(1)} · 카드 ${m.cLeft.toFixed(1)}→${m.cRight.toFixed(1)}`);
+    if (m.tracks !== 1) short.push(`${width}px — 단일 컬럼이 아님 (트랙 ${m.tracks}개)`);
+    if (Math.abs(m.cLeft - m.gLeft) > EPS) short.push(`${width}px — 카드 좌측 ${m.cLeft.toFixed(1)} ≠ 격자 ${m.gLeft.toFixed(1)}`);
+    if (Math.abs(m.cRight - m.gRight) > EPS) short.push(`${width}px — 카드 우측 ${m.cRight.toFixed(1)} ≠ 격자 ${m.gRight.toFixed(1)} (카드가 짧음)`);
+  }
+  console.log(`단일 컬럼 실측:\n  ${rows.join('\n  ')}`);
+  expect(short, short.join('\n')).toEqual([]);
 });

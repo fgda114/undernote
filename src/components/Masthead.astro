@@ -93,13 +93,31 @@ const items = [
   .wordmark-dot {
     color: var(--accent-ink);
   }
+  /* ONE ROW, AND EVERY ITEM ON ONE LINE (2026-09-07).
+     `align-items: center` and the flex <li> below are not cosmetic. Left to
+     the defaults, each <li> is a block whose anchor is an INLINE-flex box, so
+     the anchor's vertical position is resolved against the <li>'s text
+     baseline — a number that comes from the font's metrics. That makes the
+     row's alignment depend on which face actually rendered, which is exactly
+     the kind of thing that differs between a machine where the subset webfont
+     loaded and one where it did not. Measured on the shipped build the five
+     items are identical to within 0.25px of painted ink at 1x, 2x and 4x, so
+     this is not a repair of a visible defect; it removes the mechanism that
+     could produce one. `display: flex` on the <li> deletes the line box, and
+     `align-items: center` centres each item in the row's height instead of
+     hanging it from a shared baseline. browser.a11y.spec.ts asserts the
+     result across the audited widths. */
   .nav-list {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
     gap: var(--s-24);
+  }
+  .nav-list li {
+    display: flex;
   }
   .nav-link {
     font-family: var(--mono);
@@ -172,6 +190,32 @@ const items = [
   @media (max-width: 640px) {
     .masthead-inner {
       min-height: var(--masthead-h-mobile);
+    }
+    /* FIVE ITEMS, ONE LINE, DOWN TO 360px (2026-09-07). The row used to wrap:
+       ARCHIVE dropped to a second line at 360 and ARTISTS joined it below
+       ~345, which turned the site's whole navigation into a two-storey block
+       above every mobile page.
+       WHAT WAS TRADED, MEASURED at 360px (content 320px, nav on its own row
+       under the wordmark). The row is 393.2px wide at the desktop values:
+         · tracking 0.08em → 0.04em  −16.6px   (0.04em is the value .date and
+           the footer's © already use, so no new number entered the system)
+         · gap 24px → 8px            −64px
+         = 312.6px, which fits with 7.4px to spare.
+       WHAT WAS NOT TRADED. The type SIZE is untouched — a nav item is the
+       same object here as at 1440, and shrinking it would have been the
+       cheapest 20px and the most visible loss. Touch targets stay whole: the
+       narrowest item (NOTES) measures 45.4 x 44, so every item clears 44px in
+       BOTH axes, not just the padded height.
+       `flex-wrap: wrap` stays on the list above and is the point: below
+       ~345px the row wraps again rather than overflowing, so the 360px
+       horizontal-scroll contract holds by construction and a font that
+       renders wider than the subset degrades into a second line instead of a
+       scrollbar. */
+    .nav-list {
+      gap: var(--s-8);
+    }
+    .nav-link {
+      letter-spacing: 0.04em;
     }
   }
 </style>

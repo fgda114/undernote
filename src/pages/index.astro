@@ -447,18 +447,30 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
      (641px, reused from the existing mobile breakpoint rather than invented
      at 540 so that every grid on this page collapses at the same width).
 
-     `minmax(0, 320px)`, NOT `1fr`, IS THE HIERARCHY RULE IN CSS. A fixed max
-     makes the track min(320, available/n): it fills the row when the row is
-     narrow and STOPS at 320 when the row is wide, so a browsing card can
-     never reach the chart card's fixed 336px at any width — including the
-     ≥1680px case where the shell caps the frame at 1440 and four `1fr`
-     tracks would resolve to 348px and invert the hierarchy. The `0` minimum
-     is what keeps a card's own content (the nowrap subtitle) from blowing
-     the track out at the narrow end. */
+     `minmax(0, 320px)`, NOT `1fr`, IS THE HIERARCHY RULE IN CSS — FROM 641px
+     UP. A fixed max makes the track min(320, available/n): it fills the row
+     when the row is narrow and STOPS at 320 when the row is wide, so a
+     browsing card can never reach the chart card's fixed 336px at any
+     multi-column width — including the ≥1680px case where the shell caps the
+     frame at 1440 and four `1fr` tracks would resolve to 348px and invert the
+     hierarchy. The `0` minimum is what keeps a card's own content (the nowrap
+     subtitle) from blowing the track out at the narrow end.
+
+     THE SINGLE COLUMN IS `1fr` AND MUST BE (fixed 2026-09-07). The cap was
+     on the base rule too, which made it bite the one range where it has
+     nothing to hold back: between 361 and 640px there is one track, so
+     min(320, available) simply clipped the card and left the rest of the row
+     empty. Measured at 600px before the fix — grid 20→580, card 20→340,
+     while the chart card, the headings and the footer all ran to 580. The
+     table above and the `sizes` hint in ArticleCard (`100vw` below 641) both
+     already said "full width" there; the cap was the outlier, not them.
+     There is nothing to invert in a single column: the chart card is full
+     width at these widths too, so the invariant holds as a TIE, which is
+     what browser.hierarchy.spec.ts asserts (>=, not >). */
   .cards {
     display: grid;
     gap: var(--s-16);
-    grid-template-columns: minmax(0, 320px);
+    grid-template-columns: minmax(0, 1fr);
   }
   @media (min-width: 641px) {
     .cards {

@@ -9,7 +9,7 @@
  *
  * CLIENT JS: "zero" became "a budget" on 2026-09-07 (lead decision). Exactly
  * ONE inline module ships, from this file, under the ceiling in
- * build.dist-matrix.spec.ts (2304B; the block measures 2055B), and it does
+ * build.dist-matrix.spec.ts (2048B; the block measures 1995B), and it does
  * two decorative things. What replaced the old zero as the guard is measured, not
  * assumed — build.dist-matrix.spec.ts fails the build if any page carries
  * more than one script tag, if any script has a src, or if the inline body
@@ -105,10 +105,12 @@ const fontFaceCss = `
         labels anything, so a reader without JavaScript is missing an effect,
         not a feature — which is why there is no <noscript> counterpart to
         write. Ship budget: this block is the whole of it. The ceiling has
-        moved twice — 1KB → 2KB when the pager arrived, 2048B → 2304B when
-        the tracking below grew from one reader to three — and each move is
-        recorded with its reason in build.dist-matrix.spec.ts, which holds
-        the number and fails the build when a feature outgrows it.
+        moved three times — 1KB → 2KB when the pager arrived, 2048B → 2304B
+        when the tracking grew from one reader to three, and back DOWN to
+        2048B when two of those three readers were withdrawn — and each move
+        is recorded with its reason in build.dist-matrix.spec.ts, which holds
+        the number and fails the build when a feature outgrows it. A ceiling
+        left standing above a payload that shrank is not a budget.
 
         THE PAGER never creates a control. The arrows are anchors in the
         HTML, so a reader without JavaScript gets "jump to the start / to the
@@ -123,25 +125,24 @@ const fontFaceCss = `
             and attaching pointermove there would burn battery for nothing;
           · prefers-reduced-motion — refused at the ENTRY POINT, not merely
             hidden in CSS, so the work is never even scheduled;
-          · a tracked box under the pointer — a .cover-frame, a home
-            browsing card (.card-link) or that card's title (.title-spot) —
-            otherwise pointermove returns on its first line.
+          · a tracked box under the pointer — a .cover-frame or a home
+            browsing card (.card-link) — otherwise pointermove returns on its
+            first line.
 
-        TWO READERS, ONE MEASUREMENT (2026-09-07). --px/--py are written on
-        :root rather than on the tracked element, because the second reader —
-        the hovered card title's mint spotlight (--title-spot) — is a
-        SIBLING of the cover, not a descendant of it, and a custom property
-        only travels downwards. Writing at the root costs nothing (only the
-        hovered anchor has a rule that reads them) and is what lets one
-        listener serve both effects.
-        THREE BOXES, ONE MEASUREMENT, and `closest` returning the INNERMOST
-        match is what makes them cooperate rather than fight. Each reader
-        needs the pointer's position inside its own box — the zoom inside the
-        cover, the spotlight inside the title — and the innermost rule hands
-        each one exactly that at the moment it is the thing under the
-        pointer. The looser cases are bounded rather than wrong: over a
-        card's title the cover's travel takes title-relative coordinates,
-        which the ±0.5 clamp keeps inside the frame anyway.
+        ONE READER LEFT, AND THE ROOT IS STILL WHERE THE MEASUREMENT GOES
+        (2026-09-07). The card title's mint spotlight was withdrawn, so the
+        cover zoom is now the only rule that reads --px/--py. Writing them on
+        :root rather than on the tracked element is kept anyway: it costs
+        nothing (only a hovered anchor has a rule that reads them), it is
+        what let one listener serve two effects while there were two, and
+        moving the write onto the element would be a second edit with no
+        reader asking for it.
+        TWO BOXES, ONE MEASUREMENT, and `closest` returning the INNERMOST
+        match is what keeps them from fighting: over the cover the travel is
+        measured inside the cover, over the rest of the card it is measured
+        against the card. The second case is looser rather than wrong — the
+        art drifts from card-relative coordinates — and the ±0.5 clamp keeps
+        it inside the frame either way.
 
         No layout thrash: the frame is measured ONCE per enter, writes are
         coalesced into one rAF, and the only thing written is two custom
@@ -179,8 +180,7 @@ const fontFaceCss = `
     sync();
   }
 
-  // Pointer tracking: --px/--py on :root, read by the cover zoom and by the
-  // card title's spotlight. See the note above.
+  // Pointer tracking: --px/--py on :root, read by the cover zoom. See above.
   if (q('(hover:hover) and (pointer:fine)') && !still) {
     const s = document.documentElement.style;
     let f = null, b = null, x = 0, y = 0, r = 0;
@@ -190,7 +190,7 @@ const fontFaceCss = `
       s.setProperty('--px', x), s.setProperty('--py', y);
     };
     addEventListener('pointerover', (e) => {
-      const n = e.target.closest ? e.target.closest('.cover-frame,.card-link,.title-spot') : null;
+      const n = e.target.closest ? e.target.closest('.cover-frame,.card-link') : null;
       if (n === f) return;
       if (!n) s.removeProperty('--px'), s.removeProperty('--py');
       b = (f = n) && n.getBoundingClientRect();

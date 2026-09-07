@@ -237,16 +237,24 @@ test('US-9/SS-12 — 아티스트 집계: 공유 아티스트 2편, 복수 아�
  * heading's spotlight) and the block measured 2076B. It was raised rather
  * than shaved: a ceiling you sit two bytes under is not a ceiling, it is a
  * trap for the next edit, and shortening working comments to hit a byte
- * count is the wrong reason to edit a comment. 2304 leaves ~228B — room for
- * one more hand-written line, not for a runtime.
+ * count is the wrong reason to edit a comment.
  *
- * The number moved twice inside that day, which is worth recording because
- * it is what the mechanism is FOR: the ramp was implemented, withdrawn on a
- * re-scoping, and reinstated when the re-scoping turned out to be an
- * addition rather than a replacement. Each time, this line is what said so
- * out loud instead of letting the payload drift quietly.
+ * 2304 → 2048, LATER THE SAME DAY, when the card-title spotlight was
+ * withdrawn: the tracked-box selector lost `.title-spot` and the comment
+ * naming its second reader went with it, and the block measured 1995B. THE
+ * CEILING CAME DOWN BECAUSE A BUDGET NOBODY IS NEAR IS NOT A BUDGET — it
+ * stops being a decision anyone has to make and becomes a number in a file.
+ * 2048 is where this block sat before the tracking grew, and the 53B of
+ * headroom is the same standard as before, stated honestly: the next
+ * hand-written line moves this number, on purpose, in a diff.
+ *
+ * The number has now moved three times inside two days, which is worth
+ * recording because it is what the mechanism is FOR: the ramp was
+ * implemented, withdrawn on a re-scoping, reinstated when the re-scoping
+ * turned out to be an addition, and finally removed outright. Each time,
+ * this line is what said so out loud instead of letting the payload drift.
  */
-const INLINE_JS_BUDGET_BYTES = 2304;
+const INLINE_JS_BUDGET_BYTES = 2048;
 
 test('NFR — 클라이언트 JS 예산: 지면당 인라인 1개 · 외부 JS 0 · 상한 이하', () => {
   for (const p of pages) {

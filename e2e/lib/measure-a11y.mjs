@@ -45,7 +45,7 @@ const tok = await page.evaluate(() => {
   for (const n of names) o[n] = cs.getPropertyValue(n).trim();
   o['--head-sheen'] = cs.getPropertyValue('--head-sheen').trim();
   o['--accent-sheen'] = cs.getPropertyValue('--accent-sheen').trim();
-  o['--spot-r'] = cs.getPropertyValue('--spot-r').trim();
+  o["--bg-sheen"] = cs.getPropertyValue("--bg-sheen").trim();
   o.bodyBg = getComputedStyle(document.body).backgroundColor;
   o.bodyBgImage = getComputedStyle(document.body).backgroundImage;
   return o;
@@ -98,8 +98,6 @@ function sampleRamp(stops, t) {
 const rampChecks = [
   ['--head-sheen on --bg', tok['--head-sheen'], tok['--bg'], 4.5],
   ['--accent-sheen 위의 --on-accent', tok['--accent-sheen'], null, 4.5, tok['--on-accent']],
-  ['--title-spot(mint↔lavender) on --surface-2', `linear-gradient(90deg, ${tok['--accent-2-ink']} 0%, ${tok['--accent-ink']} 50%, ${tok['--accent-2-ink']} 100%)`, tok['--surface-2'], 4.5],
-  ['--title-spot on --bg', `linear-gradient(90deg, ${tok['--accent-2-ink']} 0%, ${tok['--accent-ink']} 50%, ${tok['--accent-2-ink']} 100%)`, tok['--bg'], 4.5],
 ];
 for (const [name, grad, bg, min, fgOnTop] of rampChecks) {
   const stops = stopsOf(grad);
@@ -143,9 +141,11 @@ async function pixelReport(label, locator, opts = {}) {
 }
 
 // home card title — resting, hovered-card, hovered-title at 3 x positions
+// (the mint spotlight was withdrawn 2026-09-07; the three states are kept so
+//  the report still shows that hover changes the painted ink at all)
 await page.goto(U('/'));
 const card = page.locator('section[aria-label="최신 리뷰"] .card-link').first();
-const title = card.locator('.title-spot').first();
+const title = card.locator(".title").first();
 await title.scrollIntoViewIfNeeded();
 await pixelReport('홈 카드 제목 — 비호버(휴지)', title, { state: 'rest' });
 await card.locator('.excerpt, .date').first().hover();
@@ -155,7 +155,7 @@ const box = await title.boundingBox();
 for (const f of [0.1, 0.5, 0.9]) {
   await page.mouse.move(box.x + box.width * f, box.y + box.height / 2);
   await page.waitForTimeout(300);
-  await pixelReport(`홈 카드 제목 — 제목 hover, 커서 x=${f}`, title, { state: `spot@${f}` });
+  await pixelReport(`홈 카드 제목 — 제목 hover x=${f}`, title, { state: `hover@${f}` });
 }
 // Charts head (fixed gradient) + score plate + chart leader plate
 await page.mouse.move(0, 0);
@@ -163,16 +163,16 @@ await page.waitForTimeout(200);
 await pixelReport('Charts 섹션 제목 (--head-sheen 클리핑)', page.locator('.section-head .title.head-sheen').first());
 await pixelReport('차트 1위 랭크 플레이트 (--accent-sheen 위 --on-accent)', page.locator('.chart-card.first .rank-plate').first());
 
-// archive row title spotlight (worst-case wash behind a row)
+// archive row title hover (worst-case wash behind a row)
 await page.goto(U('/archive/reviews/'));
-const rowTitle = page.locator('.row-card-link .title-spot').first();
+const rowTitle = page.locator(".row-card-link .title").first();
 await rowTitle.scrollIntoViewIfNeeded();
 await pixelReport('아카이브 행 제목 — 비호버', rowTitle, { state: 'rest' });
 const rb = await rowTitle.boundingBox();
 for (const f of [0.15, 0.5, 0.85]) {
   await page.mouse.move(rb.x + rb.width * f, rb.y + rb.height / 2);
   await page.waitForTimeout(300);
-  await pixelReport(`아카이브 행 제목 — hover 커서 x=${f}`, rowTitle, { state: `spot@${f}` });
+  await pixelReport(`아카이브 행 제목 — hover x=${f}`, rowTitle, { state: `hover@${f}` });
 }
 await pixelReport('썸네일 점수 칩 (커버 위 불투명 배경)', page.locator('.thumb-score').first());
 
@@ -222,7 +222,7 @@ const fc = await page.evaluate(() => {
   };
   return [
     probe('Charts 제목 .head-sheen', '.section-head .title.head-sheen'),
-    probe('카드 제목 .title-spot', 'section[aria-label="최신 리뷰"] .title-spot'),
+    probe('카드 제목', 'section[aria-label=\"최신 리뷰\"] .card .title'),
     probe('차트 1위 플레이트 .rank-plate', '.chart-card.first .rank-plate'),
     probe('본문 링크', 'main a'),
   ];

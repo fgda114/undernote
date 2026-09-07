@@ -67,15 +67,14 @@
  * year/tag archives and artist pages mix reviews and stories under one
  * heading, and /archive/genre/{id}/ is headed by a genre, not by a format.
  *
- * EVERY TITLE THIS COMPONENT RENDERS IS A SPOTLIGHT HOST (2026-09-07, both
- * variants). Hovering an entry turns its title lavender; hovering the title
- * itself runs a mint band across the glyphs under the pointer. That covers
- * the home's two browsing grids and every list built on the row variant —
- * /archive/reviews/, /archive/stories/, the year/tag/genre archives, artist
- * pages and a review's "다른 글". The one article list it is NOT on is
- * Charts, whose card is a different component and states its own reason.
- * See the style block for the three guards that keep a clipped title from
- * ever rendering invisible.
+ * A HOVERED ENTRY TURNS ITS TITLE LAVENDER, AND THAT IS THE WHOLE ANSWER
+ * (2026-09-07, both variants). A second state used to sit on top of it — a
+ * mint band travelling across the glyphs under the pointer — and it was
+ * withdrawn; the style block records what that removed and the blocking
+ * accessibility defect it closed on the way out. The colour step itself is
+ * not optional decoration: a title that does nothing under the pointer stops
+ * reading as a link, and in the row variant the underline that has always
+ * been there rides along, so the affordance is never colour alone.
  *
  * The `card` variant carries an EXCERPT (2026-09-07). Title + artist alone
  * made the grid a directory: two cards about wildly different records looked
@@ -175,9 +174,7 @@ const score = showScore ? item.score : undefined;
         </span>
         <span class="body">
           {showFormat && <FormatLabel text={item.formatLabel} variant="chip" />}
-          {/* `title-spot` is both the JS tracking hook (Base.astro measures
-              the pointer against this box) and the clipping target. */}
-          <span class="title title-spot">{item.title}</span>
+          <span class="title">{item.title}</span>
           {item.type === 'review' && item.subtitle && <span class="subtitle">{item.subtitle}</span>}
           {item.excerpt && <span class="excerpt">{item.excerpt}</span>}
           <time class="date tnum" datetime={item.date}>
@@ -212,7 +209,7 @@ const score = showScore ? item.score : undefined;
         </span>
         <span class="text">
           {showFormat && <span class="format">{item.formatLabel}</span>}
-          <span class="title title-spot">{item.title}</span>
+          <span class="title">{item.title}</span>
           {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
         </span>
         <time class="date tnum" datetime={item.date}>
@@ -450,92 +447,50 @@ const score = showScore ? item.score : undefined;
     overflow: hidden;
     transition: color var(--t-micro);
   }
-  /* ── Hover: the row/card answers, and the TITLE answers more ─────────
-     Two states, deliberately different sizes of response, and they apply to
-     BOTH variants — every article-list title on the site is a spotlight host
-     since 2026-09-07.
+  /* ── Hover: the entry answers, in ONE step ───────────────────────────
+     Pointer anywhere on the entry → the title turns flat lavender, and in
+     the row variant the underline it has always had comes with it. That is
+     the whole hover vocabulary of this component, on both variants. Keeping
+     a visible response is not optional: an entry whose title does nothing
+     under the pointer stops reading as a link, and colour alone would not be
+     enough for the row either (WCAG 1.4.1) — hence the underline.
 
-     ① Pointer anywhere on the entry → the title turns flat lavender (plus,
-        in the row variant, the underline it has always had).
-     ② Pointer on the TITLE ITSELF → a mint band travels across the glyphs it
-        passes (--title-spot, tokens.css, where the doctrine cost and the
-        measured contrast floors are recorded).
+     WHAT WAS REMOVED (2026-09-07), AND THE DEFECT THAT LEFT WITH IT. A
+     second state used to sit on top of this one: hovering the TITLE ITSELF
+     ran a mint band (--title-spot) across the glyphs under the pointer,
+     painted as a gradient clipped to the text with `background-clip: text` +
+     `color: transparent`. It was withdrawn by editorial decision, and the
+     withdrawal closed a blocking accessibility defect in the same edit.
 
-     Splitting them on `.title-spot:hover` rather than on the link's hover is
-     not a style choice, it is what makes the light land in the right place:
-     `closest` in Base.astro returns the INNERMOST tracked box, so the
-     pointer is measured against the title's own box exactly when the title
-     is the thing under it. Hovering the cover would otherwise light the
-     title from cover-relative coordinates — a different box in a different
-     place. It also means the effect is opt-in per element: a surface adds
-     `title-spot` to a title and gets both the tracking and the paint.
+     The defect is recorded here because its SHAPE will recur. Clipped text
+     needs a forced-colors escape hatch, and that rule declared two things at
+     once — `color: CanvasText` and `forced-color-adjust: none`. Astro scopes
+     component rules with an attribute selector, so the hatch's `.title-spot`
+     computed as (0,2,0) while the plain `.card .title` next to it computed
+     as (0,4,0):
 
-     THE BAND'S HALF-WIDTH (--spot-r) LIVES IN tokens.css, not here.
-     --title-spot is declared on :root and its var()s therefore resolve
-     against :root, so a --spot-r set on this element would be ignored — the
-     note beside the token says why, because it cost a measurement to find
-     out.
+       · `color: CanvasText`         LOST the specificity fight — the title
+                                     kept this palette's dark-page ink;
+       · `forced-color-adjust: none` WON, having no competitor at all — the
+                                     UA was told not to substitute colours.
 
-     ONLY ONE TITLE IS EVER LIT: the paint is scoped to :hover, so every
-     other title in the list stays in its resting ink.
+     That combination is strictly worse than either half. The element opted
+     OUT of the reader's high-contrast palette while holding a colour chosen
+     for a dark page: measured under `forced-colors: active`, #E8E9F2 on a
+     #FFFFFF system canvas, 1.21:1, on every article list this component
+     renders — and on those pages the title is the only thing to click.
 
-     THREE GUARDS, all load-bearing, all copied from .head-sheen's pattern:
-     1. `color` is a real token FIRST in both states. background-clip:text
-        needs `color: transparent` to reveal the gradient, and an engine that
-        parses the clip but not the rest would render an INVISIBLE TITLE. The
-        transparent lands only inside @supports, and only under :hover — a
-        resting title never depends on clipping at all.
-     2. The no-pointer path (touch, coarse pointer, reduced motion) is stated
-        rather than left to the token's var() fallback, because a fallback
-        that is only implied is a fallback nobody checks.
-     3. forced-colors puts the system ink back: a gradient is not a colour
-        the user's high-contrast palette can override.
-
-     THE ROW'S UNDERLINE SURVIVES THE CLIP. Decorations paint in currentColor,
-     which is `transparent` while the text is clipped, so the underline would
-     silently vanish exactly where the colour is doing the most work —
-     leaving the affordance on colour alone (WCAG 1.4.1). It is pinned to a
-     real token instead. */
+     `forced-color-adjust` existed ONLY to protect the gradient, so removing
+     the gradient removed the reason for it. There is deliberately no
+     forced-colors rule in this component now: the titles are ordinary text
+     and take the system ink like every other text node on the page. The
+     general form, since this is the second specificity fight lost at this
+     spot: a rule that sets forced-color-adjust must be at least as specific
+     as every rule that sets `color` on the same element, or it disables the
+     reader's last colour control and loses the colour too. */
   .card-link:hover .title,
   .row-card-link:hover .title {
     color: var(--accent-2-ink);
-  }
-  /* THE LINK'S :hover IS IN THE SELECTOR ON PURPOSE, and it is not
-     redundant. Astro scopes component rules with an attribute selector, so
-     `.card-link:hover .title` above computes as (0,4,0) and a bare
-     `.title-spot:hover` as (0,3,0) — the flat lavender wins, the gradient
-     still paints because nothing else sets background-image, and the result
-     is a clipped background under an opaque colour: no visible effect at
-     all. Measured; that is exactly how the first version of this shipped
-     inside a build. Naming the link's hover as well makes the clipped rule
-     strictly more specific instead of relying on source order to break a
-     tie. */
-  @supports (background-clip: text) or (-webkit-background-clip: text) {
-    .card-link:hover .title-spot:hover,
-    .row-card-link:hover .title-spot:hover {
-      background-image: var(--title-spot);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      -webkit-text-decoration-color: var(--accent-2-ink);
-      text-decoration-color: var(--accent-2-ink);
-    }
-  }
-  @media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
-    .card-link:hover .title-spot:hover,
-    .row-card-link:hover .title-spot:hover {
-      background-image: none;
-      color: var(--accent-2-ink);
-    }
-  }
-  @media (forced-colors: active) {
-    .title-spot,
-    .card-link:hover .title-spot:hover,
-    .row-card-link:hover .title-spot:hover {
-      background-image: none;
-      color: CanvasText;
-      forced-color-adjust: none;
-    }
   }
   .card .subtitle {
     max-width: 100%;
