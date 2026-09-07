@@ -9,7 +9,7 @@
  *
  * CLIENT JS: "zero" became "a budget" on 2026-09-07 (lead decision). Exactly
  * ONE inline module ships, from this file, under the ceiling in
- * build.dist-matrix.spec.ts (2048B; the block measures 1995B), and it does
+ * build.dist-matrix.spec.ts (2048B; the block measures 1970B), and it does
  * two decorative things. What replaced the old zero as the guard is measured, not
  * assumed — build.dist-matrix.spec.ts fails the build if any page carries
  * more than one script tag, if any script has a src, or if the inline body
@@ -17,10 +17,17 @@
  * JavaScript is fetched over the network, and additionally renders the site
  * with scripting disabled. Read the full reasoning in
  * 08-impl-notes/frontend.md before adding a second one.
+ *
+ * THE MODULE'S TEXT NOW LIVES IN src/scripts/enhance.js, not between the
+ * <script> tags below. That move bought one property and cost nothing else:
+ * the CSP hash in <head> and the bytes at the end of <body> are produced
+ * from the SAME string in the same render, so they cannot drift apart. See
+ * lib/csp.ts for why the hash may never be taken from dist.
  */
 import Footer from '../components/Footer.astro';
 import Masthead from '../components/Masthead.astro';
 import { absoluteUrl, getSiteConfig } from '../lib/site.ts';
+import { cspContent, enhanceJs } from '../lib/csp.ts';
 import { ogImageUrl } from '../lib/og/version.ts';
 import { withBase } from '../lib/paths.ts';
 import '../styles/global.css';
@@ -57,6 +64,12 @@ const fontFaceCss = `
 @font-face{font-family:'Pretendard Variable';src:url('${withBase('/fonts/PretendardVariable-sub.woff2')}') format('woff2-variations');font-weight:45 920;font-display:swap}
 @font-face{font-family:'Noto Serif KR';src:url('${withBase('/fonts/NotoSerifKR-400-sub.woff2')}') format('woff2');font-weight:400;font-display:swap}
 @font-face{font-family:'Noto Serif KR';src:url('${withBase('/fonts/NotoSerifKR-700-sub.woff2')}') format('woff2');font-weight:700;font-display:swap}`;
+
+// Content-Security-Policy for this page, derived from the same module
+// string that is emitted at the end of <body>. E-117 re-checks the pairing
+// against the built file, so a refactor that breaks it fails the build
+// instead of shipping a policy that blocks the site's own script.
+const csp = cspContent(goatcounter);
 ---
 
 <!doctype html>
@@ -64,6 +77,10 @@ const fontFaceCss = `
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/* As early in <head> as the charset allows: a meta CSP only governs what
+        the parser reaches AFTER it, and the site's own script sits at the end
+        of <body>. Everything between here and there is markup, not script. */}
+    <meta http-equiv="Content-Security-Policy" content={csp} />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
@@ -104,7 +121,11 @@ const fontFaceCss = `
         and the cover hover zoom is pure CSS. Nothing here creates, moves, focuses or
         labels anything, so a reader without JavaScript is missing an effect,
         not a feature — which is why there is no <noscript> counterpart to
-        write. Ship budget: this block is the whole of it. The ceiling has
+        write. Its text is src/scripts/enhance.js, emitted verbatim below;
+        that file's comments are DEPLOY BYTES (nothing minifies them), which
+        is why the long-form reasoning stays here where it costs nothing and
+        the file itself carries one pointer line. Ship budget: that file is
+        the whole of it — 1970B against 2048B. The ceiling has
         moved three times — 1KB → 2KB when the pager arrived, 2048B → 2304B
         when the tracking grew from one reader to three, and back DOWN to
         2048B when two of those three readers were withdrawn — and each move
@@ -147,71 +168,29 @@ const fontFaceCss = `
         No layout thrash: the frame is measured ONCE per enter, writes are
         coalesced into one rAF, and the only thing written is two custom
         properties that CSS turns into a composited transform. Every listener
-        in this file is passive except the pager's click, so nothing here can
-        block scrolling.
+        in the module is passive except the pager's click, so nothing here
+        can block scrolling.
 
         Values are clamped to ±0.5. The measured box goes stale if the page
         scrolls while the pointer sits still on a cover; the clamp bounds how
         wrong the result can be, and the effect is decorative enough that
         re-measuring on scroll would cost more than it is worth. */}
-    <script type="module" is:inline>
-  const q = (m) => matchMedia(m).matches;
-  const still = q('(prefers-reduced-motion:reduce)');
-
-  // Chart pager. The arrows are links that already work without this; here
-  // they become one-screenful steps and learn when they have run out of row.
-  for (const box of document.querySelectorAll('.chart-cards')) {
-    const btns = box.parentElement.querySelectorAll('[data-scroll]');
-    if (!btns.length) continue;
-    const sync = () => {
-      const end = box.scrollWidth - box.clientWidth - 1;
-      for (const b of btns) {
-        const atEnd = b.dataset.scroll < 0 ? box.scrollLeft <= 0 : box.scrollLeft >= end;
-        b.setAttribute('aria-disabled', atEnd);
-      }
-    };
-    for (const b of btns)
-      b.addEventListener('click', (e) => {
-        e.preventDefault();
-        box.scrollBy({ left: box.clientWidth * 0.8 * b.dataset.scroll, behavior: still ? 'auto' : 'smooth' });
-      });
-    box.addEventListener('scroll', sync, { passive: true });
-    addEventListener('resize', sync, { passive: true });
-    sync();
-  }
-
-  // Pointer tracking: --px/--py on :root, read by the cover zoom. See above.
-  if (q('(hover:hover) and (pointer:fine)') && !still) {
-    const s = document.documentElement.style;
-    let f = null, b = null, x = 0, y = 0, r = 0;
-    const clamp = (v) => (v < -0.5 ? -0.5 : v > 0.5 ? 0.5 : v);
-    const write = () => {
-      r = 0;
-      s.setProperty('--px', x), s.setProperty('--py', y);
-    };
-    addEventListener('pointerover', (e) => {
-      const n = e.target.closest ? e.target.closest('.cover-frame,.card-link') : null;
-      if (n === f) return;
-      if (!n) s.removeProperty('--px'), s.removeProperty('--py');
-      b = (f = n) && n.getBoundingClientRect();
-    }, { passive: true });
-    addEventListener('pointermove', (e) => {
-      if (!f) return;
-      x = clamp((e.clientX - b.left) / b.width - 0.5);
-      y = clamp((e.clientY - b.top) / b.height - 0.5);
-      if (!r) r = requestAnimationFrame(write);
-    }, { passive: true });
-  }
-    </script>
+    {/* Emitted RAW from the same string the CSP hash was taken from —
+        set:html is how this layout already ships the @font-face block. Astro
+        renders it verbatim, so dist carries the module byte for byte and the
+        hash in <head> matches by construction rather than by discipline. */}
+    <Fragment set:html={`<script type="module">${enhanceJs()}</script>`} />
     {
       /* Analytics — the only EXTERNAL script this site may load (ADR-0002):
          OPT-IN via config/site.yaml#goatcounter_code; absent = zero scripts.
          Do not remove as a cleanup — charter §3 requires measured
          referral/dwell data and the performance-budget reset depends on it
          (lead decision 2026-09-02, recorded in api-contracts §3.8).
-         Turning it on puts a SECOND script tag on every page and the dist
-         budget test (one tag per page) will fail until it is taught about
-         this one — that is deliberate: the budget should notice.
+         Turning it on puts a SECOND script tag on every page. E-116 and the
+         CSP both already know about exactly this one and widen by exactly
+         this one (lib/csp.ts, checker/postbuild.ts); the e2e budget test
+         still asserts one tag per page and will fail until it is taught —
+         that is deliberate: the budget should notice a change of that size.
          GoatCounter: cookieless, no GDPR banner, ~3.5KB. HTTPS explicit —
          protocol-relative URLs are obsolete and break file:// viewing. */
       goatcounter && (

@@ -1,0 +1,49 @@
+// Intro/budget/CSP live at the emit point (Base.astro) — comments ship here.
+
+const q = (m) => matchMedia(m).matches;
+const still = q('(prefers-reduced-motion:reduce)');
+
+// Chart pager. The arrows are links that already work without this; here
+// they become one-screenful steps and learn when they have run out of row.
+for (const box of document.querySelectorAll('.chart-cards')) {
+  const btns = box.parentElement.querySelectorAll('[data-scroll]');
+  if (!btns.length) continue;
+  const sync = () => {
+    const end = box.scrollWidth - box.clientWidth - 1;
+    for (const b of btns) {
+      const atEnd = b.dataset.scroll < 0 ? box.scrollLeft <= 0 : box.scrollLeft >= end;
+      b.setAttribute('aria-disabled', atEnd);
+    }
+  };
+  for (const b of btns)
+    b.addEventListener('click', (e) => {
+      e.preventDefault();
+      box.scrollBy({ left: box.clientWidth * 0.8 * b.dataset.scroll, behavior: still ? 'auto' : 'smooth' });
+    });
+  box.addEventListener('scroll', sync, { passive: true });
+  addEventListener('resize', sync, { passive: true });
+  sync();
+}
+
+// Pointer tracking: --px/--py on :root, read by the cover zoom.
+if (q('(hover:hover) and (pointer:fine)') && !still) {
+  const s = document.documentElement.style;
+  let f = null, b = null, x = 0, y = 0, r = 0;
+  const clamp = (v) => (v < -0.5 ? -0.5 : v > 0.5 ? 0.5 : v);
+  const write = () => {
+    r = 0;
+    s.setProperty('--px', x), s.setProperty('--py', y);
+  };
+  addEventListener('pointerover', (e) => {
+    const n = e.target.closest ? e.target.closest('.cover-frame,.card-link') : null;
+    if (n === f) return;
+    if (!n) s.removeProperty('--px'), s.removeProperty('--py');
+    b = (f = n) && n.getBoundingClientRect();
+  }, { passive: true });
+  addEventListener('pointermove', (e) => {
+    if (!f) return;
+    x = clamp((e.clientX - b.left) / b.width - 0.5);
+    y = clamp((e.clientY - b.top) / b.height - 0.5);
+    if (!r) r = requestAnimationFrame(write);
+  }, { passive: true });
+}

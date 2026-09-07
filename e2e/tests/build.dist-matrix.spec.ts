@@ -253,6 +253,14 @@ test('US-9/SS-12 — 아티스트 집계: 공유 아티스트 2편, 복수 아�
  * implemented, withdrawn on a re-scoping, reinstated when the re-scoping
  * turned out to be an addition, and finally removed outright. Each time,
  * this line is what said so out loud instead of letting the payload drift.
+ *
+ * THE CEILING DID NOT MOVE A FOURTH TIME, but the payload shrank again:
+ * 1995B → 1970B on 2026-09-08, when the module's text moved out of
+ * Base.astro into src/scripts/enhance.js so that the CSP hash and the shipped
+ * bytes come from one string (lib/csp.ts). Twenty-five bytes of prose moved
+ * to the emit point, where comments cost nothing; nothing was minified and no
+ * behaviour changed. 2048 stays: a move that shrinks the payload by 1% is not
+ * a decision about the budget.
  */
 const INLINE_JS_BUDGET_BYTES = 2048;
 

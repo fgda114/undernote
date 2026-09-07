@@ -12,7 +12,7 @@ import { mergeResults, type CheckResult, type Finding } from './types.ts';
 export type { CheckResult, Finding } from './types.ts';
 export type { RepoData, Entry } from './load.ts';
 export { runNoticePass, readPreviousBoardState } from './notices.ts';
-export { runPostBuildChecks } from './postbuild.ts';
+export { runPostBuildChecks, checkScripts, checkCspHash } from './postbuild.ts';
 
 export function runPrePass(root: string): LoadOutcome {
   const { data, result } = loadRepo(root);
