@@ -65,6 +65,16 @@ import { SITE_TAGLINE } from '../lib/site.ts';
         앨범 커버 등 권리 문의는 <a href="https://github.com/fgda114/undernote/issues" rel="noopener">저장소 이슈</a>로
         연락해 주세요. 요청하시면 해당 이미지는 지체 없이 내립니다.
       </p>
+      {/* Font attribution. The OFL does not require a notice on the PAGE —
+          it requires the licence to travel with the font files, which is what
+          licenses/ does — so this line is a credit, not compliance, and it is
+          one sentence for that reason. It sits beside the rights-contact line
+          because both answer "whose work is on this page that is not the
+          writer's", and that question has exactly one place to be answered. */}
+      <p>
+        본문 서체는 <a href="https://github.com/orioncactus/pretendard" rel="noopener">Pretendard</a>와
+        <a href="https://github.com/notofonts/noto-cjk" rel="noopener">Noto Serif KR</a>입니다 — 둘 다 SIL Open Font License 1.1.
+      </p>
     </footer>
   </main>
 </Base>
@@ -102,6 +112,14 @@ import { SITE_TAGLINE } from '../lib/site.ts';
     font-size: var(--fs-13);
     line-height: 20px;
     color: var(--muted);
+    /* Two notices now (rights contact, font credit). Flex + gap rather than
+       paragraph margins so the block's spacing comes from the scale and a
+       third notice needs no new rule. --s-12 keeps them reading as one
+       colophon: the .intro gap above is twice this, which is what separates
+       "the writer's prose" from "the small print". */
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
   }
   .rights a {
     color: var(--accent-2-ink);

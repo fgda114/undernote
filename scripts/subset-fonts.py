@@ -1,5 +1,21 @@
 # Font subsetting pipeline (editing-time tool — never runs in the build).
 #
+# SOURCES AND LICENCE. Both faces are SIL Open Font License 1.1:
+#
+#   Pretendard      Kil Hyung-jin — https://github.com/orioncactus/pretendard
+#                   licence: licenses/Pretendard-OFL.txt
+#                   (upstream: .../pretendard/main/LICENSE)
+#   Noto Serif KR   Adobe / Google — https://github.com/notofonts/noto-cjk
+#                   licence: licenses/NotoSerifKR-OFL.txt
+#                   (upstream: .../noto-cjk/main/Serif/LICENSE)
+#
+# WHAT THIS SCRIPT PRODUCES IS A MODIFIED VERSION in the OFL's sense — SIL's
+# own FAQ 2.6 says subsetting a webfont is modification — which is why the
+# licence copies are in the repository at all: OFL section 2 conditions
+# redistribution of a modified font on shipping the notice and the licence
+# with it. Read licenses/README.md before changing anything here; it also
+# records the UNRESOLVED Reserved Font Name question on 'Pretendard'.
+#
 # Produces the three self-hosted woff2 files the design system requires
 # (tokens.md §3: Pretendard Variable ×1 + Noto Serif KR 400/700 ×2, total
 # budget < 1.5MB, CDN forbidden):
@@ -62,10 +78,19 @@ def run_subset(src: Path, dest: Path, text: str, flavor: str | None) -> int:
     # Lean flags: default layout-feature list (a wildcard pulls in huge CJK
     # feature closures), no glyph names, no hinting — CJK outlines are
     # effectively unhinted anyway and hints cost hundreds of KB.
+    #
+    # --name-IDs KEEPS 13 AND 14 (licence description, licence URL) ON TOP OF
+    # the subsetter's default 0-6. The default DROPS them, and it had: the
+    # three font files committed here carry a copyright line and no licence
+    # record at all. OFL section 2 wants the notice travelling with the font,
+    # and SIL's Functional Equivalence criteria (FAQ 2.8) name licence
+    # metadata explicitly. Cost is a few KB per file against a 1536KB budget
+    # — nothing worth trading a licence notice for.
     args = [
         str(src),
         f"--output-file={dest}",
         f"--text={text}",
+        "--name-IDs+=13,14",
         "--no-hinting",
         "--desubroutinize",
         "--notdef-outline",
