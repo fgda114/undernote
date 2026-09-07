@@ -86,14 +86,13 @@
                        into lavender.
        --bg-sheen      the page wash on <body>, under everything.
 
-     WHERE --head-sheen may be used, exactly ONE place since 2026-09-07:
-     /list/{year}/'s H1. It named the list the SCORES produced, which is what
-     --accent means. It used to paint the home's Charts section heading too;
-     that heading now rests in lavender with the other two so all three home
-     sections answer the pointer the same way (--title-spot below), and the
-     gradient survives only where the page IS the annual list. Painting a
-     review's album title with it would still put the score's colour on
-     something the score did not make.
+     WHERE --head-sheen may be used, exactly: the home's Charts section
+     heading and /list/{year}/'s H1. Those two headings name the list the
+     SCORES produced, which is what --accent means. Painting "최신 리뷰" or a
+     review's album title with it would put the score's colour on something
+     the score did not make, and the doctrine would be decoration again.
+     (Both of those were briefly gradient on 2026-09-07 and were put back;
+     the rule is unchanged, it was the rule that decided the revert.)
 
      WHY --head-sheen crosses into lavender and --accent-sheen does not
      (changed 2026-09-07). The brief wants the reference's visible mint-to-
@@ -115,88 +114,75 @@
      brighter than both ends, so 6.57 is the floor. AA (4.5:1) holds across
      the whole ramp with no threshold lowered.
 
-     THE LIST IS NOW FOUR, and it is written as a list rather than a count
-     because it moved twice in one day (2026-09-07):
+     THE LIST, written as a list rather than a count because it moved three
+     times in one day (2026-09-07) and a number would have said nothing about
+     what moved:
 
        --bg-sheen      the page wash, carries no meaning
-       --head-sheen    /list/{year}/'s H1 — the page that IS the annual list
-       --title-sheen   a hovered home CARD title, mixed by pointer position
-       --title-spot    a hovered home SECTION HEADING, a travelling spotlight
+       --head-sheen    the home's Charts head + /list/{year}/'s H1 — the two
+                       headings that name the list the scores produced
+       --title-spot    a hovered home CARD title, a travelling spotlight
 
-     The clause that matters is unchanged — mixing lives in a list of named
-     tokens and nowhere else — and each entry states its own cost where it is
-     declared. The last two are one vocabulary at two scales: the heading is
-     lit per GLYPH because it is a few large letters under one light, and the
-     card title shifts as a WHOLE because a grid of twelve independently
-     multicoloured headlines reads as a fault rather than as a light source.
-     That difference is the whole reason they are two tokens. */
+     The clause that matters never moved: mixing lives in a list of named
+     tokens and nowhere else, and each entry states its own cost where it is
+     declared. A fourth entry (--title-sheen, a whole-element colour-mix on
+     card titles) existed between those revisions and is gone: the spotlight
+     took over its host, so keeping both would have been two answers to one
+     question. */
   --accent-sheen: linear-gradient(135deg, #8bf7d2 0%, #63efc0 45%, #46d9de 100%);
   --head-sheen: linear-gradient(100deg, #8bf7d2 0%, #63efc0 34%, #b9a5f7 100%);
-  /* --title-sheen  TEXT only, and only on a HOVERED home browsing card's
-     title. Where --title-spot lights individual glyphs, this moves the whole
-     title along the same ramp: mint at the card's left edge, lavender at its
-     right, continuous in between. A card title is ~17px and two lines long,
-     so a spotlight inside it would be a smudge; what reads at that size is
-     the element changing as a unit.
-       · --px is the pointer's horizontal offset from the tracked box's
-         centre, -0.5..0.5, written on :root by the inline module in
-         Base.astro — the same property --title-spot and the cover zoom use.
-         No listener exists for any of the three.
-       · The FALLBACK 0.5 resolves to 100% lavender, i.e. exactly the flat
-         --accent-2-ink hover this replaced, and it is what every environment
-         without a pointer lands on (touch, reduced motion, JS off, no
-         color-mix support). Nothing degrades to a colour that was not
-         already shipping.
-       · Contrast: interpolated in oklab at 0.1% steps across the whole ramp
-         and measured against the hovered card's ground (--surface-2), the
-         floor is 7.93:1 at the pure-lavender end and the peak 11.87:1 at the
-         mint end — no mid-ramp dip, AAA everywhere. Table in
-         08-impl-notes/frontend.md.
-       · Doctrine cost: same as --title-spot's, and stated there. */
-  --title-sheen: color-mix(
-    in oklab,
-    var(--accent-2-ink) clamp(0%, calc(50% + var(--px, 0.5) * 100%), 100%),
-    var(--accent-ink)
-  );
+  /* --title-spot  TEXT only, and only on a HOVERED home CARD title. The
+     third — and, by the rule above, last — token allowed to cross from mint
+     into lavender.
 
-  /* --title-spot  TEXT only, and only on a HOVERED home section heading.
-     The third — and, by the rule above, last — token allowed to cross from
-     mint into lavender, added 2026-09-07.
+     WHAT IT IS. A hovered card's title rests in lavender and a mint
+     spotlight travels across the glyphs the pointer passes: a radial
+     gradient positioned by the pointer and clipped to the text. The title is
+     one object under one moving light.
 
-     WHAT IT IS. The three home section headings rest in LAVENDER, and while
-     the pointer is over one of them a mint spotlight travels across the
-     glyphs it passes: a radial gradient positioned by the pointer and
-     clipped to the text. The heading is one object under one moving light,
-     which is why this is a heading effect and not a card effect — an earlier
-     pass put a cursor-following ramp on every card title in the grid and a
-     dozen independently-coloured headlines read as a fault, not a light.
+     WHERE IT IS NOT. The home's SECTION headings had this for half a day and
+     gave it back (2026-09-07). A section heading is not a link and should
+     not behave like one, and the two headings that are not Charts have no
+     claim to either accent. Charts keeps --head-sheen, fixed, no hover.
 
      · --px/--py are the pointer's offset from the tracked box's centre,
        -0.5..0.5, written on :root by the inline module in Base.astro — the
        same two properties that drive the cover zoom. No listener was added.
        `calc((var(--px) + 0.5) * 100%)` is the whole conversion from that
        range to a background position.
-     · 96px, not an em value: the radius is the size of the LIGHT, not of the
-       type. Fixed in px it covers ~3 Korean glyphs at the 34px desktop
-       heading and stays a spotlight rather than scaling into a wash.
-     · FALLBACK 0/0 centres the circle, but nothing sees it: the gradient is
-       applied only under :hover, and every environment without a pointer
+     · THE RADIUS IS --spot-r, AND IT IS DECLARED HERE, NOT BY THE HOST.
+       That is a constraint, not a preference: this token lives on :root, so
+       every var() inside it is substituted against :ROOT's values. --px gets
+       away with it because :root is exactly where the script writes it, but
+       a --spot-r set on the card title would be silently ignored and the
+       gradient would keep the fallback — measured, and it is how the first
+       attempt at 44px turned out to be a 96px circle in disguise. If a
+       second host ever needs a different light, move this declaration onto
+       the hosts; do not add a second --spot-r and expect it to win.
+       The value: 96px was right for the 34px section heading this effect
+       started on. On a 17px card title, whose two lines are ~48px tall, a
+       96px circle swallows the whole block and reads as a wash. 44px covers
+       roughly two and a half Korean glyphs — the sweep is in
+       08-impl-notes/frontend.md.
+     · FALLBACK 0/0 centres the circle, but nothing sees it: the gradient
+       applies only under :hover, and every environment without a pointer
        (touch, prefers-reduced-motion, no script, no background-clip) is
-       pinned to flat lavender in global.css. Nothing degrades to a colour
-       that was not already shipping.
+       pinned to flat lavender by the host.
      · sRGB interpolation, deliberately NOT `in oklab`: an engine that parses
        background-clip:text but not colour-space interpolation would drop the
        whole gradient while `color: transparent` still applied — an invisible
-       heading. The ramp is measured as it actually renders; the floor is
-       6.58:1 against the worst-case page wash and 9.11:1 against flat --bg
-       (full table in 08-impl-notes/frontend.md).
+       title. The ramp is measured as it actually renders; against the
+       hovered card's ground (--surface-2) the floor is 7.93:1 and the peak
+       11.87:1 — no mid-ramp dip, AAA everywhere (full table in
+       08-impl-notes/frontend.md).
      · Doctrine cost, stated: lavender means "the way out" and mint means
-       "what the score made". A section heading is neither a link nor a
-       score, so BOTH ends of this ramp are on loan. It is contained the same
-       way --head-sheen is — TYPE, momentary, reader-initiated, never a
-       SURFACE — and the score plates stay mint-only. */
+       "what the score made". A card title IS a link, so the lavender end is
+       earned; the mint end is on loan. It is contained the same way
+       --head-sheen is — TYPE, momentary, reader-initiated, never a SURFACE —
+       and the score plates stay mint-only. */
+  --spot-r: 44px;
   --title-spot: radial-gradient(
-    circle 96px at calc((var(--px, 0) + 0.5) * 100%) calc((var(--py, 0) + 0.5) * 100%),
+    circle var(--spot-r) at calc((var(--px, 0) + 0.5) * 100%) calc((var(--py, 0) + 0.5) * 100%),
     var(--accent-ink) 0%,
     var(--accent-2-ink) 100%
   );

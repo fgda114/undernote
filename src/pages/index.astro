@@ -143,12 +143,14 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
 
     <section class="board" aria-label="올해의 앨범">
       <div class="board-head">
-        {/* No `sheen` since 2026-09-07: all three section heads on this page
-            take the same lavender-plus-spotlight treatment (SectionHead), so
-            this one no longer carries --head-sheen. What that costs — the
-            Charts heading giving up the score's own colour — is recorded in
-            tokens.css beside the token. */}
-        <SectionHead label="Charts" title={`${site.active_year} 올해의 앨범`} level={chartsLevel} />
+        {/* `sheen` — the only heading on this page allowed the gradient
+            display treatment: the annual list is what the scores produced,
+            which is exactly what --accent is reserved for (tokens.css). The
+            other two headings deliberately do NOT take it: "최신 리뷰" and
+            "음악 이야기" are not lists the scores made, and painting them
+            with the score's colour is the exact move that turns the doctrine
+            back into decoration. */}
+        <SectionHead label="Charts" title={`${site.active_year} 올해의 앨범`} level={chartsLevel} sheen />
         {
           charts.length > 2 && (
             /* Pager. These are ANCHORS, not buttons, and that is the whole

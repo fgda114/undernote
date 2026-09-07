@@ -94,11 +94,32 @@ test('점진적 향상 — 스크립트 비활성 상태에서도 지면·링크
   await context.close();
 });
 
-test('404 — 없는 주소는 404 지면', async ({ page }) => {
+test('404 — 없는 주소는 404 지면 + 자체 탈출 경로', async ({ page }) => {
   const response = await page.goto(u('/no-such-page/'));
+  // The one line here that must never change: a 404 page that answers 200 is
+  // worse than no 404 page at all.
   expect(response?.status()).toBe(404);
-  await expect(page.locator('h1')).toContainText('이 주소에는 글이 없습니다');
-  await expect(page.getByRole('link', { name: 'Archive' }).first()).toBeVisible();
+
+  // The h1 used to BE the Korean sentence and this test pinned that string.
+  // On 2026-09-07 the page took the one-line title every other surface uses
+  // ("404") and the sentence moved into the body. The assertion moved with
+  // it rather than being deleted: what is worth protecting is that the page
+  // has exactly one heading and says somewhere in its own main what
+  // happened — not which of those two nodes the sentence lives in.
+  await expect(page.locator('main h1')).toHaveCount(1);
+  const main = page.locator('main');
+  await expect(main).toContainText('이 주소에는 글이 없습니다');
+
+  // The escape routes are the reason this page exists, so they are asserted
+  // INSIDE main. A document-wide check would pass on the masthead alone,
+  // i.e. it would pass on a 404 page that offers nothing of its own.
+  await expect(main.locator('.exits a')).toHaveCount(3);
+  for (const name of ['Reviews', 'Notes', 'Archive']) {
+    await expect(main.getByRole('link', { name, exact: true })).toBeVisible();
+  }
+  // …and they are real destinations, not decoration.
+  await main.getByRole('link', { name: 'Reviews', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`${B}/archive/reviews/$`));
 });
 
 /**

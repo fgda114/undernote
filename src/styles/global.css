@@ -142,12 +142,11 @@ a {
 
 /* -- Gradient display headings -------------------------------------------
    The reference's signature: mint flowing through a large headline and
-   arriving at lavender. Allowed on exactly ONE heading since 2026-09-07 --
-   /list/{year}/'s H1, the page that IS the list the scores produced (see
-   tokens.css). The home's Charts section head gave it up when all three home
-   section heads moved to the lavender-plus-spotlight treatment below. It is
-   opt-in per call site, never a default, because --accent on a heading the
-   score did not make turns the doctrine back into decoration.
+   arriving at lavender. Allowed on exactly two headings, both of which name
+   the list the SCORES produced (see tokens.css) -- the home's Charts head
+   and /list/{year}/'s H1. It is opt-in per call site, never a default,
+   because --accent on a heading the score did not make turns the doctrine
+   back into decoration.
 
    Three guards, all load-bearing:
    1. `color` is set to a real token FIRST. background-clip:text needs
@@ -180,60 +179,13 @@ a {
   }
 }
 
-/* ── Section headings: lavender at rest, a mint spotlight under the pointer
-   (2026-09-07) ─────────────────────────────────────────────────────────────
-   Used by SectionHead, i.e. the home's three section headings and nothing
-   else. The travelling light is --title-spot (tokens.css), a radial gradient
-   positioned by the same --px/--py the cover zoom uses and clipped to the
-   glyphs, so the colour changes PER LETTER as the pointer passes rather than
-   per element.
-
-   The three guards are the ones --head-sheen already carries, and every one
-   of them is load-bearing:
-   1. `color` is a real token FIRST. background-clip:text needs
-      `color: transparent` to reveal the gradient, and an engine that parses
-      the clip but not the rest would render an INVISIBLE HEADING. The
-      transparent only lands inside @supports, and only under :hover — the
-      resting state never depends on clipping at all.
-   2. `width: fit-content` — the gradient box is the element's box, and a
-      block-level heading is as wide as its container, so without this the
-      pointer would light the heading while sitting far to the right of the
-      last glyph, and the spotlight's coordinates would map to a box much
-      wider than the text.
-   3. forced-colors puts the system ink back: a gradient is not a colour the
-      user's high-contrast palette can override.
-
-   The fourth path is the one the brief asked for by name: with no pointer to
-   follow — touch, a coarse pointer, or prefers-reduced-motion — the heading
-   stays flat lavender. Declared as a media query rather than left to the
-   var() fallback so the intent is stated rather than implied. */
-.title-spot {
-  color: var(--accent-2-ink);
-  width: fit-content;
-  max-width: 100%;
-}
-@supports (background-clip: text) or (-webkit-background-clip: text) {
-  .title-spot:hover {
-    background-image: var(--title-spot);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-}
-@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
-  .title-spot:hover {
-    background-image: none;
-    color: var(--accent-2-ink);
-  }
-}
-@media (forced-colors: active) {
-  .title-spot,
-  .title-spot:hover {
-    background-image: none;
-    color: CanvasText;
-    forced-color-adjust: none;
-  }
-}
+/* The cursor spotlight (`.title-spot`) is NOT here. It has exactly one host
+   -- the home browsing card's title -- so its rules live in ArticleCard,
+   where Astro's scoping keeps them from fighting that component's own
+   `.card-link:hover .title`. The token it paints with is --title-spot in
+   tokens.css, and the guards it needs are the same three .head-sheen carries
+   above; ArticleCard states them again rather than importing a pattern that
+   only one file uses. */
 
 /* ── Cover hover zoom (2026-09-07) ─────────────────────────────────────
    Hovering a link that contains album art zooms the art inside its own
@@ -305,9 +257,13 @@ a:hover .cover-frame > .cover {
        section name. "Charts" over "2026 올해의 앨범", "Reviews" over an album
        title — yes. "About" over "About" — no, that is the same word twice;
      · no captions or subtitles under any page title. That slot is where the
-       self-describing sentences this round kept deleting used to live. The
-       one survivor is the finalized annual list's immutability line, which
-       states a contract (R-8) rather than describing the page.
+       self-describing sentences this round kept deleting used to live. TWO
+       lines survive under it, and the test both pass is that they STATE
+       SOMETHING rather than describe the surface they sit on: the finalized
+       annual list's immutability line, which states a contract (R-8), and
+       /404/'s "이 주소에는 글이 없습니다.", which reports what happened at
+       the URL. A sentence explaining what kind of page the reader is on is
+       still forbidden, and so is an apology for the page existing.
 
    Declared globally rather than per page so the next page cannot drift. */
 .page-title {

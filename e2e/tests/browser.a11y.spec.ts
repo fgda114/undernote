@@ -182,51 +182,61 @@ test('About hover — 밑줄 없음 · 색은 바뀜 · focus-visible 아웃라�
 });
 
 /**
- * The home section heading's spotlight (--title-spot). Three properties, and
- * the last two are the ones that could regress silently:
- *   · the colour changes with the pointer's position across the glyphs;
- *   · the RESTING heading is never clipped — `background-clip: text` with a
- *     transparent colour is one typo away from an invisible headline, so the
+ * The home CARD title's cursor spotlight (--title-spot). Three properties,
+ * and the last two are the ones that could regress silently:
+ *   · the light moves with the pointer across the glyphs;
+ *   · a RESTING title is never clipped — `background-clip: text` with a
+ *     transparent colour is one typo away from an invisible title, so the
  *     un-hovered state has to paint a real colour;
  *   · every environment without a pointer to follow (reduced motion, touch)
  *     lands on flat lavender rather than on the middle of the ramp.
+ *
+ * The effect moved here from the section headings on 2026-09-07. This test
+ * moved with it rather than being rewritten from scratch, which is why it
+ * asserts the same three properties about a different element.
  */
-test('홈 섹션 제목 hover — 커서 위치로 글자 색이 변하고, 비호버·reduced-motion은 단색 라벤더', async ({ page }) => {
+test('홈 카드 제목 hover — 커서 위치로 스포트라이트가 움직이고, 비호버·reduced-motion은 단색', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto(u('/'));
-  const heading = page.locator('.title-spot').first();
-  await expect(heading).toBeVisible();
+  const card = page.locator('section[aria-label="최신 리뷰"] .card-link').first();
+  const title = card.locator('.title-spot').first();
+  await expect(title).toBeVisible();
 
-  // Resting state: a real colour, no clipping. If this ever reports
-  // `rgba(0, 0, 0, 0)` the heading is invisible on screen.
-  const resting = await heading.evaluate((el) => ({
+  // Resting: a real colour, no clipping. `rgba(0, 0, 0, 0)` here would mean
+  // every card title on the home is invisible.
+  const resting = await title.evaluate((el) => ({
     color: getComputedStyle(el).color,
     image: getComputedStyle(el).backgroundImage,
   }));
-  expect(resting.color, '비호버 상태에서 제목이 투명').toBe('rgb(185, 165, 247)');
+  expect(resting.color, '비호버 카드 제목이 투명').toBe('rgb(232, 233, 242)');
   expect(resting.image).toBe('none');
 
-  // Hovered: the gradient is positioned by the pointer, so moving across the
-  // heading moves the light. The background-position is what carries it —
-  // `color` is transparent while clipping, so the glyph colour cannot be
-  // sampled with getComputedStyle and the gradient's own value is the proof.
-  const box = (await heading.boundingBox())!;
+  // Pointer on the CARD but not on the title: flat lavender, still no clip.
+  await card.locator('.excerpt, .date').first().hover();
+  await page.waitForTimeout(250);
+  expect(await title.evaluate((el) => getComputedStyle(el).color)).toBe('rgb(185, 165, 247)');
+
+  // Pointer on the TITLE: the gradient is positioned by the pointer, so
+  // moving across the glyphs moves the light. background-position is what
+  // carries it — `color` is transparent while clipping, so the glyph colour
+  // cannot be sampled and the gradient's own value is the proof.
+  const box = (await title.boundingBox())!;
   const imageAt = async (fraction: number) => {
     await page.mouse.move(box.x + box.width * fraction, box.y + box.height / 2);
     await page.waitForTimeout(200);
-    return heading.evaluate((el) => getComputedStyle(el).backgroundImage);
+    return title.evaluate((el) => getComputedStyle(el).backgroundImage);
   };
-  const left = await imageAt(0.05);
-  const right = await imageAt(0.95);
+  const left = await imageAt(0.1);
+  const right = await imageAt(0.9);
   expect(left, '커서를 옮겨도 스포트라이트가 그대로').not.toBe(right);
   expect(left).toContain('gradient');
-  expect(await heading.evaluate((el) => getComputedStyle(el).color)).toBe('rgba(0, 0, 0, 0)');
+  expect(await title.evaluate((el) => getComputedStyle(el).color)).toBe('rgba(0, 0, 0, 0)');
 
   // No pointer to follow → flat lavender, and NOT clipped.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2);
   await page.waitForTimeout(200);
-  const reduced = await heading.evaluate((el) => ({
+  const reduced = await title.evaluate((el) => ({
     color: getComputedStyle(el).color,
     image: getComputedStyle(el).backgroundImage,
   }));
@@ -235,63 +245,39 @@ test('홈 섹션 제목 hover — 커서 위치로 글자 색이 변하고, 비�
 });
 
 /**
- * The home CARD title's ramp (--title-sheen) — the second of the two
- * pointer-driven colour effects, and a separate object from the heading
- * spotlight above: the heading is lit per glyph, the card shifts as a whole.
- * Both are asserted, because both share one listener and one pair of custom
- * properties, so a change to the tracking can break either one silently.
- *
- * The half worth the most here is the fallback: the ramp exists only where a
- * pointer does, and everywhere else — reduced motion, touch, no script — the
- * title must land on the flat lavender it had before, not on the middle of
- * the ramp and not on an invalid colour that resolves to inherited ink.
+ * Section headings, after the same 2026-09-07 swap: they carry NO hover
+ * treatment at all, and only the one that names the list the scores produced
+ * carries the fixed gradient. Asserted because the round that gave all three
+ * of them a hover effect also, briefly, painted two headings with the
+ * score's colour — which is the doctrine failure --head-sheen exists to
+ * prevent, and it is cheaper to measure than to remember.
  */
-test('홈 카드 제목 hover — 커서 위치로 색이 변하고, 폴백은 단색 라벤더', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
+test('홈 섹션 제목 — Charts만 고정 그라데이션, 셋 다 hover 효과 없음', async ({ page }) => {
   await page.goto(u('/'));
-  const card = page.locator('section[aria-label="최신 리뷰"] .card-link').first();
-  const title = card.locator('.title').first();
-  await card.hover();
+  const heads = page.locator('.section-head .title');
+  await expect(heads).toHaveCount(3);
 
-  const box = (await card.boundingBox())!;
-  // Settled colour at a pointer position: the 120ms transition on .title is
-  // what makes the ramp follow rather than flicker, so every read waits for
-  // it to land instead of sampling a frame of the travel.
-  const colourAt = async (fraction: number) => {
-    await page.mouse.move(box.x + box.width * fraction, box.y + box.height * 0.9);
-    await page.waitForTimeout(300);
-    return title.evaluate((el) => getComputedStyle(el).color);
-  };
-  const left = await colourAt(0.06);
-  const middle = await colourAt(0.5);
-  const right = await colourAt(0.94);
-  expect(new Set([left, middle, right]).size, '커서를 옮겨도 색이 같음').toBe(3);
+  // Charts (first) takes the gradient; the two browsing heads take plain ink.
+  await expect(heads.nth(0)).toHaveClass(/head-sheen/);
+  for (const i of [1, 2]) {
+    await expect(heads.nth(i)).not.toHaveClass(/head-sheen/);
+    expect(await heads.nth(i).evaluate((el) => getComputedStyle(el).color)).toBe('rgb(232, 233, 242)');
+  }
 
-  // The far end of the travel is the colour this hover always was. Compared
-  // through an identical color-mix so the two strings share a colour space:
-  // color-mix computes in oklab and getComputedStyle reports oklab().
-  const lavender = await page.evaluate(() => {
-    const probe = document.createElement('span');
-    probe.style.color = 'color-mix(in oklab, var(--accent-2-ink) 100%, var(--accent-ink))';
-    document.body.appendChild(probe);
-    const c = getComputedStyle(probe).color;
-    probe.remove();
-    return c;
-  });
-  await page.evaluate(() => document.documentElement.style.removeProperty('--px'));
-  await expect
-    .poll(async () => title.evaluate((el) => getComputedStyle(el).color), { message: '--px 없을 때의 폴백' })
-    .toBe(lavender);
-
-  // Under `reduce` the media-query override replaces the whole declaration,
-  // so the value is a plain colour and must not move even with --px forced
-  // to the far end of the ramp.
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await card.hover();
-  await page.evaluate(() => document.documentElement.style.setProperty('--px', '-0.5'));
-  expect(await title.evaluate((el) => getComputedStyle(el).color), 'reduce에서도 램프가 살아 있음').toBe(
-    'rgb(185, 165, 247)',
-  );
+  // Hovering any of them changes nothing: a section heading is not a link.
+  for (const i of [0, 1, 2]) {
+    const before = await heads.nth(i).evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return `${cs.color}|${cs.backgroundImage}`;
+    });
+    await heads.nth(i).hover();
+    await page.waitForTimeout(250);
+    const after = await heads.nth(i).evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return `${cs.color}|${cs.backgroundImage}`;
+    });
+    expect(after, `섹션 제목 ${i}에 hover 효과`).toBe(before);
+  }
 });
 
 /**

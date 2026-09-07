@@ -61,6 +61,13 @@
  * year/tag archives and artist pages mix reviews and stories under one
  * heading, and /archive/genre/{id}/ is headed by a genre, not by a format.
  *
+ * THE CARD TITLE IS THE SITE'S ONE SPOTLIGHT SURFACE (2026-09-07). Hovering
+ * the card turns the title lavender; hovering the title itself runs a mint
+ * spotlight across the glyphs under the pointer. The effect spent half a day
+ * on the home's section headings before landing here — see the style block
+ * for the radius that move required and for the three guards that keep a
+ * clipped title from ever rendering invisible.
+ *
  * The `card` variant carries an EXCERPT (2026-09-07). Title + artist alone
  * made the grid a directory: two cards about wildly different records looked
  * identical apart from the art, and none of the writing — which is the
@@ -185,7 +192,9 @@ const score = showScore ? item.score : undefined;
         )}
         <span class="body">
           {showFormat && <FormatLabel text={item.formatLabel} variant="chip" />}
-          <span class="title">{item.title}</span>
+          {/* `title-spot` is both the JS tracking hook (Base.astro measures
+              the pointer against this box) and the clipping target. */}
+          <span class="title title-spot">{item.title}</span>
           {item.type === 'review' && item.subtitle && <span class="subtitle">{item.subtitle}</span>}
           {item.excerpt && <span class="excerpt">{item.excerpt}</span>}
           <time class="date tnum" datetime={item.date}>
@@ -454,36 +463,67 @@ const score = showScore ? item.score : undefined;
     overflow: hidden;
     transition: color var(--t-micro);
   }
-  /* Hover colour TRAVELS WITH THE POINTER: mint at the card's left edge,
-     lavender at its right, continuous in between (--title-sheen, tokens.css,
-     where the doctrine cost and the measured contrast floor of 7.93:1 are
-     recorded). It rides on --px, the same property the cover zoom and the
-     section heading's spotlight use; no listener was added for it.
+  /* ── Hover: the card answers, and the TITLE answers more ──────────────
+     Two states, and they are deliberately different sizes of response.
 
-     WHOLE-ELEMENT, NOT PER-GLYPH, and that is the difference from the
-     section heading. A 17px two-line card title lit by a 96px spotlight is a
-     smudge, and a grid of twelve independently multicoloured headlines reads
-     as a rendering fault. What reads at card size is the card changing as
-     one object as the pointer crosses it.
+     ① Pointer anywhere on the card → the title turns flat lavender, the
+        "way out" accent every hovered title on this site uses.
+     ② Pointer on the TITLE ITSELF → a mint spotlight travels across the
+        glyphs it passes (--title-spot, tokens.css, where the doctrine cost
+        and the measured contrast floor of 7.93:1 are recorded).
 
-     TWO DECLARATIONS, DELIBERATELY. The flat lavender is stated first so it
-     is what paints in an engine without color-mix(); the second line wins
-     where color-mix is supported. Even there, the token's own fallback
-     resolves to the same flat lavender whenever --px is absent — which is
-     every environment where the script never runs. The media query below
-     says the same thing a third time for the two cases named in the brief
-     (touch, reduced motion), because a fallback that is only implied is a
-     fallback nobody checks.
+     Splitting them on `.title-spot:hover` rather than on `.card-link:hover`
+     is not a style choice, it is what makes the light land in the right
+     place: `closest` in Base.astro returns the INNERMOST tracked box, so the
+     pointer is measured against the title's own box exactly when the title
+     is the thing under it. Hovering the cover would otherwise light the
+     title from cover-relative coordinates, which is a different box in a
+     different place.
 
-     The 120ms colour transition on .title is what turns a stream of pointer
-     samples into a colour that follows rather than flickers. */
+     THE RADIUS (--spot-r, 44px) LIVES IN tokens.css, not here. --title-spot
+     is declared on :root and its var()s therefore resolve against :root, so
+     a --spot-r set on this element would be ignored — the note beside the
+     token says why, because it cost a measurement to find out.
+
+     ONLY ONE CARD IS EVER LIT: the spotlight is scoped to :hover, so the
+     eleven other titles in the grid stay in their resting ink. The worry
+     that a grid of independently multicoloured headlines would read as a
+     rendering fault does not apply for exactly that reason.
+
+     THREE GUARDS, all load-bearing, all copied from .head-sheen's pattern:
+     1. `color` is a real token FIRST in both states. background-clip:text
+        needs `color: transparent` to reveal the gradient, and an engine that
+        parses the clip but not the rest would render an INVISIBLE TITLE. The
+        transparent lands only inside @supports, and only under :hover — the
+        resting title never depends on clipping at all.
+     2. The no-pointer path (touch, coarse pointer, reduced motion) is stated
+        rather than left to the token's var() fallback, because a fallback
+        that is only implied is a fallback nobody checks.
+     3. forced-colors puts the system ink back: a gradient is not a colour
+        the user's high-contrast palette can override. */
   .card-link:hover .title {
     color: var(--accent-2-ink);
-    color: var(--title-sheen);
+  }
+  @supports (background-clip: text) or (-webkit-background-clip: text) {
+    .card-link .title-spot:hover {
+      background-image: var(--title-spot);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
   }
   @media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
-    .card-link:hover .title {
+    .card-link .title-spot:hover {
+      background-image: none;
       color: var(--accent-2-ink);
+    }
+  }
+  @media (forced-colors: active) {
+    .card-link .title-spot,
+    .card-link .title-spot:hover {
+      background-image: none;
+      color: CanvasText;
+      forced-color-adjust: none;
     }
   }
   .card .subtitle {
