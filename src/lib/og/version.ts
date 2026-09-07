@@ -47,9 +47,18 @@ import { readFileSync } from 'node:fs';
  * whether it can affect the pixels is exactly the judgment call that goes
  * stale. types.ts carries no runtime behaviour and is included anyway,
  * because a rule with no exceptions needs no maintenance.
+ *
+ * cache.ts is in the list for that same reason, and the exception it might
+ * have earned was weighed and refused: a render cache does not change what a
+ * card looks like, so including it means an edit to caching code re-scrapes
+ * every already-shared link for nothing. It is in anyway, because the ONE
+ * way cache code fails is by handing back pixels that no longer match the
+ * inputs — precisely the staleness this version string exists to break, and
+ * the direction to be wrong in is the cheap one.
  */
 const SOURCES = [
   'src/lib/og/assemble.ts',
+  'src/lib/og/cache.ts',
   'src/lib/og/render.ts',
   'src/lib/og/template.ts',
   'src/lib/og/types.ts',

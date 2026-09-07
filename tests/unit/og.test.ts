@@ -127,8 +127,13 @@ describe('OG 캐시 버스팅 — 라이브러리 소스 파생 버전 (2026-09-
     // Recomputed here from the same files. The point is not to duplicate the
     // implementation but to prove the version is DERIVED: a hardcoded string
     // would pass the shape test above and fail this one.
+    // The list is spelled out rather than read from the directory ON PURPOSE:
+    // adding a file to src/lib/og/ must break this test, because it is a
+    // decision about whether that file can change a card's pixels. `cache`
+    // joined the list on 2026-09-08 (version.ts explains why a render cache
+    // is in a list of things that draw).
     const h = createHash('sha256');
-    for (const f of ['assemble', 'render', 'template', 'types']) {
+    for (const f of ['assemble', 'cache', 'render', 'template', 'types']) {
       h.update(readFileSync(`src/lib/og/${f}.ts`));
     }
     expect(OG_VERSION).toBe(h.digest('hex').slice(0, 8));
