@@ -6,7 +6,19 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { build, makeSandbox, SANDBOX_ROOT } from './sandbox.mjs';
+import { lockHolder } from './run-lock.mjs';
 import { writeRichContent } from './rich-content.mjs';
+
+// Refuse to rebuild the shared sandbox out from under a running suite —
+// that collision is what the W6 "parallel flake" actually was.
+const held = lockHolder();
+if (held) {
+  throw new Error(
+    `e2e 스위트가 실행 중입니다 (pid ${held.pid} · 시작 ${held.started}). ` +
+      'rich 샌드박스를 다시 만들면 그 실행이 서빙 중인 dist가 사라져 무관한 테스트가 실패합니다. ' +
+      '앞의 실행이 끝난 뒤 다시 실행하십시오.',
+  );
+}
 
 const dir = makeSandbox('rich');
 await writeRichContent(dir);

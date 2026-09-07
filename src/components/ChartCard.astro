@@ -297,9 +297,12 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
     .chart-card.feature .row-link {
       display: flex;
       flex-direction: column;
-      /* MUST reset — see ArticleCard: the desktop grid's align-items:center
-         would make the column flex shrink-wrap its children, and the nowrap
-         artist line then overflows the viewport at 360px. */
+      /* MUST reset: the desktop grid's align-items:center above would make
+         the column flex shrink-wrap its children, and the nowrap artist line
+         then overflows the viewport at 360px. (ArticleCard had the same
+         reset for its own `feature` layout before that layout was deleted
+         2026-09-07 — the failure mode this guards against is not unique to
+         this component.) */
       align-items: stretch;
     }
     .chart-card.feature .body {

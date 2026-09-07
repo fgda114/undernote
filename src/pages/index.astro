@@ -5,16 +5,23 @@
  *
  *   Charts        · 올해의 앨범   — the nominate board. A LIST surface, so it
  *                                   shows and ranks scores (D2).
- *   Latest Reviews · 최신 리뷰     — a BROWSING surface: ArticleItem has no
- *                                   score field at all, so no figure can
- *                                   reach it (D2 enforced by the type).
+ *   Latest Reviews · 최신 리뷰     — a BROWSING surface that D2-R2 (2026-09-07)
+ *                                   opted back into scores: ArticleItem now
+ *                                   carries a `score` field, and this section
+ *                                   prints it via ArticleCard's opt-in
+ *                                   `showScore` (see lib/derive/lists.ts for
+ *                                   the full accounting of what replaced the
+ *                                   old type-level guard).
  *   Notes         · 음악 이야기    — browsing, typographic cards (a story has
- *                                   no album art and never will).
+ *                                   no album art and never will, and no score
+ *                                   to carry).
  *
  * WHICH sections appear is decided in the derive layer (`homeSections`), not
  * here; the page renders the result and picks a layout from the count (P1).
- * Section order is also the score-exposure order: everything below the
- * Charts section is score-free, which is what build.dist-matrix asserts.
+ * Score exposure is no longer a single cutoff by section order (D2-R2):
+ * Charts and Latest Reviews both print figures, each opted in at its own
+ * call site below; Notes stays score-free because a story never has one.
+ * build.dist-matrix asserts the surface list in BOTH directions.
  *
  * ALL THREE SECTIONS ALWAYS RENDER (2026-09-07). R-4 ("빈 껍데기 금지") is
  * released FOR THESE THREE SECTIONS ONLY — see SectionEmpty for the scope and
@@ -223,7 +230,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
                    says "Latest Reviews", and nothing but a review can appear
                    here, so a REVIEWS chip on every card is the same word
                    twice. The mixed archives keep theirs (see ArticleCard). */
-                <ArticleCard item={item} variant="card" compact eager={i < 4} showScore showFormat={false} />
+                <ArticleCard item={item} variant="card" eager={i < 4} showScore showFormat={false} />
               ))}
             </ul>
             {/* No tail link when the section is empty: the archive it points
@@ -245,7 +252,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
           <>
             <ul class="cards">
               {notes.map((item) => (
-                <ArticleCard item={item} variant="card" compact showFormat={false} />
+                <ArticleCard item={item} variant="card" showFormat={false} />
               ))}
             </ul>
             <a class="section-more" href={withBase('/archive/stories/')}>이야기 전체 보기 →</a>
@@ -414,11 +421,6 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
        thing on the home that is not. */
     .chart-cards.n-3 > :global(*) {
       flex-basis: 100%;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chart-cards.n-3 {
-      scroll-behavior: auto;
     }
   }
   /* ── Browsing grids: ONE grid, four columns, stepped at three widths ──

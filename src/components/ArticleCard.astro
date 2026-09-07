@@ -5,9 +5,9 @@
  *   row  — archive listings, artist pages, "다른 글": dense scanning entries,
  *          a 64px cover on the left of the text block (2026-09-07).
  *   card — the home's browsing grids: cover on top, text below. One shape,
- *          one size, however many cards the section holds. `compact` steps
- *          the type down for those grids, which sit below the Charts grid
- *          and must not compete with it.
+ *          one size, however many cards the section holds, and a step down
+ *          from the row variant's type scale — the grids sit below the
+ *          Charts grid and must not compete with it.
  *
  * THE `feature` LAYOUT IS GONE (2026-09-07). A section holding exactly one
  * item used to render it as a full-width two-column card, on the argument
@@ -112,8 +112,6 @@ interface Props {
   variant?: 'row' | 'card';
   /** First grid row loads its covers eagerly; everything below is lazy. */
   eager?: boolean;
-  /** Denser type for the home's browsing grids — see the intro. */
-  compact?: boolean;
   /** Print the review's score (D2-R2) — opt-in per surface, see the intro. */
   showScore?: boolean;
   /** Print the type overline — see the intro. Default on; off only where
@@ -121,17 +119,15 @@ interface Props {
   showFormat?: boolean;
 }
 
-const { item, variant = 'row', eager = false, compact = false, showScore = false, showFormat = true } = Astro.props;
+const { item, variant = 'row', eager = false, showScore = false, showFormat = true } = Astro.props;
 
 // Rendered box: at most 320px in the home's browsing grids (the track cap —
 // see index.astro). Getting this wrong silently downloads the 640 source for
-// a 248px box. The compact hint is a single 320px above the page's one
-// shared breakpoint because the track is capped there at every step of the
+// a 248px box. A single 320px hint above the page's one shared breakpoint
+// covers all of it because the track is capped there at every step of the
 // 4 → 3 → 2 ladder, so the widest it can ever be is the same number at all
-// three.
-const FILL_SIZES = compact
-  ? '(min-width: 641px) 320px, 100vw'
-  : '(min-width: 960px) 336px, (min-width: 641px) 50vw, 100vw';
+// three — the card variant has no other caller with a different cap.
+const FILL_SIZES = '(min-width: 641px) 320px, 100vw';
 
 // Row thumbnails: 64px displayed, which CoverImage maps to the w320 source
 // (w96 is short of 2x at this size). Stories fall through to the letter mark
@@ -147,7 +143,7 @@ const score = showScore ? item.score : undefined;
 
 {
   variant === 'card' ? (
-    <li class:list={['article-card', 'card', { compact }]}>
+    <li class="article-card card">
       <a href={withBase(item.url)} class="card-link">
         <span class="visual">
           {item.type === 'review' ? (
@@ -426,18 +422,23 @@ const score = showScore ? item.score : undefined;
     line-height: 1;
     font-weight: 800;
   }
+  /* One notch down the existing scale from the row variant's headline — no
+     new sizes. At the 320px track cap a full 21/26 headline wrapped to three
+     lines on ordinary album titles and pushed the date out of alignment with
+     its neighbours (every card in the browsing grids renders at this width;
+     there is no wider caller to size for — see FILL_SIZES above). */
   .body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--s-8);
+    gap: var(--s-4);
     padding: var(--s-12);
   }
   .card .title {
     font-family: var(--display);
-    font-size: var(--fs-21);
-    line-height: 26px;
-    letter-spacing: -0.02em;
+    font-size: var(--fs-17);
+    line-height: 24px;
+    letter-spacing: -0.015em;
     font-weight: 700;
     color: var(--ink);
     /* Two-line clamp with zero JS; the third line would push the date out of
@@ -538,14 +539,19 @@ const score = showScore ? item.score : undefined;
   }
   .card .subtitle {
     max-width: 100%;
+    font-size: var(--fs-13);
+    line-height: 18px;
   }
   /* Two lines of the piece itself. Clamped rather than trimmed to length so
      the cut lands on a line boundary at whatever width the grid resolves to
      — the derive layer caps the string at 96 characters, which is roughly
-     two lines in the widest card and more than two in the narrow ones. */
+     two lines in the widest card and more than two in the narrow ones.
+     Still two lines at the 320px track cap: that is ~36 Korean characters, a
+     readable fragment of a sentence. Below two lines the excerpt stops being
+     prose and becomes a label, and it would be better dropped than kept. */
   .excerpt {
-    font-size: var(--fs-14);
-    line-height: 20px;
+    font-size: var(--fs-13);
+    line-height: 18px;
     color: var(--muted);
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -553,33 +559,4 @@ const score = showScore ? item.score : undefined;
     line-clamp: 2;
     overflow: hidden;
   }
-
-  /* ── compact card: the home's 4-up browsing grids ──
-     Every step is one notch down the existing scale — no new sizes. At 248px
-     the 21/26 headline wrapped to three lines on ordinary album titles and
-     pushed the date out of alignment with its neighbours. */
-  /* ── compact card: the home's browsing grids ──
-     Every step is one notch down the existing scale — no new sizes. At 248px
-     the 21/26 headline wrapped to three lines on ordinary album titles and
-     pushed the date out of alignment with its neighbours. */
-  .card.compact .body {
-    gap: var(--s-4);
-  }
-  .card.compact .title {
-    font-size: var(--fs-17);
-    line-height: 24px;
-    letter-spacing: -0.015em;
-  }
-  .card.compact .subtitle {
-    font-size: var(--fs-13);
-    line-height: 18px;
-  }
-  /* Still two lines: at 248px that is ~36 Korean characters, which is a
-     readable fragment of a sentence. Below two lines the excerpt stops being
-     prose and becomes a label, and it would be better dropped than kept. */
-  .card.compact .excerpt {
-    font-size: var(--fs-13);
-    line-height: 18px;
-  }
-
 </style>

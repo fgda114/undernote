@@ -46,15 +46,48 @@ function fileFor(urlPath) {
   return existsSync(file) && statSync(file).isFile() ? file : null;
 }
 
-createServer((req, res) => {
-  const file = fileFor(req.url ?? '/');
-  if (file) {
-    res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' });
-    createReadStream(file).pipe(res);
-  } else {
-    res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
-    createReadStream(join(ROOT, '404.html')).pipe(res);
+/**
+ * Serve one file, or end the response — NEVER throw out of the request
+ * handler. Measured harness defect, 2026-09-07 (Matthias): the previous
+ * `createReadStream(...).pipe(res)` had no 'error' listener anywhere, so a
+ * single unreadable file emitted an unhandled 'error' event and KILLED THE
+ * WHOLE SERVER PROCESS. Every navigation after that point failed with
+ * `chrome-error://chromewebdata/`, which reads like a product defect and is
+ * not one. The reproducer is in 11-qa/test-flow.md §플레이크: rename
+ * `.sandbox/rich/dist` away (what a SECOND `npm run e2e` does while this one
+ * is running) and issue one request. A test server that dies on a missing
+ * file cannot tell anyone which file was missing.
+ */
+function send(res, status, type, file) {
+  res.writeHead(status, { 'content-type': type });
+  const stream = createReadStream(file);
+  stream.on('error', (err) => {
+    console.error(`static server: ${file} 읽기 실패 — ${err.code ?? err.message}`);
+    stream.destroy();
+    res.end(); // the request fails; the server does not
+  });
+  res.on('error', () => stream.destroy()); // client went away mid-body
+  stream.pipe(res);
+}
+
+const server = createServer((req, res) => {
+  try {
+    const file = fileFor(req.url ?? '/');
+    if (file) send(res, 200, TYPES[extname(file)] ?? 'application/octet-stream', file);
+    else send(res, 404, 'text/html; charset=utf-8', join(ROOT, '404.html'));
+  } catch (err) {
+    // fileFor touches the filesystem; a sandbox deleted under us throws here.
+    console.error(`static server: 요청 처리 실패 ${req.url} — ${err.code ?? err.message}`);
+    res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('static server error');
   }
-}).listen(PORT, '127.0.0.1', () =>
+});
+
+// Same rule one level up: a socket-level error (client reset) must not take
+// the process with it.
+server.on('clientError', (_err, socket) => socket.destroy());
+process.on('uncaughtException', (err) => console.error(`static server: uncaught — ${err.stack ?? err}`));
+
+server.listen(PORT, '127.0.0.1', () =>
   console.log(`static server: http://127.0.0.1:${PORT}${BASE}/ ← ${ROOT}`),
 );

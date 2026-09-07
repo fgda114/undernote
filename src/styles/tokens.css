@@ -178,10 +178,14 @@
        it. If a second host ever needs a different light, move this
        declaration onto the hosts; do not add a second --spot-r and expect it
        to win.
-     · FALLBACK 0 centres the band, but nothing sees it: the gradient applies
-       only under :hover, and every environment without a pointer (touch,
-       prefers-reduced-motion, no script, no background-clip) is pinned to
-       flat lavender by the host.
+     · FALLBACK 0 centres the band, and the host's media queries pin touch,
+       prefers-reduced-motion and no-background-clip environments to flat
+       lavender before the gradient is ever reached. NO SCRIPT IS NOT ONE OF
+       THOSE GUARDS — CSS has no selector for script absence, so a script-off
+       page on a fine hover pointer still matches :hover and paints the
+       gradient anyway, locked at this fallback 0 (a static centred band, not
+       flat lavender). That result is visible and its contrast is measured,
+       it is just not the guard the host's fallback queries claim to be.
      · sRGB interpolation, deliberately NOT `in oklab`: an engine that parses
        background-clip:text but not colour-space interpolation would drop the
        whole gradient while `color: transparent` still applied — an invisible
