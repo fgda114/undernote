@@ -96,7 +96,8 @@ const otherByArtist = otherWorkByArtist(
 >
   <main>
     <article>
-      {/* ── Title block: full width, above both columns ── */}
+      {/* ── Title block: above both columns, on the reading measure ── */}
+      <div class="review-head">
       <header class="hero">
         <FormatLabel text="Reviews" variant="chip" />
         <h1 class="hero-title">{page.title}</h1>
@@ -110,6 +111,7 @@ const otherByArtist = otherWorkByArtist(
         </p>
         {nominate && <NominateBadge bucketLabel={nominate.bucketLabel} rank={nominate.rank} year={nominate.year} />}
       </header>
+      </div>
 
       <div class="review-layout">
         {/* ── Rail: cover → score → credit → spec. Not sticky: the spec block
@@ -170,14 +172,23 @@ const otherByArtist = otherWorkByArtist(
 </Base>
 
 <style>
+  /* --reading-shell, not --shell: see tokens.css. The title block and the
+     two columns below it take the SAME bound so their left edges line up;
+     capping only the columns would have left the headline hanging 190px
+     further out than the prose it introduces. */
   .hero {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px var(--s-32);
+    width: min(var(--reading-shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 var(--s-32);
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: var(--s-12);
+  }
+  /* The dividing rule stays FULL FRAME while the text above it is capped:
+     it separates two parts of the page, so it belongs to the page, not to
+     the column. Drawn on the wrapper rather than the hero for that reason. */
+  .review-head {
     border-bottom: 1px solid var(--line);
   }
   .hero-title {
@@ -205,13 +216,15 @@ const otherByArtist = otherWorkByArtist(
   }
 
   .review-layout {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-32) 20px 0;
+    width: min(var(--reading-shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-32) 0 0;
     display: grid;
     /* The rail is a fixed 320 (= the cover's edge) and the body takes the
-       rest; at --shell 1080 that leaves 672px, so the prose reaches its full
-       660px measure. Changing --shell alone re-balances both columns. */
+       rest. Bounded by --reading-shell the rest is exactly --column, so the
+       prose fills its track instead of sitting in the left of a 1032px one
+       with dead space to its right — which is what widening --shell to 1440
+       would otherwise have produced. */
     grid-template-columns: var(--rail) minmax(0, 1fr);
     gap: var(--s-48);
     align-items: start;

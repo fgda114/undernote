@@ -41,8 +41,18 @@ test('확정 빌드 — 동결 리스트 지면 + 홈 post-finalize 상태', () 
   expect(result.status, result.out.slice(-2000)).toBe(0);
 
   const list = readPage(dir, '/list/2026/');
-  expect(list).toContain('2026 올해의 앨범 — 확정');
+  // The overline used to read "2026 올해의 앨범 — 확정" and this line pinned
+  // that string. It was removed on 2026-09-07 because it restated the page's
+  // own h1 one line above it. What the assertion protects — "a frozen list
+  // declares itself frozen, and says what it is frozen to" — is unchanged, so
+  // it moved onto the structure that now carries it: the state chip, the
+  // immutability sentence it stands for, and the title that survived.
+  expect(list).toContain('class="finalized-mark"');
+  expect(list).toContain('확정된 리스트입니다');
+  expect(list).toContain('2026 올해의 앨범');
   expect(list).toContain('8장의 앨범');
+  // …and the progressive face of the same route carries none of it.
+  expect(readPage(dir, '/list/2027/')).not.toContain('class="finalized-mark"');
   // USP-A on the frozen surface: every entry links to a review.
   const anchors = list.match(new RegExp(`href="${B}/reviews/[^"]+"`, 'g')) ?? [];
   expect(new Set(anchors).size).toBe(8);
@@ -54,12 +64,35 @@ test('확정 빌드 — 동결 리스트 지면 + 홈 post-finalize 상태', () 
   expect(home).toContain('finalized-card');
   expect(home).toContain('2026 올해의 앨범 — 확정');
   expect(home).toContain(`href="${B}/list/2026/"`);
-  // The new year starts with an empty chart. Since the W5 home rebuild the
-  // home omits an empty Charts section outright (R-4: a conditional block is
-  // omitted, not shown empty), so the proof is its ABSENCE plus the fact
-  // that last year's albums no longer sit on the home as nominees.
-  expect(home).not.toContain('aria-label="올해의 앨범"');
-  expect(home).not.toContain('>9.1<');
+  // The new year starts with an empty chart. Until 2026-09-07 the home simply
+  // omitted an empty Charts section and the proof was its ABSENCE; the home
+  // now always renders the section, so the assertion is REVERSED — the
+  // section is present, it stands on its empty ground instead of holding
+  // cards, its heading has rolled over to the NEW year, and last year's
+  // albums are gone rather than carried over as this year's nominees. Same
+  // property, stated on the surface that now exists.
+  expect(home).toContain('aria-label="올해의 앨범"');
+  expect(home).toContain('2027 올해의 앨범');
+  expect(home).toContain('class="section-empty');
+  expect(home).not.toContain('class="chart-card');
+
+  // "Last year's champion is no longer a nominee" used to be proved by the
+  // absence of >9.1< from the whole page. D2-R2 (2026-09-07) put scores on
+  // the home's 최신 리뷰 cards, and that review is still published — so the
+  // figure is legitimately on the page now and the proof has to be scoped to
+  // the section that makes the claim. Sliced, not deleted: the Charts section
+  // must contain no figure at all, and the review must still be there below
+  // it, which together is exactly what post-finalize means.
+  const chartsAt = home.indexOf('aria-label="올해의 앨범"');
+  const reviewsAt = home.indexOf('aria-label="최신 리뷰"');
+  expect(reviewsAt).toBeGreaterThan(chartsAt);
+  const chartsSection = home.slice(chartsAt, reviewsAt);
+  expect(chartsSection, '빈 차트에 점수').not.toMatch(/>\d\.\d</);
+  expect(home.slice(reviewsAt), '평론이 홈에서 사라짐').toContain('>9.1<');
+  // 최신 리뷰 is NOT empty here: the eight reviews are still published, they
+  // are simply no longer nominees. An empty chart above a full review list is
+  // exactly the post-finalize shape.
+  expect(home).toContain('class="article-card');
   // The bucket structure itself did not disappear — it moved to where a
   // reader goes for it. 2027's list page still declares all three buckets.
   const newYearList = readPage(dir, '/list/2027/');

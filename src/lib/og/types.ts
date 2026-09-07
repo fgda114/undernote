@@ -9,6 +9,18 @@
  * field here — that is the exact regression this design guards against.
  */
 
+/**
+ * The default share card (2026-09-07): the wordmark on the site's ground and
+ * nothing else. It carries no title, so it cannot go stale when copy changes
+ * and it cannot say something the page it stands for does not say. The
+ * sentence a reader sees next to it comes from the page's meta description,
+ * which is a different channel with different rules.
+ */
+export interface MarkCardInput {
+  kind: 'mark';
+  siteName: string;
+}
+
 export interface BaseCardInput {
   kind: 'base';
   /** Large typographic title (story title, page name…). */
@@ -38,4 +50,4 @@ export interface ListCardInput {
   siteName: string;
 }
 
-export type CardInput = BaseCardInput | ReviewCardInput | ListCardInput;
+export type CardInput = MarkCardInput | BaseCardInput | ReviewCardInput | ListCardInput;

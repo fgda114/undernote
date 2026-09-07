@@ -10,6 +10,16 @@
  *    the caption carries "{n}장의 앨범" automatically (R-6).
  *  - PROGRESSIVE: {year} is the active year → live top10 + bucket boards.
  * Covers are display-time lookups by slug (covers aren't frozen data).
+ *
+ * Both faces carry the SAME h1, "{year} 올해의 앨범", and the SAME overline,
+ * "Charts". Neither repeats the other: the overline names the section (the
+ * masthead item the reader clicked), the h1 names the year.
+ *
+ * A finalized year is marked by a `.finalized-mark` chip beside the overline
+ * and by the caption underneath, which the progressive face does not have at
+ * all. The overline used to carry "{year} 올해의 앨범 — 확정", which printed
+ * the page's own title twice, one line apart; the mark says the only part of
+ * that string the h1 was not already saying.
  */
 import { getEntry, render } from 'astro:content';
 import FormatLabel from '../../../components/FormatLabel.astro';
@@ -56,18 +66,36 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
 >
   <main class="list-page">
     <header class="head">
-      <FormatLabel text={snapshot ? `${year} 올해의 앨범 — 확정` : `${year} 올해의 앨범`} />
+      {/* The English section name, the same pairing the masthead and the
+          home's Charts head use (Charts over the real heading) — plus a
+          state chip when the year is frozen. See the intro for why the
+          overline no longer restates the title. */}
+      <div class="overline">
+        <FormatLabel text="Charts" />
+        {snapshot && <span class="finalized-mark">확정</span>}
+      </div>
       {/* `head-sheen` (global.css) — the second and last heading allowed the
           gradient display treatment. This page IS the list the scores
           produced, which is what --accent is reserved for (tokens.css). */}
-      <h1 class="title head-sheen">{snapshot ? `${year} 올해의 앨범` : '진행 중인 한 해'}</h1>
-      <p class="caption">
-        {
-          snapshot
-            ? `${snapshot.data.finalized_at}에 확정된 리스트입니다. 이후의 평론·수정은 여기 반영되지 않습니다. ${snapshot.data.top10.length}장의 앨범.`
-            : '이 리스트는 평론이 쌓일 때마다 바뀝니다. 12월에 확정됩니다.'
-        }
-      </p>
+      <h1 class="page-title head-sheen">{`${year} 올해의 앨범`}</h1>
+      {
+        /* The progressive year has no caption (2026-09-07). "진행 중인 한 해"
+           and "이 리스트는 평론이 쌓일 때마다 바뀝니다. 12월에 확정됩니다."
+           were cut for the same reason the home's progress strip was: they
+           narrate the publication's own state instead of the year's records,
+           and a reader who has just clicked "올해의 앨범" is here for the
+           albums. The overline already says whether the year is 확정, and the
+           section headings below say whether they are 노미네이트 or 선정 — the
+           page's structure carries what the sentence was carrying.
+           The finalized caption STAYS: it is not about progress, it is the
+           immutability contract (R-8) plus the count R-6 forbids hardcoding
+           into the title. */
+        snapshot && (
+          <p class="caption">
+            {`${snapshot.data.finalized_at}에 확정된 리스트입니다. 이후의 평론·수정은 여기 반영되지 않습니다. ${snapshot.data.top10.length}장의 앨범.`}
+          </p>
+        )
+      }
     </header>
 
     {
@@ -154,21 +182,41 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
 
 <style>
   .list-page {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
     display: flex;
     flex-direction: column;
     gap: var(--s-48);
   }
-  .title {
-    font-family: var(--display);
-    font-size: var(--fs-34);
-    line-height: 40px;
-    letter-spacing: -0.025em;
-    font-weight: 800;
+  /* Size and weight come from the shared .page-title (global.css); only the
+     spacing this page needs is local. */
+  .page-title {
     margin-top: var(--s-12);
     text-wrap: balance;
+  }
+  .overline {
+    display: flex;
+    align-items: center;
+    gap: var(--s-8);
+  }
+  /* A neutral chip, not an accent plate. The accent means "the score made
+     this", and while a finalized list IS the scores' final output, the page
+     already spends its accent budget on the champion row's rank and rail;
+     a second filled block would halve that one's weight (the same reason
+     NominateBadge is an outline). --ink on --surface-3 is 12.48:1. */
+  .finalized-mark {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--s-8);
+    min-height: 20px;
+    background: var(--surface-3);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    letter-spacing: var(--label-ls-ko);
+    font-weight: 700;
   }
   .caption {
     margin-top: var(--s-8);
@@ -232,11 +280,6 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
   @media (max-width: 640px) {
     .list-page {
       padding-top: var(--s-32);
-    }
-    .title {
-      font-size: var(--fs-27);
-      line-height: 32px;
-      letter-spacing: -0.02em;
     }
   }
 </style>

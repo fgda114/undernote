@@ -20,6 +20,11 @@
  * into wallpaper, and rank 1 stays marked three ways — plate colour, the
  * rank NUMBER, and the left border — never by colour alone (WCAG 1.4.1).
  *
+ * The cover zooms on hover; the rule and its reduced-motion opt-out live in
+ * global.css (`.cover-frame`), not here — the clipping frame is <picture>
+ * itself, so `.art` keeps holding the art and the plate side by side without
+ * an extra wrapper.
+ *
  * e2e contracts this markup satisfies:
  *   · the anchor keeps `class="row-link"` inside `.board` (one click from
  *     home to a review — browser.flows.spec.ts)
@@ -36,9 +41,14 @@ interface Props {
   feature?: boolean;
   /** Above-the-fold cards load their cover eagerly; the rest stream in. */
   eager?: boolean;
+  /** Anchor target for the section's pager arrows — set on the first and
+   * last card only. Without JavaScript the arrows are ordinary in-page
+   * links to these two ids, which is what makes the pager work at all when
+   * the script does not run. */
+  anchorId?: string;
 }
 
-const { entry, feature = false, eager = false } = Astro.props;
+const { entry, feature = false, eager = false, anchorId } = Astro.props;
 
 // Rendered box widths: 192px in the 5-up grid, 440px as the feature card.
 // The srcset only holds w320 and w640, so these two hints are what decide
@@ -46,7 +56,7 @@ const { entry, feature = false, eager = false } = Astro.props;
 const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 960px) 200px, (min-width: 641px) 33vw, 100vw';
 ---
 
-<li class:list={['chart-card', { first: entry.rank === 1, feature }]}>
+<li class:list={['chart-card', { first: entry.rank === 1, feature }]} id={anchorId}>
   <a href={withBase(entry.review_url)} class="row-link">
     <span class="art">
       <CoverImage
@@ -56,9 +66,9 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
         loading={eager ? 'eager' : 'lazy'}
         fillSizes={FILL_SIZES}
       />
-      {/* `.plate` (global.css) supplies the accent fill, the sheen and the
-          light-mode border for rank 1. Pulling it from the global sheet is
-          what keeps a prefers-color-scheme query out of this component. */}
+      {/* `.plate` (global.css) supplies the accent fill and the sheen for
+          rank 1. Pulling it from the global sheet is what keeps every
+          accent-surface rule in one place rather than duplicated here. */}
       <span class:list={['rank-plate', { plate: entry.rank === 1 }]}>
         <span class="rank tnum" aria-hidden="true">{entry.rank}</span>
         <span class="score tnum" aria-hidden="true">{entry.score}</span>
@@ -113,7 +123,8 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
     min-height: 32px;
     padding: var(--s-4) var(--s-8);
     /* Matches .plate's reserved border so leader and non-leader plates are
-       exactly the same height. */
+       exactly the same height, in normal and in forced-colors rendering
+       alike (global.css draws a real edge on both under forced-colors). */
     border: 2px solid transparent;
   }
   /* :not(.plate) keeps this out of the leader's way. Astro scopes component
@@ -187,9 +198,18 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
      Not a scaled-up grid card: the cover takes its own column and the title
      steps up two sizes, because a lone card in a 5-column grid reads as a
      defect while a full-width feature reads as an editorial choice. */
+  /* The text track is capped at the reading measure; the pair sits at the
+     card's LEFT edge. At --shell 1440 a `1fr` text track would have been
+     928px holding a title, an artist line and nothing else — the wider the
+     screen, the emptier the card. Capping it fixes that, and `start` (not
+     `center`) keeps the cover flush against the card's left border where
+     the rank-1 accent rail is drawn: centring opened a gap between the rail
+     and the artwork it marks. The object is then the same shape at 1440,
+     1920 and 2560 — only the quiet surface to its right grows. */
   .chart-card.feature .row-link {
     display: grid;
-    grid-template-columns: 440px minmax(0, 1fr);
+    grid-template-columns: 440px minmax(0, var(--column));
+    justify-content: start;
     gap: var(--s-32);
     align-items: center;
   }

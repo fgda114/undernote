@@ -7,7 +7,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Album, SiteConfig } from '../schema/index.ts';
-import type { BaseCardInput, ReviewCardInput } from './types.ts';
+import type { BaseCardInput, MarkCardInput, ReviewCardInput } from './types.ts';
+
+/** The default card takes nothing but the site name — there is no other
+ * input it could get wrong. */
+export function assembleMarkCard(siteName: string): MarkCardInput {
+  return { kind: 'mark', siteName };
+}
 
 export function assembleBaseCard(title: string, siteName: string, formatLabel?: string): BaseCardInput {
   return { kind: 'base', title, formatLabel, siteName };

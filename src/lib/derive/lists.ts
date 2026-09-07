@@ -184,8 +184,26 @@ export function deriveBadgeMap(board: Board): Map<string, BadgeInfo> {
 
 // ── Home surface data ──────────────────────────────────────────────────
 
-/** ArticleCard data (components.md §4) — NO score field by contract (D2:
- * browsing surfaces never see scores; the field simply doesn't exist here).
+/** ArticleCard data (components.md §4).
+ *
+ * D2-R2 (2026-09-07) — THIS TYPE NOW CARRIES A SCORE, and that is a reversal
+ * worth stating plainly. D2's third row said browsing surfaces never show
+ * scores, and the enforcement was that this interface HAD NO SCORE FIELD: a
+ * template could not leak what the data never held. The editor reversed the
+ * rule for the home's 최신 리뷰 and /archive/reviews/, so the field is here.
+ *
+ * What replaces the deleted guard, because "remember not to" is not a guard:
+ *   1. rendering is OPT-IN per surface (`showScore` on ArticleCard). A page
+ *      shows figures only by naming itself, so the set of score-bearing
+ *      surfaces is a short, greppable list rather than a default.
+ *   2. the OG card guard is UNTOUCHED and is still type-level: no card input
+ *      type in lib/og has a score field (E-115), and share cards were
+ *      explicitly excluded from this reversal.
+ *   3. build.dist-matrix.spec.ts asserts the surface list in BOTH directions
+ *      — which dist pages must contain score tokens and which must not — so
+ *      mixing them up fails the build rather than shipping quietly.
+ *
+ * `score` is optional because stories do not have one and never will.
  *
  * `cover` was added for the home card grid (reskin 2026-09): the card
  * variant shows the album art, and a story — which has no art by definition
@@ -203,15 +221,59 @@ export interface ArticleItem {
   /** Album art for review items; null when the album has no cover, absent
    * for stories (which never have one). */
   cover?: CoverSet | null;
+  /** Stored score string, displayed verbatim (reviews only) — see the intro
+   * for why this field exists and what keeps it off the wrong surfaces. */
+  score?: string;
+  /** First-paragraph excerpt for the home's card grids (2026-09-07). Cards
+   * used to show a title and an artist and nothing of the writing itself,
+   * which made a browsing grid look like a directory rather than a
+   * magazine. Optional and short-form: absent for the row variant, and
+   * absent for a review whose own figure appears in its opening paragraph
+   * -- see deriveLatestArticles for why that case drops out. */
+  excerpt?: string;
+}
+
+/** Card excerpts are a two-line object, not an og:description -- 96 chars is
+ * about two lines of Korean at 14px in the widest card (the full-width
+ * feature) and overflows into the CSS clamp in the narrow grid ones.
+ * Shipping the 160-char default instead would put ~60 invisible characters
+ * in every card's HTML. */
+export const CARD_EXCERPT_MAX = 96;
+
+/**
+ * Excerpt screen. Under D2-R2 a review card may now PRINT its score in its
+ * own plate, so this is no longer about hiding the figure — it is about not
+ * printing it twice, in two different registers, one of them mid-sentence.
+ * An excerpt that opens with "이 앨범에 8.5점을 줬다" next to a plate reading
+ * 8.5 reads as a duplication bug. Two things prevent it:
+ *
+ *  1. excerptFrom only ever returns the FIRST paragraph, so a figure quoted
+ *     later in the piece cannot reach a card at all.
+ *  2. if the opening paragraph does contain the review's own score string,
+ *     the excerpt is DROPPED for that card. Not masked, not truncated --
+ *     rewriting someone's sentence would be worse than showing none of it,
+ *     and a card without an excerpt is an ordinary card shape (a story
+ *     feature already renders that way).
+ *
+ * The match is on the stored string verbatim ("8.4"), which is the same form
+ * D2-R displays, so "8.4점" and "8.4/10" are both caught. A DIFFERENT
+ * album's figure quoted in the prose is not this review's judgment and is
+ * left alone -- D2 is about the score this page assigned, not about digits.
+ */
+function cardExcerpt(text: string, score: string): string | undefined {
+  if (text.length === 0) return undefined;
+  return text.includes(score) ? undefined : text;
 }
 
 export function deriveLatestArticles(
   data: RepoData,
   joined: JoinedReview[],
-  excerpt: (body: string) => string,
+  excerpt: (body: string, maxLength?: number) => string,
   limit = 8,
 ): ArticleItem[] {
   const items: ArticleItem[] = [];
+  // joined carries frontmatter, not prose; the body lives on the raw entry.
+  const bodyBySlug = new Map(data.reviews.map((r) => [r.slug, r.body]));
   for (const j of joined) {
     items.push({
       type: 'review',
@@ -221,6 +283,8 @@ export function deriveLatestArticles(
       date: j.review.date,
       formatLabel: 'Reviews',
       cover: coverSetFor({ slug: j.slug, title: j.album.title, artistsLabel: j.artistsLabel, cover: j.album.cover }),
+      score: j.review.score,
+      excerpt: cardExcerpt(excerpt(bodyBySlug.get(j.slug) ?? '', CARD_EXCERPT_MAX), j.review.score),
     });
   }
   for (const story of data.stories) {
@@ -232,6 +296,7 @@ export function deriveLatestArticles(
       date: story.data.date,
       formatLabel: 'Notes',
       cover: null,
+      excerpt: excerpt(story.body, CARD_EXCERPT_MAX),
     });
   }
   // date desc → url asc: total order without a clock.
@@ -265,29 +330,28 @@ export interface HomeSections {
 }
 
 /**
- * @param totalReviews every published review, not just this year's — it is
- *   the denominator of the "the chart already IS the whole catalogue" test.
  * @param limit cards per browsing section (2 rows of 3 at desktop).
+ *
+ * Overlap between "best of the year" and "most recent" is normal in any
+ * magazine and is NOT deduplicated -- the two sections answer different
+ * questions, and they now look different answering them: a chart card
+ * carries a rank and a figure, a review card carries an excerpt and a date.
+ *
+ * An earlier pass suppressed 최신 리뷰 entirely when the chart already listed
+ * every review there is, to avoid printing the same album twice on a young
+ * site. That rule is GONE (2026-09-07). The home now always renders all
+ * three sections, so suppression no longer produces "one section instead of
+ * two" -- it produces an empty 최신 리뷰 sitting directly under a chart that
+ * is visibly full of reviews, which reads as a fault rather than as
+ * restraint. The genuinely empty case is handled by the page.
  */
-export function deriveHomeSections(
-  board: Board,
-  allArticles: ArticleItem[],
-  totalReviews: number,
-  limit = 6,
-): HomeSections {
+export function deriveHomeSections(board: Board, allArticles: ArticleItem[], limit = 6): HomeSections {
   const charts = board.buckets.flatMap((bucket) =>
     bucket.entries.map((entry, i) => ({ ...entry, bucketLabel: bucket.label, rank: i + 1 })),
   );
-  // Overlap between "best of the year" and "most recent" is normal in any
-  // magazine and is NOT deduplicated — the two sections answer different
-  // questions. The one case that must not ship is total repetition: when the
-  // chart already lists every review there is, "최신 리뷰" is the same cards a
-  // second time, which on a young site reads as a rendering fault rather than
-  // an editorial choice (R-4 in spirit — nothing padded, nothing doubled).
-  const chartCoversEverything = totalReviews > 0 && charts.length >= totalReviews;
   return {
     charts,
-    latestReviews: chartCoversEverything ? [] : allArticles.filter((a) => a.type === 'review').slice(0, limit),
+    latestReviews: allArticles.filter((a) => a.type === 'review').slice(0, limit),
     notes: allArticles.filter((a) => a.type === 'story').slice(0, limit),
   };
 }

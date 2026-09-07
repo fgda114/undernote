@@ -3,6 +3,7 @@
  * /archive/genre/{bucket}/ — bucket axis listing. etc renders as "그 외"
  * (reserved group — every album outside the year's configured buckets).
  */
+import FormatLabel from '../../../components/FormatLabel.astro';
 import ArticleCard from '../../../components/ArticleCard.astro';
 import Base from '../../../layouts/Base.astro';
 import { ETC_BUCKET_LABEL } from '../../../lib/derive/archive.ts';
@@ -26,6 +27,9 @@ const label = bucket === 'etc' ? ETC_BUCKET_LABEL : (labels.get(bucket!) ?? buck
 
 <Base title={`${label} — Archive`} description={`${label} 장르의 전체 글.`} path={`/archive/genre/${bucket}/`} current="archive">
   <main class="listing">
+    {/* The h1 is a VALUE on an axis, not the axis name, so it takes the
+        overline (title-system rule, global.css). */}
+    <FormatLabel text="Archive" />
     <h1 class="page-title">{label}</h1>
     <ul class="cards">
       {items.map((item) => <ArticleCard item={item} />)}
@@ -35,16 +39,9 @@ const label = bucket === 'etc' ? ETC_BUCKET_LABEL : (labels.get(bucket!) ?? buck
 
 <style>
   .listing {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
-  }
-  .page-title {
-    font-family: var(--display);
-    font-size: var(--fs-27);
-    line-height: 32px;
-    letter-spacing: -0.02em;
-    font-weight: 800;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
   }
   .cards {
     list-style: none;

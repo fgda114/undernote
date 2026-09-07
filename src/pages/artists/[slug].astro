@@ -30,6 +30,7 @@ const items = (archive.by_artist.get(artist.id) ?? []).map((i) => articleByUrl.g
   title={artist.data.name}
   description={`${artist.data.name}을(를) 다룬 글.`}
   path={`/artists/${artist.id}/`}
+  current="artists"
 >
   <main class="artist">
     <header>
@@ -62,9 +63,9 @@ const items = (archive.by_artist.get(artist.id) ?? []).map((i) => articleByUrl.g
 
 <style>
   .artist {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
     display: flex;
     flex-direction: column;
     gap: var(--s-32);

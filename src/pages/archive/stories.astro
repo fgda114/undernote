@@ -4,6 +4,7 @@
  * Lists stories as ArticleCards (no scores — browsing surface, D2).
  */
 import ArticleCard from '../../components/ArticleCard.astro';
+import SectionEmpty from '../../components/SectionEmpty.astro';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/derive/site-data.ts';
 
@@ -22,7 +23,12 @@ const stories = allArticles.filter((item) => item.type === 'story');
           ))}
         </ul>
       ) : (
-        <p class="empty">아직 발행된 이야기가 없습니다.</p>
+        /* Was "아직 발행된 이야기가 없습니다." (removed 2026-09-07). "아직" is
+           the publication apologising for its own age, which the same round
+           of edits stripped from the home strip, the Charts caption and
+           /list/{year}/. An empty listing needs no sentence: the heading
+           already named what would be here. */
+        <SectionEmpty />
       )
     }
   </main>
@@ -30,26 +36,13 @@ const stories = allArticles.filter((item) => item.type === 'story');
 
 <style>
   .listing {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
-  }
-  .page-title {
-    font-family: var(--display);
-    font-size: var(--fs-27);
-    line-height: 32px;
-    letter-spacing: -0.02em;
-    font-weight: 800;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
   }
   .cards {
     list-style: none;
     margin: var(--s-24) 0 0;
     padding: 0;
-  }
-  .empty {
-    margin-top: var(--s-24);
-    color: var(--muted);
-    font-size: var(--fs-14);
-    line-height: 20px;
   }
 </style>

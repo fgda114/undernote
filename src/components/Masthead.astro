@@ -6,15 +6,28 @@
  * color alone (WCAG 1.4.1).
  *
  * Nav targets: /archive/ presets for Reviews/Notes (ui-spec §6), the active
- * year's list, archive and about. Shell pages for these routes are a W5.2
- * obligation (E-112 readiness).
+ * year's list, the artist index, archive and about. Shell pages for these
+ * routes are a W5.2 obligation (E-112 readiness).
+ *
+ * ORDER (settled 2026-09-07): Reviews · Notes · Charts · Artists · Archive.
+ * The first four are the publication's CONTENT — the two formats it
+ * publishes, the list its scores produce, and the people it writes about.
+ * Archive closes the row as the tool for finding any of them again.
+ *
+ * ABOUT IS NOT HERE. It moved to the footer: it is the colophon, not a
+ * corner to read, and the masthead reads better as a list of things to read.
+ * Artists WAS briefly cut on the argument that the archive reaches it — that
+ * was reverted, because the archive reaches Reviews and Notes too, and
+ * "reachable from the archive" would empty the masthead entirely. The
+ * archive is where you look something up again; the masthead is the list of
+ * corners.
  */
 import { getSiteConfig } from '../lib/site.ts';
 import { withBase } from '../lib/paths.ts';
 
 interface Props {
   /** Which nav item is the current page (aria-current + visual state). */
-  current?: 'reviews' | 'stories' | 'list' | 'archive' | 'about';
+  current?: 'reviews' | 'stories' | 'list' | 'artists' | 'archive' | 'about';
 }
 
 const { current } = Astro.props;
@@ -25,8 +38,8 @@ const items = [
   { key: 'reviews', label: 'Reviews', href: withBase('/archive/reviews/') },
   { key: 'stories', label: 'Notes', href: withBase('/archive/stories/') },
   { key: 'list', label: 'Charts', href: withBase(`/list/${site.active_year}/`) },
+  { key: 'artists', label: 'Artists', href: withBase('/artists/') },
   { key: 'archive', label: 'Archive', href: withBase('/archive/') },
-  { key: 'about', label: 'About', href: withBase('/about/') },
 ] as const;
 ---
 
@@ -54,10 +67,10 @@ const items = [
     border-bottom: 1px solid var(--line);
   }
   .masthead-inner {
-    max-width: var(--shell);
-    margin: 0 auto;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
     min-height: var(--masthead-h);
-    padding: 0 20px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;

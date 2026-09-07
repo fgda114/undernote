@@ -49,12 +49,4 @@ const { bucketLabel, rank, year } = Astro.props;
     background: var(--accent);
     color: var(--on-accent);
   }
-  /* The one place a component needs a scheme query: on light, a mint border
-     around a mint fill is 1.30:1 — the filled state would have no edge at
-     all (tokens.md §3.4). Default state is unaffected. */
-  @media (prefers-color-scheme: light) {
-    .badge:hover {
-      border-color: var(--ink);
-    }
-  }
 </style>

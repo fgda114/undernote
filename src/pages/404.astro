@@ -10,7 +10,7 @@ import { withBase } from '../lib/paths.ts';
 
 <Base title="이 주소에는 글이 없습니다" description="이 주소에는 글이 없습니다." path="/404/">
   <main class="notfound">
-    <h1 class="line">이 주소에는 글이 없습니다.</h1>
+    <h1 class="page-title">이 주소에는 글이 없습니다.</h1>
     <ul class="links">
       <li><a href={withBase('/')}>Home</a></li>
       <li><a href={withBase('/archive/')}>Archive</a></li>
@@ -20,16 +20,9 @@ import { withBase } from '../lib/paths.ts';
 
 <style>
   .notfound {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-96) 20px 0;
-  }
-  .line {
-    font-family: var(--display);
-    font-size: var(--fs-27);
-    line-height: 32px;
-    letter-spacing: -0.02em;
-    font-weight: 800;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-96) 0 0;
   }
   .links {
     list-style: none;

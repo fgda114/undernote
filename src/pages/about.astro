@@ -1,107 +1,78 @@
 ---
 /**
- * /about/ — 소개/기준 (CF-8 · US-8): the written form of "실림 = 추천".
- * The three mandatory statements are fixed subheading anchors; the body copy
- * around them belongs to the editor + lead (W5.5 협의) — until that lands,
- * this page stands on the three statements alone (a designed minimal page,
- * never a "준비 중" apology, R-4). Also carries the cover-art rights contact
- * line (ADR-0008 removal process endpoint).
+ * /about/ — 소개 (CF-8 · US-8).
+ *
+ * REWRITTEN AGAIN 2026-09-07. This page is no longer the editorial charter;
+ * it is the WRITER INTRODUCING THEMSELF. The three promises it used to put in
+ * writing (실림 = 추천 / 미수록 ≠ 혹평 / 점수 = 순위) are gone from the site's
+ * surfaces entirely — see 08-impl-notes/frontend.md for what that costs and
+ * what no longer verifies them.
+ *
+ * THE COPY IS THE WRITER'S OWN AND IS REPRODUCED CHARACTER FOR CHARACTER.
+ * Do not "fix" it. The spellings, the spacing, the missing full stop at the
+ * end of the second paragraph and the line break inside the third are all as
+ * written; they are a voice, not typos, and correcting them would replace
+ * that voice with a copy editor's. Only the paragraph structure and the third
+ * paragraph's internal break are typeset here.
+ *
+ * The album-cover rights contact line that used to close this page is GONE
+ * (lead decision, same day) — from here and from the footer both. It was the
+ * visible contact path ADR-0008 leans on. The reasoning and how to restore it
+ * are recorded in the impl notes; it is not this page's job to remember.
  */
 import Base from '../layouts/Base.astro';
-import FormatLabel from '../components/FormatLabel.astro';
-import { getSiteConfig } from '../lib/site.ts';
 
-const site = getSiteConfig();
+import { SITE_TAGLINE } from '../lib/site.ts';
 ---
 
-<Base title="About" description="이 매체의 기준 — 안 들으면 손해 문턱을 통과한 앨범만 싣습니다." path="/about/" current="about">
+<Base title="About" description={SITE_TAGLINE} path="/about/" current="about">
   <main class="about">
-    <header>
-      <FormatLabel text="About" />
-      <h1 class="page-title">실림 = 추천</h1>
-    </header>
+    {/* No overline. The masthead vocabulary puts an English section name
+        above a DIFFERENT heading; "About" over "About" would print the same
+        word twice, which is the duplicate-title problem this round removed
+        from the finalized list page. A bare English h1 is what every other
+        utility page here already uses. */}
+    <h1 class="page-title">About</h1>
 
-    <section class="statement">
-      <h2 class="statement-line">여기 실린 앨범은 전부 “안 들으면 손해” 문턱을 통과한 것입니다.</h2>
+    <section class="intro">
+      <p>그저 음악이 좋아서 매일 이어폰을 꼽고 사는 평범한 음악 팬입니다.</p>
+      <p>전문적인 지식이나 글쓰는 솜씨는 부족하지만 음악을 향한 진심을 담아 쉬운 언어로 가볍고 편안하게 음악을 소개하겠습니다</p>
+      <p>시대를 넘나드는 위대한 명반부터<br />갓 나온 신보까지 언제든 편하게 들러 같이 만나요</p>
     </section>
-
-    <section class="statement">
-      <h2 class="statement-line">다루지 않았다는 것은, 아직 추천하지 않는다는 뜻입니다.</h2>
-    </section>
-
-    <section class="statement">
-      <h2 class="statement-line">점수는 들을까 말까가 아니라, 이미 검증된 것들 사이의 순위입니다.</h2>
-    </section>
-
-    <footer class="contact">
-      {/* ADR-0008 §4: rights holders reach us here; removal = file deletion,
-          nothing else breaks (placeholder publishing is a normal path). */}
-      <p>앨범 커버 등 권리 관련 문의는 <a href="https://github.com/fgda114/undernote/issues" rel="noopener">저장소 이슈</a>로 연락해 주세요. 요청 시 해당 이미지는 지체 없이 내립니다.</p>
-    </footer>
   </main>
 </Base>
 
 <style>
   .about {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
     display: flex;
     flex-direction: column;
     gap: var(--s-32);
   }
-  .page-title {
-    font-family: var(--display);
-    font-size: var(--fs-34);
-    line-height: 40px;
-    letter-spacing: -0.025em;
-    font-weight: 800;
-    margin-top: var(--s-12);
-  }
-  /* The three statements carry the whole page, so they get weight from type
-     and one rule each — no accent. The accent is reserved for scores; a manifesto
-     painted in it would say "judgement" about the wrong thing. */
-  .statement-line {
-    /* Frame is shell-wide; the sentence itself keeps reading measure. */
+  /* Reading size, reading measure, ordinary paragraph rhythm. The previous
+     version set these lines at 27px/800 with a left rule, which asserted them
+     at the reader; this copy is someone saying hello and is typeset that way.
+     Sans, not serif — the serif belongs to review bodies and the annual
+     preface (§5.1), and this is neither. */
+  .intro {
     max-width: var(--column);
-    font-family: var(--display);
-    font-size: var(--fs-27);
-    line-height: 36px;
-    letter-spacing: -0.015em;
-    font-weight: 800;
-    border-left: 3px solid var(--line-strong);
-    padding-left: var(--s-16);
-    text-wrap: balance;
-  }
-  .contact {
-    max-width: var(--column);
-    border-top: 1px solid var(--line);
-    padding-top: var(--s-16);
-    font-size: var(--fs-14);
-    line-height: 20px;
-    color: var(--muted);
-  }
-  .contact a {
-    color: var(--accent-2-ink);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: text-decoration-thickness var(--t-micro);
-  }
-  .contact a:hover {
-    text-decoration-thickness: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-24); /* the running-prose paragraph gap, untouched by the density pass */
+    color: var(--ink-prose);
+    font-size: var(--fs-17);
+    line-height: 1.85;
   }
   @media (max-width: 640px) {
     .about {
       padding-top: var(--s-32);
     }
-    .page-title {
-      font-size: var(--fs-27);
-      line-height: 32px;
-      letter-spacing: -0.02em;
-    }
-    .statement-line {
-      font-size: var(--fs-21);
-      line-height: 30px;
+  
+    .intro {
+      font-size: var(--fs-16);
+      line-height: 1.8;
     }
   }
 </style>

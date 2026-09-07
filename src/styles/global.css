@@ -29,13 +29,29 @@ html {
    touch: the wash carries no meaning, so mixing them there costs the
    doctrine nothing.
    background-color stays a plain token on purpose: browser.a11y.spec.ts
-   samples getComputedStyle(body).backgroundColor to prove the dark/light
-   token switch, and a gradient would report as `rgba(0,0,0,0)` there.
-   Worst case (both radials at peak) the ground lifts to #1E2D38 in dark and
-   #E2EBF2 in light; every text token still clears AA on those — the measured
+   samples getComputedStyle(body).backgroundColor to prove the ground is dark
+   under BOTH prefers-color-scheme values, and a gradient would report as
+   `rgba(0,0,0,0)` there.
+   Worst case (both radials at peak) the ground lifts to #1E2D38; every text
+   token and every --head-sheen stop still clears AA on that — the measured
    table is in 08-impl-notes/frontend.md. */
+/* Sticky footer, CSS only (2026-09-07). Short pages — an empty Notes
+   listing especially — used to leave the footer floating mid-screen with
+   dead space under it. The body becomes the column and <main> takes the
+   slack, so the footer sits on the fold when content is short and flows
+   normally when it is not.
+   `100vh` first, `100dvh` second: an engine without dvh keeps the vh line,
+   and one with it uses the dynamic viewport so a mobile browser's collapsing
+   URL bar cannot leave a strip of background below the footer.
+   `flex: 1 0 auto` and not `1 1 auto` — main must be allowed to grow past
+   the viewport but never to be SHRUNK below its content, which is what
+   would clip a long review. */
 body {
   margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background-color: var(--bg);
   background-image: var(--bg-sheen);
   background-repeat: no-repeat;
@@ -44,6 +60,16 @@ body {
   font-size: var(--fs-17);
   line-height: 1.75;
   word-break: keep-all; /* Korean line breaking: keep words intact */
+}
+
+/* `width: 100%` is load-bearing, not belt-and-braces. Every page's <main>
+   centres itself with `margin: 0 auto`, and AUTO CROSS-AXIS MARGINS CANCEL
+   `align-items: stretch` — the moment body became a flex column, every page
+   silently collapsed to its content width (measured: the 1040px frame became
+   706px). Stretch cannot be relied on here; an explicit width can. */
+body > main {
+  flex: 1 0 auto;
+  width: 100%;
 }
 
 img {
@@ -74,7 +100,7 @@ a {
 
 /* Body links are the "way out" accent — color + underline, never color
    alone (WCAG 1.4.1). Hover thickens the underline instead of shifting hue,
-   so the affordance survives both color schemes. */
+   so the affordance never depends on the reader seeing a colour change. */
 .prose a {
   color: var(--accent-2-ink);
   text-decoration: underline;
@@ -95,21 +121,17 @@ a {
    A filled mint surface carrying the iridescent sheen. background-color is
    declared under background-image so the flat token still paints if the
    gradient is dropped (forced-colors, very old engines).
-   The transparent border is a placeholder that light mode turns into a real
-   edge: mint on #F5F6FA is 1.32:1, so without it the plate's SHAPE
-   disappears. Keeping the border in both schemes means the box model never
-   shifts between them. */
+   The transparent border is NOT leftover from the deleted light palette: it
+   reserves the box that the forced-colors rule at the bottom of this file
+   fills in with a real 2px edge. Without the reservation a plate would grow
+   4px in each axis the moment a reader turns high contrast on, and the chart
+   grid's cards would stop lining up with each other. */
 .plate {
   background-color: var(--accent);
   background-image: var(--accent-sheen);
   color: var(--on-accent);
   border: 2px solid transparent;
   border-radius: var(--r-0);
-}
-@media (prefers-color-scheme: light) {
-  .plate {
-    border-color: var(--ink);
-  }
 }
 /* A mint outline is invisible against a mint fill — flip to the on-accent
    ink for anything focusable that sits on one. */
@@ -119,11 +141,12 @@ a {
 }
 
 /* -- Gradient display headings -------------------------------------------
-   The reference's signature: mint flowing through a large headline. Allowed
-   on exactly two headings, both of which name the list the SCORES produced
-   (see tokens.css) -- the home's Charts head and /list/{year}/'s H1. It is
-   opt-in per call site, never a default, because --accent on a heading the
-   score did not make turns the doctrine back into decoration.
+   The reference's signature: mint flowing through a large headline and
+   arriving at lavender. Allowed on exactly two headings, both of which name
+   the list the SCORES produced (see tokens.css) -- the home's Charts head
+   and /list/{year}/'s H1. It is opt-in per call site, never a default,
+   because --accent on a heading the score did not make turns the doctrine
+   back into decoration.
 
    Three guards, all load-bearing:
    1. `color` is set to a real token FIRST. background-clip:text needs
@@ -156,6 +179,96 @@ a {
   }
 }
 
+/* ── Cover hover zoom (2026-09-07) ─────────────────────────────────────
+   Hovering a link that contains album art zooms the art inside its own
+   frame. Declared here, once, rather than in each card component: the rule
+   is "a cover inside a link", not "a cover in this particular card", and
+   every card that grows a cover later inherits it — including the
+   reduced-motion opt-out, which is the part most easily forgotten.
+
+   The clipping frame is <picture> itself (CoverImage gives it .cover-frame),
+   so no card needed a wrapper element and no card's layout moved. Only the
+   <img> transforms; the frame stays put, which is why the zoom cannot push
+   the page into horizontal scroll at 360px.
+
+   Direction §4.5 says covers are never cropped or overlaid, because the art
+   is not this publication's work. A hover zoom is read here as compatible:
+   nothing is cropped in the page's resting state — what the reader sees when
+   they arrive, screenshot, or print is the untouched square — and the effect
+   is momentary, reversible and reader-initiated. A static crop would be the
+   publication deciding what part of someone else's artwork to show; this is
+   not that. The plate still sits BELOW the art, never on it.
+
+   Placeholders (the letter square for an album with no cover) deliberately
+   do NOT zoom. There is no artwork to reveal, and the reskin's rule for a
+   missing cover is that what is absent should be quiet. It is also a
+   structural necessity: the placeholder is its own box, so it cannot be both
+   the clipped frame and the scaled child.
+
+   scale() and not width/height: transforms are composited, so this repaints
+   nothing and cannot cause layout shift (CLS stays 0).
+
+   CURSOR TRACKING (2026-09-07) rides on the same transform. --px/--py are
+   the pointer's offset from the frame's centre, in the range -0.5..0.5, and
+   they are written by the inline module in Base.astro. Everything about that
+   is OPTIONAL: the fallbacks in var(--px, 0) mean the rule computes to a
+   plain scale() when no script ran, so the zoom above is the whole effect
+   with JS off and nothing on the page is waiting for a script to be correct.
+   translate() comes AFTER scale() so its percentages resolve in the scaled
+   box — that is what keeps the travel inside the frame (see --cover-track). */
+.cover-frame {
+  display: block;
+  overflow: hidden;
+  border-radius: var(--r-2);
+  /* Shrink to the image. A full-width frame around a 48px thumbnail would
+     sit wider than the art and the zoom would never be clipped. */
+  width: fit-content;
+  max-width: 100%;
+}
+.cover-frame.fill {
+  width: 100%;
+}
+.cover-frame > .cover {
+  transition: transform var(--t-cover);
+}
+a:hover .cover-frame > .cover {
+  transform: scale(var(--cover-zoom))
+    translate(calc(var(--px, 0) * var(--cover-track)), calc(var(--py, 0) * var(--cover-track)));
+}
+
+/* ── Page titles: ONE definition, one size ─────────────────────────────
+   Every page's <h1> was styled locally and had drifted — 27px on the
+   listings, 34px on /about/ and /list/, three different letter-spacings.
+   The rule adopted 2026-09-07:
+
+     · every page has exactly one h1, and every h1 is this size;
+     · CONTENT titles are a different rank and keep their own classes — a
+       review's album name (56/44), a story's headline, an artist's name.
+       A page title names a surface; a content title names a work;
+     · an overline (FormatLabel) appears ONLY where the h1 is not itself the
+       section name. "Charts" over "2026 올해의 앨범", "Reviews" over an album
+       title — yes. "About" over "About" — no, that is the same word twice;
+     · no captions or subtitles under any page title. That slot is where the
+       self-describing sentences this round kept deleting used to live. The
+       one survivor is the finalized annual list's immutability line, which
+       states a contract (R-8) rather than describing the page.
+
+   Declared globally rather than per page so the next page cannot drift. */
+.page-title {
+  font-family: var(--display);
+  font-size: var(--fs-34);
+  line-height: 40px;
+  letter-spacing: -0.025em;
+  font-weight: 800;
+}
+@media (max-width: 640px) {
+  .page-title {
+    font-size: var(--fs-27);
+    line-height: 32px;
+    letter-spacing: -0.02em;
+  }
+}
+
 /* ── Numbers align in columns (scores, ranks, dates) ── */
 .tnum {
   font-variant-numeric: tabular-nums;
@@ -183,6 +296,16 @@ a {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* Collapsing the DURATION is not enough for a transform: the cover would
+     still jump to 1.06 instantly, which is exactly the kind of sudden size
+     change this preference exists to suppress. The zoom is REMOVED, the same
+     treatment the home board stagger gets — and with it the cursor tracking,
+     which the script also refuses to attach at all under this preference, so
+     the effect is off in two independent places. */
+  a:hover .cover-frame > .cover {
+    transform: none;
   }
 }
 

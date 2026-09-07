@@ -24,6 +24,19 @@ export function getSiteConfig(): SiteConfig {
   return cached;
 }
 
+/**
+ * The site's one-sentence identity. It reaches a reader as META TEXT only —
+ * the home's description, which is also what a pasted link shows underneath
+ * the card image. The share card itself no longer carries any text (see
+ * lib/og/template.ts), so this string and that image are now two different
+ * kinds of object: the image is the mark, this is the sentence. It lives here rather than in config/site.yaml because adding a
+ * field there means touching siteConfigSchema and every fixture that
+ * constructs a SiteConfig; a module constant buys the same single source at
+ * a fraction of the blast radius. If the editor ever needs to change it
+ * without a deploy, that is the moment to promote it to config.
+ */
+export const SITE_TAGLINE = '음악을 좋아하는 평범한 사람의 솔직한 음악이야기';
+
 /** Absolute URL for a site path — og:url / og:image need absolute forms. */
 export function absoluteUrl(path: string): string {
   const base = getSiteConfig().base_url.replace(/\/$/, '');

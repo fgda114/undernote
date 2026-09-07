@@ -37,14 +37,61 @@ test('US-4 — 이야기 AlbumBox "평론 읽기" 클릭 → 평론 / 미등록�
   await expect(page).toHaveURL(/\/reviews\/fixture-artist-fixture-album\/$/);
 });
 
-test('US-8 — 전역 내비 "소개" → 기준 3문 명문', async ({ page }) => {
+test('US-8 — About 도달 + 필자 소개 지면 성립', async ({ page }) => {
   await page.goto(u('/archive/2026/'));
   await page.getByRole('link', { name: 'About' }).first().click();
   await expect(page).toHaveURL(/\/about\/$/);
+  // WHAT THIS TEST NO LONGER VERIFIES (2026-09-07). It used to pin the three
+  // promises US-8 required /about/ to put in writing — 실림 = 추천 /
+  // 미수록 ≠ 혹평 / 점수 = 순위. The page was rewritten as the writer's own
+  // introduction and none of the three appears on the site any more, so
+  // there is nothing left to assert about them. That LOSS is recorded in
+  // 08-impl-notes/frontend.md; it is not something this test can carry.
+  //
+  // What survives is US-8's other half — the route works and the page is a
+  // real page — plus the structure the new copy actually has: one h1 and
+  // three paragraphs of introduction.
+  await expect(page.locator('main h1')).toHaveText('About');
+  await expect(page.locator('main .intro p')).toHaveCount(3);
   const body = await page.locator('main').innerText();
-  expect(body).toContain('안 들으면 손해');
-  expect(body).toContain('다루지 않'); // 다루지 않음 = 추천하지 않음
-  expect(body).toContain('순위');
+  expect(body).toContain('음악 팬입니다'); // first paragraph, verbatim
+  expect(body.trim().length).toBeGreaterThan(80);
+});
+
+/**
+ * The other half of the budget: the page has to be whole without scripting.
+ * `javaScriptEnabled: false` is the honest test of "progressive enhancement"
+ * — the inline module never runs, so anything it was secretly holding up
+ * fails here. It holds up nothing: the covers zoom from CSS, every
+ * destination is a real href, and the only thing missing is the cursor
+ * following the art.
+ */
+test('점진적 향상 — 스크립트 비활성 상태에서도 지면·링크가 온전', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+
+  await page.goto(u('/'));
+  // The three home sections and the chart's cards render server-side.
+  for (const label of ['올해의 앨범', '최신 리뷰', '음악 이야기']) {
+    await expect(page.locator(`section[aria-label="${label}"]`)).toHaveCount(1);
+  }
+  await expect(page.locator('.board a.row-link').first()).toBeVisible();
+  // The CSS-only half of the cover treatment is present with no script.
+  await expect(page.locator('.board .cover-frame').first()).toBeVisible();
+  // The pager arrows are anchors, so they are real links with no script —
+  // they point at the first and last card instead of stepping.
+  const pager = page.locator('.board .pager-btn');
+  if ((await pager.count()) > 0) {
+    await expect(pager.first()).toHaveAttribute('href', /#chart-/);
+  }
+
+  // Navigation still works: it is anchors all the way down.
+  await page.locator('.board a.row-link').first().click();
+  await expect(page).toHaveURL(/\/reviews\/[^/]+\/$/);
+  await expect(page.locator('.score-mark')).toBeVisible();
+  await expect(page.locator('h1')).toBeVisible();
+
+  await context.close();
 });
 
 test('404 — 없는 주소는 404 지면', async ({ page }) => {
@@ -54,7 +101,13 @@ test('404 — 없는 주소는 404 지면', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Archive' }).first()).toBeVisible();
 });
 
-test('NFR — 주요 흐름 전체에서 JS 요청 0 (클라이언트 JS 0 실측)', async ({ page }) => {
+/**
+ * Half of the old "client JS 0" contract survives the 2026-09-07 budget
+ * change UNCHANGED, and it is the half that matters most: the site ships one
+ * INLINE module, so the number of JavaScript bytes fetched over the network
+ * is still exactly zero. No bundle, no chunk, no CDN.
+ */
+test('NFR — 주요 흐름 전체에서 외부 JS 요청 0 (인라인만 허용)', async ({ page }) => {
   const jsRequests: string[] = [];
   page.on('request', (req) => {
     if (req.url().endsWith('.js') || req.resourceType() === 'script') jsRequests.push(req.url());

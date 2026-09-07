@@ -1,25 +1,44 @@
 ---
 /**
- * Footer (components.md §2): about/criteria + archive links, editor SNS
- * outlinks, ©. Single state.
+ * Footer (components.md §2, amended 2026-09-07): About + ©.
+ *
+ * WHY ABOUT IS DOWN HERE. The masthead carries the four content corners and
+ * the archive; About is not a corner, it is the colophon — who is writing
+ * this. Putting it at the foot is the ordinary place for that, and it frees
+ * the masthead to be a list of things to read.
+ *
+ * WHAT LEFT. The footer used to repeat About and Archive from the masthead
+ * (a repeated destination costs a screen-reader user a second reading and
+ * buys nothing), and then briefly carried the album-cover rights contact.
+ * Both are gone: Archive stays in the masthead only, and the rights line was
+ * removed from the site by decision — see 08-impl-notes/frontend.md, which
+ * records what that removes and how to put it back.
+ *
+ * `current` comes down from Base so this link can carry aria-current on
+ * /about/, exactly as a masthead item would.
  *
  * The © year is REPO-DERIVED (site.active_year), never new Date():
  * wall-clock values in page output are a determinism leak (R-10) that the
  * same-day double-build hash gate cannot catch — do not "fix" this back.
- * SNS links come from config when they exist; absent → not rendered (R-4).
  */
 import { getSiteConfig } from '../lib/site.ts';
 import { withBase } from '../lib/paths.ts';
 
+interface Props {
+  current?: string;
+}
+
+const { current } = Astro.props;
 const site = getSiteConfig();
 ---
 
 <footer class="footer">
   <div class="footer-inner">
-    <ul class="footer-nav">
-      <li><a href={withBase('/about/')}>About</a></li>
-      <li><a href={withBase('/archive/')}>Archive</a></li>
-    </ul>
+    <a
+      class:list={['footer-about', { current: current === 'about' }]}
+      href={withBase('/about/')}
+      aria-current={current === 'about' ? 'page' : undefined}>About</a
+    >
     <p class="copyright tnum">© {site.active_year} {site.site_name}</p>
   </div>
 </footer>
@@ -32,23 +51,19 @@ const site = getSiteConfig();
     margin-top: var(--s-64);
   }
   .footer-inner {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-32) 20px var(--s-48);
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-32) 0 var(--s-48);
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: var(--s-16);
     flex-wrap: wrap;
   }
-  .footer-nav {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    gap: var(--s-24);
-  }
-  .footer-nav a {
+  /* Set like a masthead item, because it is one — just relocated. Current
+     state is marked three ways (colour, weight, border) so it never depends
+     on colour alone (WCAG 1.4.1), the same rule .nav-link follows. */
+  .footer-about {
     font-family: var(--mono);
     font-size: var(--fs-12);
     line-height: 16px;
@@ -59,9 +74,17 @@ const site = getSiteConfig();
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+    border-bottom: 2px solid transparent;
+    transition: color var(--t-micro), border-color var(--t-micro);
   }
-  .footer-nav a:hover {
+  .footer-about:hover {
     color: var(--ink);
+    border-bottom-color: var(--line-strong);
+  }
+  .footer-about.current {
+    color: var(--ink);
+    font-weight: 800;
+    border-bottom-color: var(--accent);
   }
   .copyright {
     font-family: var(--mono);

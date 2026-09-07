@@ -15,7 +15,7 @@
  * Unchanged by that decision: share cards of every type carry NO score
  * (E-115, enforced structurally — the input types have no score field).
  */
-import type { BaseCardInput, CardInput, ListCardInput, ReviewCardInput } from './types.ts';
+import type { BaseCardInput, CardInput, ListCardInput, MarkCardInput, ReviewCardInput } from './types.ts';
 
 // Dark palette values — keep in sync with src/styles/tokens.css. ACCENT is
 // used as TEXT here (wordmark period, section label, rank 1), so it is the
@@ -55,6 +55,20 @@ function wordmark(siteName: string): El {
   return el('div', { display: 'flex', fontSize: '32px', fontWeight: 700 }, [
     el('span', {}, siteName),
     el('span', { color: ACCENT }, '.'),
+  ]);
+}
+
+/**
+ * Mark card — the wordmark centred on --bg, nothing else. Used for every page
+ * without a card of its own. The wordmark is set larger than it is on the
+ * other layouts because here it is the subject rather than the signature.
+ */
+function markCard(input: MarkCardInput): El {
+  return el('div', { ...frame, justifyContent: 'center', alignItems: 'center' }, [
+    el('div', { display: 'flex', fontSize: '96px', fontWeight: 700, letterSpacing: '-0.03em' }, [
+      el('span', {}, input.siteName),
+      el('span', { color: ACCENT }, '.'),
+    ]),
   ]);
 }
 
@@ -118,6 +132,8 @@ function listCard(input: ListCardInput): El {
 
 export function cardTree(input: CardInput): El {
   switch (input.kind) {
+    case 'mark':
+      return markCard(input);
     case 'base':
       return baseCard(input);
     case 'review':

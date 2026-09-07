@@ -3,6 +3,7 @@
  * /archive/tag/{tag}/ — detail-tag axis (canonical slugs). Pages exist only
  * for tags that actually appear on content (empty values never render, R-4).
  */
+import FormatLabel from '../../../components/FormatLabel.astro';
 import ArticleCard from '../../../components/ArticleCard.astro';
 import Base from '../../../layouts/Base.astro';
 import { getSiteData } from '../../../lib/derive/site-data.ts';
@@ -20,6 +21,9 @@ const label = (data.tags?.tags ?? []).find((t) => t.slug === tag)?.label ?? tag!
 
 <Base title={`${label} — Archive`} description={`태그 ${label}의 전체 글.`} path={`/archive/tag/${tag}/`} current="archive">
   <main class="listing">
+    {/* The h1 is a VALUE on an axis, not the axis name, so it takes the
+        overline (title-system rule, global.css). */}
+    <FormatLabel text="Archive" />
     <h1 class="page-title">{label}</h1>
     <ul class="cards">
       {items.map((item) => <ArticleCard item={item} />)}
@@ -29,16 +33,9 @@ const label = (data.tags?.tags ?? []).find((t) => t.slug === tag)?.label ?? tag!
 
 <style>
   .listing {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
-  }
-  .page-title {
-    font-family: var(--display);
-    font-size: var(--fs-27);
-    line-height: 32px;
-    letter-spacing: -0.02em;
-    font-weight: 800;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
   }
   .cards {
     list-style: none;

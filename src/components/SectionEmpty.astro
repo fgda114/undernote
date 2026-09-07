@@ -1,0 +1,45 @@
+---
+/**
+ * SectionEmpty — one line, everywhere a listing has nothing in it.
+ *
+ *   아직 글이 없습니다.
+ *
+ * ONE SENTENCE, NOT ONE PER SURFACE (lead decision 2026-09-07). The page-by-
+ * page variants this replaced ("아직 발행된 평론이 없습니다", "아직 발행된
+ * 이야기가 없습니다") are exactly the habit this round spent itself removing:
+ * each surface explaining its own situation in its own words. A single line,
+ * reused verbatim, is a system message — and a system message is not the
+ * publication talking about itself.
+ *
+ * Used by: the home's three sections, /archive/reviews/, /archive/stories/,
+ * /artists/. Two earlier drafts are recorded because both were rejected on
+ * review and the reasons still apply: a block describing what the surface
+ * WOULD hold (the same self-narrating voice), and a wordless bordered area
+ * with a screen-reader-only word (honest, but it gave sighted and non-sighted
+ * readers different objects when one shared line does the job for both).
+ *
+ * NOT used for: `BoardPanel`'s "아직 이 장르의 후보가 없습니다." and
+ * `AlbumBox`'s "평론 준비 중". Those are not "this page is empty" — they are
+ * the state of one datum (a genre bucket's nominees, one album's review), and
+ * `build.finalize.spec.ts` and US-4 AC2 respectively depend on them.
+ *
+ * R-4 ("빈 껍데기 금지") is still released FOR THE HOME'S THREE SECTIONS
+ * ONLY. The listing pages above are not a release: they exist
+ * unconditionally because they are in the masthead, so nothing is being
+ * shown empty instead of omitted — they simply have nothing to list.
+ */
+---
+
+<p class="section-empty">아직 글이 없습니다.</p>
+
+<style>
+  /* A line, not a block. The earlier draft reserved a card-row's worth of
+     bordered ground; with real text in it that would be a box drawn around
+     one sentence. --muted on --bg is 7.49:1. */
+  .section-empty {
+    margin-top: var(--s-16); /* the gap a card grid takes from its head */
+    color: var(--muted);
+    font-size: var(--fs-14);
+    line-height: 20px;
+  }
+</style>

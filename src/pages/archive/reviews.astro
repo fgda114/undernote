@@ -1,9 +1,11 @@
 ---
 /**
  * /archive/reviews/ — type preset — the global nav's Reviews target (full listing).
- * Lists all reviews as ArticleCards (no scores — browsing surface, D2).
+ * Lists all reviews as ArticleCards WITH scores — one of the two surfaces
+ * D2-R2 reversed D2 for (2026-09-07). The other is the home's 최신 리뷰.
  */
 import ArticleCard from '../../components/ArticleCard.astro';
+import SectionEmpty from '../../components/SectionEmpty.astro';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/derive/site-data.ts';
 
@@ -18,11 +20,16 @@ const reviews = allArticles.filter((item) => item.type === 'review');
       reviews.length > 0 ? (
         <ul class="cards">
           {reviews.map((item) => (
-            <ArticleCard item={item} />
+            <ArticleCard item={item} showScore />
           ))}
         </ul>
       ) : (
-        <p class="empty">아직 발행된 평론이 없습니다.</p>
+        /* Was "아직 발행된 …이 없습니다." (removed 2026-09-07). "아직" is the
+           publication apologising for its own age, which the same round of
+           edits stripped from the home strip, the Charts caption and
+           /list/{year}/. An empty listing needs no sentence: the heading
+           already named what would be here. */
+        <SectionEmpty />
       )
     }
   </main>
@@ -30,26 +37,13 @@ const reviews = allArticles.filter((item) => item.type === 'review');
 
 <style>
   .listing {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
-  }
-  .page-title {
-    font-family: var(--display);
-    font-size: var(--fs-27);
-    line-height: 32px;
-    letter-spacing: -0.02em;
-    font-weight: 800;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
   }
   .cards {
     list-style: none;
     margin: var(--s-24) 0 0;
     padding: 0;
-  }
-  .empty {
-    margin-top: var(--s-24);
-    color: var(--muted);
-    font-size: var(--fs-14);
-    line-height: 20px;
   }
 </style>
