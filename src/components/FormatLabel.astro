@@ -10,8 +10,10 @@
  * one thing the accent is reserved for. The `chip` variant carries the visual
  * weight instead — a filled surface, not a colored word.
  */
+import { hasNonAscii } from '../lib/typography.ts';
+
 interface Props {
-  /** Label text: Reviews / Notes / Artists / page overlines (e.g. "2026 올해의 앨범"). */
+  /** Label text: Reviews / Notes / Artists / page overlines (e.g. "Archive"). */
   text: string;
   variant?: 'plain' | 'chip';
 }
@@ -19,13 +21,12 @@ interface Props {
 const { text, variant = 'plain' } = Astro.props;
 
 // English labels get wide 0.16em tracking; Korean never does — spaced-out
-// Hangul measurably slows reading. Any non-ASCII code point flips the
-// switch, which is enough: these strings are either a section name or a
-// Korean overline, never a mix that matters.
-const hasNonAscii = [...text].some((ch) => (ch.codePointAt(0) ?? 0) > 127);
+// Hangul measurably slows reading. The rule moved to lib/typography.ts when
+// two more components (the genre bucket headings) needed the same decision.
+const ko = hasNonAscii(text);
 ---
 
-<p class:list={['format-label', variant, { ko: hasNonAscii }]}>{text}</p>
+<p class:list={['format-label', variant, { ko }]}>{text}</p>
 
 <style>
   .format-label {

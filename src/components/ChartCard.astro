@@ -34,6 +34,7 @@
 import type { ChartCardEntry } from '../lib/derive/lists.ts';
 import CoverImage from './CoverImage.astro';
 import { withBase } from '../lib/paths.ts';
+import { hasNonAscii } from '../lib/typography.ts';
 
 interface Props {
   entry: ChartCardEntry;
@@ -49,6 +50,28 @@ interface Props {
 }
 
 const { entry, feature = false, eager = false, anchorId } = Astro.props;
+
+// THE ORDINAL IS PRINTED ONLY WHERE IT ORDERS SOMETHING (2026-09-07).
+// The plate used to open with a bare "1" on every bucket leader. On the home
+// that number is the rank inside a BUCKET, but the home flattens the buckets
+// into one row, so two leaders sat side by side both reading "1" with only a
+// small overline a line below to say they were counting different things —
+// and where a bucket holds a single album, "1위" is not a rank at all, it is
+// the only album restating itself. The numeral now appears from two entries
+// up, which is the point at which it starts distinguishing.
+//
+// The accent plate and the left rail are NOT conditional on this: they mark
+// "this album currently leads its genre", which is true of a bucket of one
+// and is the same claim NominateBadge makes in words on the review page.
+// Where a rank IS asserted (bucketCount >= 2) all three of the leader's
+// channels are still present — plate colour, the numeral, the rail — so the
+// "never by colour alone" rule holds exactly where there is something to
+// convey (WCAG 1.4.1).
+const showRank = entry.bucketCount > 1;
+// Assistive tech keeps the ordinal either way: hearing "8.0" alone tells a
+// screen-reader user less than the plate tells a sighted one, so the
+// sentence carries the rank even where the glyph is dropped.
+const rankSentence = `${entry.rank}위 · 평점 ${entry.score} / 10점 만점`;
 
 // Rendered box widths: 192px in the 5-up grid, 440px as the feature card.
 // The srcset only holds w320 and w640, so these two hints are what decide
@@ -70,17 +93,21 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
           rank 1. Pulling it from the global sheet is what keeps every
           accent-surface rule in one place rather than duplicated here. */}
       <span class:list={['rank-plate', { plate: entry.rank === 1 }]}>
-        <span class="rank tnum" aria-hidden="true">{entry.rank}</span>
-        <span class="score tnum" aria-hidden="true">{entry.score}</span>
-        {/* Two bare numerals are meaningless read aloud; this sentence is
-            what assistive tech announces instead. The bucket is deliberately
-            NOT repeated here — `.bucket` below is real text and follows one
-            node later in reading order. */}
-        <span class="sr-only">{entry.rank}위 · 평점 {entry.score} / 10점 만점</span>
+        <span class="figures">
+          {showRank && <span class="rank tnum" aria-hidden="true">{entry.rank}</span>}
+          <span class="score tnum" aria-hidden="true">{entry.score}</span>
+        </span>
+        {/* Bare numerals are meaningless read aloud; this sentence is what
+            assistive tech announces instead. It keeps the ordinal even where
+            the plate does not print it, so a screen-reader user still hears
+            where the album sits. The bucket is deliberately NOT repeated
+            here: `.bucket` below is real text and follows one node later in
+            reading order. */}
+        <span class="sr-only">{rankSentence}</span>
       </span>
     </span>
     <span class="body">
-      <span class="bucket">{entry.bucketLabel}</span>
+      <span class:list={['bucket', { ko: hasNonAscii(entry.bucketLabel) }]}>{entry.bucketLabel}</span>
       <span class="title">{entry.title}</span>
       <span class="artists">{entry.artists_label}</span>
     </span>
@@ -115,11 +142,13 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
   }
 
   /* ── The plate ── */
+  /* Centres `.figures` as one box; the two numerals share a baseline inside
+     it. Same two-part correction as ScoreMark — see the note there for why
+     `align-items: baseline` on this element pushed the figures to the top of
+     the plate and why the line boxes had to lose their leading as well. */
   .rank-plate {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--s-8);
+    align-items: center;
     min-height: 32px;
     padding: var(--s-4) var(--s-8);
     /* Matches .plate's reserved border so leader and non-leader plates are
@@ -134,18 +163,29 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
     background: var(--surface-3);
     color: var(--ink);
   }
+  .figures {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-8);
+  }
   .rank {
     font-family: var(--mono);
     font-size: var(--fs-13);
-    line-height: 16px;
+    line-height: 1;
     font-weight: 700;
     letter-spacing: 0.04em;
   }
   .score {
     font-family: var(--mono);
     font-size: var(--fs-15);
-    line-height: 20px;
+    line-height: 1;
     font-weight: 800;
+    /* When the rank is not printed the score is the plate's only figure;
+       this keeps it against the right edge, where the score sits in every
+       other plate on the site. */
+    margin-left: auto;
   }
 
   /* ── Text ── */
@@ -160,11 +200,17 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
     font-size: var(--fs-12);
     line-height: 16px;
     font-weight: 700;
-    /* Bucket labels are Korean ("힙합/R&B", "록") — the wide English tracking
-       would hurt them, so this label uses the Korean value. */
-    letter-spacing: var(--label-ls-ko);
+    /* Genre labels are English since 2026-09-07 ("Pop", "Rock"), so this
+       takes the wide Latin tracking; `.ko` below is what a Korean label gets
+       instead. The labels are editor-configured text, so the tracking has to
+       follow the string rather than an assumption about it
+       (lib/typography.ts). */
+    letter-spacing: var(--label-ls);
     text-transform: uppercase;
     color: var(--muted);
+  }
+  .bucket.ko {
+    letter-spacing: var(--label-ls-ko);
   }
   .title {
     font-family: var(--display);

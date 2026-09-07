@@ -309,9 +309,15 @@ export function deriveLatestArticles(
 /** A board entry carried onto the home chart grid. */
 export interface ChartCardEntry extends ListEntry {
   bucketLabel: string;
-  /** Rank INSIDE its own bucket (1..5), not a position in the flat grid —
-   * the card prints it, and rank 1 is what earns the accent plate. */
+  /** Rank INSIDE its own bucket (1..5), not a position in the flat grid.
+   * Rank 1 is what earns the accent plate; whether the NUMERAL is printed
+   * depends on bucketCount below. */
   rank: number;
+  /** How many entries the card's bucket holds. The home flattens the
+   * buckets into one row, so a card cannot show its ordinal without saying
+   * what it is an ordinal OF — and in a bucket of one there is no ordering
+   * to state at all. The card uses this to decide (2026-09-07). */
+  bucketCount: number;
 }
 
 /**
@@ -330,7 +336,17 @@ export interface HomeSections {
 }
 
 /**
- * @param limit cards per browsing section (2 rows of 3 at desktop).
+ * @param limit cards per browsing section.
+ *
+ * FOUR, NOT SIX (2026-09-07). The home's browsing grids are now a FIXED
+ * four-column row on desktop rather than an auto-filling one, so the count
+ * and the layout have to agree: six cards would wrap to a second row holding
+ * two, leaving two empty tracks on the right of the page's widest grid. One
+ * full row per section is the shape the sections were asked for, and it is
+ * also the shape that survives every breakpoint — at three columns it is
+ * 4 = 3 + 1, at two it is 2 + 2, at one it is a short list. The limit is the
+ * same for both sections on purpose: they are siblings, and giving Notes a
+ * different count would invent a rank the editorial structure does not have.
  *
  * Overlap between "best of the year" and "most recent" is normal in any
  * magazine and is NOT deduplicated -- the two sections answer different
@@ -345,9 +361,14 @@ export interface HomeSections {
  * is visibly full of reviews, which reads as a fault rather than as
  * restraint. The genuinely empty case is handled by the page.
  */
-export function deriveHomeSections(board: Board, allArticles: ArticleItem[], limit = 6): HomeSections {
+export function deriveHomeSections(board: Board, allArticles: ArticleItem[], limit = 4): HomeSections {
   const charts = board.buckets.flatMap((bucket) =>
-    bucket.entries.map((entry, i) => ({ ...entry, bucketLabel: bucket.label, rank: i + 1 })),
+    bucket.entries.map((entry, i) => ({
+      ...entry,
+      bucketLabel: bucket.label,
+      rank: i + 1,
+      bucketCount: bucket.entries.length,
+    })),
   );
   return {
     charts,

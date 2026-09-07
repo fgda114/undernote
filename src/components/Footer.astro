@@ -77,9 +77,18 @@ const site = getSiteConfig();
     border-bottom: 2px solid transparent;
     transition: color var(--t-micro), border-color var(--t-micro);
   }
+  /* HOVER IS COLOUR ONLY (2026-09-07). The rule under this link used to
+     light up on hover as well; it no longer does. What replaces it is the
+     hue step --muted → --ink, which is a real change of state (a hovered
+     link gets brighter), so the link still answers the pointer — an element
+     that does nothing at all under the cursor stops reading as a link.
+     What is NOT touched by this:
+       · :focus-visible — the global 2px accent outline is the keyboard
+         reader's only position indicator and is untouched here;
+       · .current below — aria-current keeps its bar, so the page you are on
+         is still marked three ways rather than by colour alone. */
   .footer-about:hover {
     color: var(--ink);
-    border-bottom-color: var(--line-strong);
   }
   .footer-about.current {
     color: var(--ink);

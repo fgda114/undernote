@@ -49,7 +49,13 @@ test('확정 빌드 — 동결 리스트 지면 + 홈 post-finalize 상태', () 
   // immutability sentence it stands for, and the title that survived.
   expect(list).toContain('class="finalized-mark"');
   expect(list).toContain('확정된 리스트입니다');
-  expect(list).toContain('2026 올해의 앨범');
+  // The page title became a single English line, "Charts {year}", on
+  // 2026-09-07 (every other tab names itself in one line; this one was
+  // spending two). The literal string moved OUT of the assertion rather than
+  // out of the suite: what is worth pinning is that the page's one h1 names
+  // the YEAR it is the list for — a finalized 2026 page that titled itself
+  // 2027 would be the real defect — and that survives the next rewording.
+  expect(list).toMatch(/<h1[^>]*class="[^"]*page-title[^"]*"[^>]*>[^<]*2026[^<]*<\/h1>/);
   expect(list).toContain('8장의 앨범');
   // …and the progressive face of the same route carries none of it.
   expect(readPage(dir, '/list/2027/')).not.toContain('class="finalized-mark"');

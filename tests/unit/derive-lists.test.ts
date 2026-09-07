@@ -363,6 +363,13 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
       ['pop-hi', '팝', 1],
       ['pop-lo', '팝', 2],
     ]);
+    // bucketCount travels with the rank (2026-09-07). The card prints the
+    // ordinal only from two entries up, because the home flattens the
+    // buckets into one row and a "1위" out of one album orders nothing —
+    // which is a judgment the CARD makes and the derive layer only supplies
+    // the fact for. Both cases are present here on purpose: the lone
+    // hiphop-rnb entry and the two-deep pop bucket.
+    expect(charts.map((c) => c.bucketCount)).toEqual([1, 2, 2]);
   });
 
   it('빈 버킷은 charts에 아무것도 기여하지 않는다 (R-4 — 홈은 미출력, 구조는 /list/{year}/가 보인다)', () => {
@@ -405,14 +412,17 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
     );
     const { charts, latestReviews } = sectionsFor(repoOf({ albums, reviews }));
     expect(charts).toHaveLength(5); // top-5 cut
-    // Newest first; the lowest-scored album is the newest review here.
+    // Newest first; the lowest-scored album is the newest review here. The
+    // DEFAULT limit dropped 6 → 4 on 2026-09-07 when the home's browsing
+    // grids became a fixed four-column row — six cards would have left two
+    // empty tracks on a second row. Asserted explicitly rather than by
+    // shortening the list, because "one full row" is the property.
+    expect(latestReviews).toHaveLength(4);
     expect(latestReviews.map((a) => a.url)).toEqual([
       '/reviews/pop-f/',
       '/reviews/pop-e/',
       '/reviews/pop-d/',
       '/reviews/pop-c/',
-      '/reviews/pop-b/',
-      '/reviews/pop-a/',
     ]);
   });
 
@@ -488,7 +498,10 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
     const reviews = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) =>
       reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`),
     );
-    const { latestReviews, notes } = sectionsFor(repoOf({ albums, reviews }));
+    // Explicit limit: this test is about the SCORE STRINGS, not about how
+    // many cards the home shows, so it asks for all six rather than tracking
+    // the section cap (which moved 6 → 4 on 2026-09-07).
+    const { latestReviews, notes } = sectionsFor(repoOf({ albums, reviews }), 6);
     // Verbatim, never reformatted — the same rule list surfaces follow.
     expect(latestReviews.map((a) => a.score)).toEqual(['4.0', '5.0', '6.0', '7.0', '8.0', '9.0']);
     // Stories still cannot carry one.

@@ -11,24 +11,33 @@
  *  - PROGRESSIVE: {year} is the active year → live top10 + bucket boards.
  * Covers are display-time lookups by slug (covers aren't frozen data).
  *
- * Both faces carry the SAME h1, "{year} 올해의 앨범", and the SAME overline,
- * "Charts". Neither repeats the other: the overline names the section (the
- * masthead item the reader clicked), the h1 names the year.
+ * TITLE (2026-09-07): both faces carry the SAME single-line h1, "Charts
+ * {year}", and NO overline. Every other tab on this site names itself in one
+ * English line — Reviews, Notes, Artists, Archive — and this page was the
+ * only one spending two lines and two languages to do it ("Charts" over
+ * "{year} 올해의 앨범"). Folding the year into the section name satisfies
+ * the title rules in global.css rather than carving an exception out of
+ * them: rule 1 (one h1, one size) is unchanged, and rule 3 removes the
+ * overline for us — an overline is only allowed where the h1 is NOT the
+ * section name, and "Charts 2026" is the section name plus the axis value
+ * it is scoped to, the same shape "/archive/{year}" would take if Archive
+ * had a per-year tab. The Korean heading survives where it is still the
+ * heading proper: the home's Charts section, which is a section on a page
+ * and not a page.
  *
- * A finalized year is marked by a `.finalized-mark` chip beside the overline
- * and by the caption underneath, which the progressive face does not have at
- * all. The overline used to carry "{year} 올해의 앨범 — 확정", which printed
- * the page's own title twice, one line apart; the mark says the only part of
- * that string the h1 was not already saying.
+ * A finalized year is marked by a `.finalized-mark` chip above the title and
+ * by the caption underneath, neither of which the progressive face has. The
+ * chip stays Korean: it is a STATE, not a section name, and it is the label
+ * on the immutability sentence directly below it.
  */
 import { getEntry, render } from 'astro:content';
-import FormatLabel from '../../../components/FormatLabel.astro';
 import BoardPanel from '../../../components/BoardPanel.astro';
 import ListRankRow from '../../../components/ListRankRow.astro';
 import Base from '../../../layouts/Base.astro';
 import { coverSetFor } from '../../../lib/covers.ts';
 import { getSiteData } from '../../../lib/derive/site-data.ts';
 import { withBase } from '../../../lib/paths.ts';
+import { hasNonAscii } from '../../../lib/typography.ts';
 
 export async function getStaticPaths() {
   const { site, snapshotYears } = getSiteData();
@@ -57,7 +66,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
 ---
 
 <Base
-  title={`${year} 올해의 앨범`}
+  title={`Charts ${year}`}
   description={snapshot ? `${snapshot.data.finalized_at}에 확정된 ${year} 올해의 앨범.` : `${year} 올해의 앨범 — 현재 노미네이트.`}
   path={`/list/${year}/`}
   ogImage={`/og/list/${year}.png`}
@@ -66,26 +75,25 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
 >
   <main class="list-page">
     <header class="head">
-      {/* The English section name, the same pairing the masthead and the
-          home's Charts head use (Charts over the real heading) — plus a
-          state chip when the year is frozen. See the intro for why the
-          overline no longer restates the title. */}
-      <div class="overline">
-        <FormatLabel text="Charts" />
-        {snapshot && <span class="finalized-mark">확정</span>}
-      </div>
+      {/* No overline — see the intro. The row survives only to carry the
+          frozen-year chip, so it renders only when there is one. */}
+      {snapshot && (
+        <div class="state">
+          <span class="finalized-mark">확정</span>
+        </div>
+      )}
       {/* `head-sheen` (global.css) — the second and last heading allowed the
           gradient display treatment. This page IS the list the scores
           produced, which is what --accent is reserved for (tokens.css). */}
-      <h1 class="page-title head-sheen">{`${year} 올해의 앨범`}</h1>
+      <h1 class="page-title head-sheen tnum">{`Charts ${year}`}</h1>
       {
         /* The progressive year has no caption (2026-09-07). "진행 중인 한 해"
            and "이 리스트는 평론이 쌓일 때마다 바뀝니다. 12월에 확정됩니다."
            were cut for the same reason the home's progress strip was: they
            narrate the publication's own state instead of the year's records,
-           and a reader who has just clicked "올해의 앨범" is here for the
-           albums. The overline already says whether the year is 확정, and the
-           section headings below say whether they are 노미네이트 or 선정 — the
+           and a reader who has just clicked Charts is here for the albums.
+           The chip above says whether the year is 확정, and the section
+           headings below say whether they are Nominees or Selections — the
            page's structure carries what the sentence was carrying.
            The finalized caption STAYS: it is not about progress, it is the
            immutability contract (R-8) plus the count R-6 forbids hardcoding
@@ -122,11 +130,15 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
             </ol>
           </section>
           {publishedBuckets.length > 0 && (
-            <section class="buckets" aria-label="장르별 선정">
-              <h2 class="section-title">장르별 선정</h2>
+            /* English section name, same rule the masthead and the home's
+               section heads follow. The accessible name is the same string
+               as the visible heading — a region announced with different
+               words than it prints is two names for one thing. */
+            <section class="buckets" aria-label="Genre Selections">
+              <h2 class="section-title">Genre Selections</h2>
               {publishedBuckets.map((bucket) => (
                 <div class="bucket">
-                  <h3 class="bucket-label">{bucket.label}</h3>
+                  <h3 class:list={['bucket-label', { ko: hasNonAscii(bucket.label) }]}>{bucket.label}</h3>
                   <ol class="rows">
                     {(bucket.nominees ?? []).map((n, i) => (
                       <ListRankRow
@@ -147,8 +159,15 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
       ) : (
         <>
           {top10.entries.length > 0 && (
+            /* No visible heading (2026-09-07). "올해의 앨범 후보 — 현재 상위
+               {n}" described the page's own mechanism — what the rows below
+               it are and how many there are — which is the same kind of
+               self-narration this round cut from the home progress strip and
+               this page's caption. The ranked rows say they are ranked, and
+               the count is the length of the list. The region keeps an
+               accessible name so a screen-reader reader can still jump to
+               it; that name is not page copy. */
             <section aria-label="올해의 앨범 후보">
-              <h2 class="section-title">올해의 앨범 후보 — 현재 상위 {top10.entries.length}</h2>
               <ol class="rows">
                 {top10.entries.map((entry, i) => (
                   <ListRankRow
@@ -163,8 +182,8 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
               </ol>
             </section>
           )}
-          <section class="buckets" aria-label="장르별 노미네이트">
-            <h2 class="section-title">장르별 노미네이트</h2>
+          <section class="buckets" aria-label="Genre Nominees">
+            <h2 class="section-title">Genre Nominees</h2>
             <div class="bucket-grid">
               {board.buckets.map((bucket) => (
                 <BoardPanel bucket={bucket} />
@@ -190,12 +209,16 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
     gap: var(--s-48);
   }
   /* Size and weight come from the shared .page-title (global.css); only the
-     spacing this page needs is local. */
+     spacing this page needs is local. The top margin is the gap under the
+     frozen-year chip, so it exists only when the chip does — the
+     progressive face has nothing above the title to be spaced from. */
   .page-title {
-    margin-top: var(--s-12);
     text-wrap: balance;
   }
-  .overline {
+  .state + .page-title {
+    margin-top: var(--s-12);
+  }
+  .state {
     display: flex;
     align-items: center;
     gap: var(--s-8);
@@ -251,15 +274,23 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
   .bucket {
     margin-top: var(--s-24);
   }
+  /* Genre labels are English since 2026-09-07 ("Pop", "Rock",
+     "Hip-Hop / R&B"), so the default is the wide Latin tracking. `.ko` is
+     not dead code: a FINALIZED year keeps the labels it was frozen with
+     (R-8), so a snapshot written while the config was Korean still renders
+     Korean here and must not be tracked out. */
   .bucket-label {
     font-family: var(--mono);
     font-size: var(--fs-12);
     line-height: 16px;
-    letter-spacing: var(--label-ls-ko);
+    letter-spacing: var(--label-ls);
     font-weight: 700;
     text-transform: uppercase;
     color: var(--ink);
     margin-bottom: var(--s-8);
+  }
+  .bucket-label.ko {
+    letter-spacing: var(--label-ls-ko);
   }
   .bucket-grid {
     display: grid;

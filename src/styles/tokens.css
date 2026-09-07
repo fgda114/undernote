@@ -86,11 +86,14 @@
                        into lavender.
        --bg-sheen      the page wash on <body>, under everything.
 
-     WHERE --head-sheen may be used, exactly: the home's Charts section
-     heading and /list/{year}/'s H1. Those two headings name the list the
-     SCORES produced, which is what --accent means. Painting "최신 리뷰" or a
-     review's album title with it would put the score's colour on something
-     the score did not make, and the doctrine would be decoration again.
+     WHERE --head-sheen may be used, exactly ONE place since 2026-09-07:
+     /list/{year}/'s H1. It named the list the SCORES produced, which is what
+     --accent means. It used to paint the home's Charts section heading too;
+     that heading now rests in lavender with the other two so all three home
+     sections answer the pointer the same way (--title-spot below), and the
+     gradient survives only where the page IS the annual list. Painting a
+     review's album title with it would still put the score's colour on
+     something the score did not make.
 
      WHY --head-sheen crosses into lavender and --accent-sheen does not
      (changed 2026-09-07). The brief wants the reference's visible mint-to-
@@ -100,8 +103,8 @@
      contained to the two places where the accent is TYPE rather than SURFACE
      — a headline is read as one object, a filled plate is read as a mark. So
      surfaces stay pure: --accent-sheen keeps its mint-only stops, which is
-     what paints ScoreMark and the chart leader plate. Mixing is allowed in
-     exactly two tokens, --head-sheen and --bg-sheen, and nowhere else.
+     what paints ScoreMark and the chart leader plate. Mixing is allowed only
+     in the named tokens listed at the end of this block, and nowhere else.
 
      Every stop below is a value that already exists in the palette —
      #8BF7D2 (mint, one step up), --accent, --accent-2 — so the ramp is
@@ -110,12 +113,93 @@
      15.20 / 13.62 / 9.10:1 and against the worst-case page wash #1E2D38
      they are 10.97 / 9.83 / 6.57:1; the interpolated middle of the ramp is
      brighter than both ends, so 6.57 is the floor. AA (4.5:1) holds across
-     the whole ramp with no threshold lowered. */
+     the whole ramp with no threshold lowered.
+
+     THE LIST IS NOW FOUR, and it is written as a list rather than a count
+     because it moved twice in one day (2026-09-07):
+
+       --bg-sheen      the page wash, carries no meaning
+       --head-sheen    /list/{year}/'s H1 — the page that IS the annual list
+       --title-sheen   a hovered home CARD title, mixed by pointer position
+       --title-spot    a hovered home SECTION HEADING, a travelling spotlight
+
+     The clause that matters is unchanged — mixing lives in a list of named
+     tokens and nowhere else — and each entry states its own cost where it is
+     declared. The last two are one vocabulary at two scales: the heading is
+     lit per GLYPH because it is a few large letters under one light, and the
+     card title shifts as a WHOLE because a grid of twelve independently
+     multicoloured headlines reads as a fault rather than as a light source.
+     That difference is the whole reason they are two tokens. */
   --accent-sheen: linear-gradient(135deg, #8bf7d2 0%, #63efc0 45%, #46d9de 100%);
   --head-sheen: linear-gradient(100deg, #8bf7d2 0%, #63efc0 34%, #b9a5f7 100%);
-  --bg-sheen:
-    radial-gradient(1100px 620px at 18% -12%, rgba(99, 239, 192, 0.1), transparent 72%),
-    radial-gradient(900px 520px at 88% -4%, rgba(185, 165, 247, 0.08), transparent 68%);
+  /* --title-sheen  TEXT only, and only on a HOVERED home browsing card's
+     title. Where --title-spot lights individual glyphs, this moves the whole
+     title along the same ramp: mint at the card's left edge, lavender at its
+     right, continuous in between. A card title is ~17px and two lines long,
+     so a spotlight inside it would be a smudge; what reads at that size is
+     the element changing as a unit.
+       · --px is the pointer's horizontal offset from the tracked box's
+         centre, -0.5..0.5, written on :root by the inline module in
+         Base.astro — the same property --title-spot and the cover zoom use.
+         No listener exists for any of the three.
+       · The FALLBACK 0.5 resolves to 100% lavender, i.e. exactly the flat
+         --accent-2-ink hover this replaced, and it is what every environment
+         without a pointer lands on (touch, reduced motion, JS off, no
+         color-mix support). Nothing degrades to a colour that was not
+         already shipping.
+       · Contrast: interpolated in oklab at 0.1% steps across the whole ramp
+         and measured against the hovered card's ground (--surface-2), the
+         floor is 7.93:1 at the pure-lavender end and the peak 11.87:1 at the
+         mint end — no mid-ramp dip, AAA everywhere. Table in
+         08-impl-notes/frontend.md.
+       · Doctrine cost: same as --title-spot's, and stated there. */
+  --title-sheen: color-mix(
+    in oklab,
+    var(--accent-2-ink) clamp(0%, calc(50% + var(--px, 0.5) * 100%), 100%),
+    var(--accent-ink)
+  );
+
+  /* --title-spot  TEXT only, and only on a HOVERED home section heading.
+     The third — and, by the rule above, last — token allowed to cross from
+     mint into lavender, added 2026-09-07.
+
+     WHAT IT IS. The three home section headings rest in LAVENDER, and while
+     the pointer is over one of them a mint spotlight travels across the
+     glyphs it passes: a radial gradient positioned by the pointer and
+     clipped to the text. The heading is one object under one moving light,
+     which is why this is a heading effect and not a card effect — an earlier
+     pass put a cursor-following ramp on every card title in the grid and a
+     dozen independently-coloured headlines read as a fault, not a light.
+
+     · --px/--py are the pointer's offset from the tracked box's centre,
+       -0.5..0.5, written on :root by the inline module in Base.astro — the
+       same two properties that drive the cover zoom. No listener was added.
+       `calc((var(--px) + 0.5) * 100%)` is the whole conversion from that
+       range to a background position.
+     · 96px, not an em value: the radius is the size of the LIGHT, not of the
+       type. Fixed in px it covers ~3 Korean glyphs at the 34px desktop
+       heading and stays a spotlight rather than scaling into a wash.
+     · FALLBACK 0/0 centres the circle, but nothing sees it: the gradient is
+       applied only under :hover, and every environment without a pointer
+       (touch, prefers-reduced-motion, no script, no background-clip) is
+       pinned to flat lavender in global.css. Nothing degrades to a colour
+       that was not already shipping.
+     · sRGB interpolation, deliberately NOT `in oklab`: an engine that parses
+       background-clip:text but not colour-space interpolation would drop the
+       whole gradient while `color: transparent` still applied — an invisible
+       heading. The ramp is measured as it actually renders; the floor is
+       6.58:1 against the worst-case page wash and 9.11:1 against flat --bg
+       (full table in 08-impl-notes/frontend.md).
+     · Doctrine cost, stated: lavender means "the way out" and mint means
+       "what the score made". A section heading is neither a link nor a
+       score, so BOTH ends of this ramp are on loan. It is contained the same
+       way --head-sheen is — TYPE, momentary, reader-initiated, never a
+       SURFACE — and the score plates stay mint-only. */
+  --title-spot: radial-gradient(
+    circle 96px at calc((var(--px, 0) + 0.5) * 100%) calc((var(--py, 0) + 0.5) * 100%),
+    var(--accent-ink) 0%,
+    var(--accent-2-ink) 100%
+  );
 
   /* ── Type: role tokens. Adding faces later is a 4-line change here and a
      @font-face pair in Base.astro — components never name a family. ── */
@@ -203,22 +287,41 @@
   /* Side gutter — RESPONSIVE, because one number cannot serve both ends.
      A fixed 20px was fine while the shell was 1080 (the frame ran out before
      the screen did), but at 1440 it put the content against the edge on a
-     1440px laptop — the exact width most readers have. Measured:
+     1440px laptop — the exact width most readers have.
+
+     THE RATE, NOT THE SHAPE, CHANGED (2026-09-07, second pass). `4vw` still
+     read as cramped through 1440–1700: that band is the one place where
+     neither end of the clamp helps, because the shell (1440) has not started
+     capping the frame yet and so every pixel of screen the gutter does not
+     take goes into the content instead. Below ~1580 the gutter is now a
+     LINE THROUGH TWO MEASURED POINTS rather than a share of the screen:
+
+         768px → 30.5px  (deliberately where 4vw already was — the tablet
+                          end was not the complaint and must not shrink)
+        1580px → 120px   (the ceiling, reached just before the shell caps)
+
+     which is `0.11 * vw − 54px`. Measured across the checked widths:
 
        screen   gutter   content   side margin
-        360      20        320        20     (unchanged from before)
-        768      31        707        31
-       1440      58       1325        58     ← was 20px, the reported defect
-       1920      72       1440       240     (shell caps first)
-       2560      72       1440       560
+        360      20        320        20     (floor holds — unchanged)
+        768      30.5      707       30.5    (was 30.7 — unchanged in practice)
+       1024      58.6      907       58.6
+       1440     104.4     1231      104.4    ← was 58px, the reported defect
+       1680     120       1440       120     (shell starts capping here)
+       1920     120       1440       240
+       2560     120       1440       560
 
-     4vw is the growth rate and 72px the ceiling: past ~1800 the frame stops
-     growing anyway, so a gutter that kept growing would only be measuring
-     the same margin twice. Containers use
+     The 120px ceiling only bites in the ~1580–1680 band; above it the shell
+     caps the frame first and the margin grows on its own, so a gutter that
+     kept climbing would only be measuring the same space twice.
+
+     COST, STATED: content at 1440 drops 1325 → 1231, so every card width on
+     the page moved and the hierarchy table had to be re-measured from
+     scratch (08-impl-notes/frontend.md). Containers use
      `width: min(var(--shell), 100% - 2 * var(--gutter))` rather than
      max-width + padding, so the gutter is REAL SPACE outside the box and a
      full-bleed child (a rule, a divider) can still reach the edge. */
-  --gutter: clamp(20px, 4vw, 72px);
+  --gutter: clamp(20px, 11vw - 54px, 120px);
   /* The review page's own outer bound: rail + gap + measure + the 20px page
      padding on each side. The +40 is not decoration — max-width bounds the
      BORDER box, so leaving it out charges the padding to the prose and the

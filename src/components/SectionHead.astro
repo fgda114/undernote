@@ -24,11 +24,18 @@
  * actually renders takes it, the rest are h2. Which sections render depends
  * on content, so the level cannot be hardcoded per section.
  *
- * `sheen` opts the heading into the gradient display treatment (`.head-sheen`
- * in global.css). It is a per-call-site decision, not a default, and the rule
- * for turning it on lives in tokens.css: only headings that name the list the
- * SCORES produced. This component does not — and should not — know that rule;
- * the page does.
+ * COLOUR (2026-09-07): every section heading rests in LAVENDER and lights up
+ * mint under the pointer, one glyph at a time (`.title-spot`, global.css).
+ * It is a default here and has no prop, because the treatment belongs to the
+ * OBJECT — "a section heading on the home" — and not to any one section's
+ * meaning. That is the opposite of the `sheen` prop it replaced, and the
+ * reason: `sheen` (--head-sheen) said "the scores made this list", which was
+ * true of Charts and of nothing else on the page, so it had to be opt-in.
+ * A heading that answers the pointer says nothing about its section, so a
+ * per-call-site switch would only be an invitation to make one section look
+ * different for no stated reason. --head-sheen now survives on exactly one
+ * heading in the site, /list/{year}/'s H1, which is a page title rather than
+ * a section head and does not pass through this component.
  */
 import FormatLabel from './FormatLabel.astro';
 
@@ -38,17 +45,15 @@ interface Props {
   /** Korean heading. */
   title: string;
   level?: 'h1' | 'h2';
-  /** Gradient display treatment — see the intro before switching this on. */
-  sheen?: boolean;
 }
 
-const { label, title, level = 'h2', sheen = false } = Astro.props;
+const { label, title, level = 'h2' } = Astro.props;
 const Heading = level;
 ---
 
 <header class="section-head">
   <FormatLabel text={label} />
-  <Heading class:list={['title', { 'head-sheen': sheen }]}>{title}</Heading>
+  <Heading class="title title-spot">{title}</Heading>
 </header>
 
 <style>

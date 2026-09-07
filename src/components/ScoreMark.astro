@@ -23,26 +23,51 @@ const { score } = Astro.props;
 ---
 
 <p class="score-mark plate">
-  <span class="value tnum" aria-hidden="true">{score}</span>
-  <span class="scale" aria-hidden="true">/10</span>
+  {/* The two figures are wrapped so the plate can CENTRE them as one box
+      while they keep sharing a baseline with each other — see the style
+      note below for why that needs two elements. */}
+  <span class="figures">
+    <span class="value tnum" aria-hidden="true">{score}</span>
+    <span class="scale" aria-hidden="true">/10</span>
+  </span>
   {/* AT reads the full scale — a bare "8.3" is meaningless out of context. */}
   <span class="sr-only">평점 {score} / 10점 만점</span>
 </p>
 
 <style>
+  /* VERTICAL CENTRING, IN TWO PARTS (2026-09-07 — the plate read as
+     top-heavy: no gap above the figure and ~40px below it).
+     1. A single-line flex container with `align-items: baseline` places its
+        line at the START of the container, so all of the slack in an 88px
+        plate landed under the number. The two figures moved into `.figures`,
+        which the plate now centres as one box while the figures go on
+        sharing a baseline INSIDE it — one property cannot do both jobs on
+        the same element.
+     2. `line-height: 1` on the number. A 44px line box around a 44px digit
+        reserves descender room that digits never occupy, which pushes the
+        ink above the box's centre even after the box is centred.
+     ChartCard's rank plate, ArticleCard's card plate and the list thumbnail
+     chip take the same two-part correction: the four score marks are one
+     object at four sizes, and they were all top-heavy for the same reason.
+     Measured ink offsets are in 08-impl-notes/frontend.md. */
   .score-mark {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    align-items: center;
     width: 100%;
     height: 88px;
     padding: 0 var(--s-16);
     margin: 0;
   }
+  .figures {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
+  }
   .value {
     font-family: var(--display);
     font-size: var(--fs-44);
-    line-height: 44px;
+    line-height: 1;
     letter-spacing: -0.02em;
     font-weight: 800;
     color: var(--on-accent);
@@ -61,7 +86,7 @@ const { score } = Astro.props;
     }
     .value {
       font-size: var(--fs-34);
-      line-height: 34px;
+      line-height: 1;
     }
   }
 </style>

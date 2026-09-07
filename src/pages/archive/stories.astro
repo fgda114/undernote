@@ -19,7 +19,9 @@ const stories = allArticles.filter((item) => item.type === 'story');
       stories.length > 0 ? (
         <ul class="cards">
           {stories.map((item) => (
-            <ArticleCard item={item} />
+            /* showFormat={false} — same reason as /archive/reviews/: the
+               h1 is "Notes" and nothing but a note can appear under it. */
+            <ArticleCard item={item} showFormat={false} />
           ))}
         </ul>
       ) : (

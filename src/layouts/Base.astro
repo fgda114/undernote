@@ -8,8 +8,9 @@
  * score field at all (E-115 is enforced at the type level, src/lib/og).
  *
  * CLIENT JS: "zero" became "a budget" on 2026-09-07 (lead decision). Exactly
- * ONE inline module ships, from this file, under 2KB, and it does two
- * decorative things. What replaced the old zero as the guard is measured, not
+ * ONE inline module ships, from this file, under the ceiling in
+ * build.dist-matrix.spec.ts (2304B; the block measures 2076B), and it does
+ * two decorative things. What replaced the old zero as the guard is measured, not
  * assumed — build.dist-matrix.spec.ts fails the build if any page carries
  * more than one script tag, if any script has a src, or if the inline body
  * exceeds the byte budget; browser.flows.spec.ts still proves that no
@@ -97,9 +98,11 @@ const fontFaceCss = `
         and the cover hover zoom is pure CSS. Nothing here creates, moves, focuses or
         labels anything, so a reader without JavaScript is missing an effect,
         not a feature — which is why there is no <noscript> counterpart to
-        write. Ship budget: this block is the whole of it. The ceiling moved from
-        1KB to 2KB when the pager arrived; build.dist-matrix.spec.ts holds
-        the new number and will fail if a third feature outgrows it.
+        write. Ship budget: this block is the whole of it. The ceiling has
+        moved twice — 1KB → 2KB when the pager arrived, 2048B → 2304B when
+        the tracking below grew from one reader to three — and each move is
+        recorded with its reason in build.dist-matrix.spec.ts, which holds
+        the number and fails the build when a feature outgrows it.
 
         THE PAGER never creates a control. The arrows are anchors in the
         HTML, so a reader without JavaScript gets "jump to the start / to the
@@ -114,8 +117,25 @@ const fontFaceCss = `
             and attaching pointermove there would burn battery for nothing;
           · prefers-reduced-motion — refused at the ENTRY POINT, not merely
             hidden in CSS, so the work is never even scheduled;
-          · a .cover-frame under the pointer — otherwise pointermove returns
-            on its first line.
+          · a tracked box under the pointer — a .cover-frame, a home
+            browsing card (.card-link) or a home section heading
+            (.title-spot) — otherwise pointermove returns on its first line.
+
+        TWO READERS, ONE MEASUREMENT (2026-09-07). --px/--py are written on
+        :root rather than on the tracked element, because the second reader —
+        the hovered heading's spotlight and the hovered card title's ramp — is a
+        SIBLING of the cover, not a descendant of it, and a custom property
+        only travels downwards. Writing at the root costs nothing (only the
+        hovered anchor has a rule that reads them) and is what lets one
+        listener serve both effects.
+        THREE BOXES, ONE MEASUREMENT. Each reader needs the pointer's
+        position inside its OWN box: the zoom inside the cover, the spotlight
+        inside the heading, the card ramp inside the card. `closest` returns
+        the innermost match, so a pointer over a card's cover measures
+        against the cover and one over its text measures against the card —
+        the colour therefore keeps tracking below the artwork, and the zoom's
+        travel merely takes a looser origin there, which the ±0.5 clamp keeps
+        inside the frame either way.
 
         No layout thrash: the frame is measured ONCE per enter, writes are
         coalesced into one rAF, and the only thing written is two custom
@@ -153,18 +173,20 @@ const fontFaceCss = `
     sync();
   }
 
-  // Cover cursor tracking.
+  // Pointer tracking: --px/--py on :root, read by the cover zoom, the card
+  // title ramp and the section heading spotlight. See the note above.
   if (q('(hover:hover) and (pointer:fine)') && !still) {
+    const s = document.documentElement.style;
     let f = null, b = null, x = 0, y = 0, r = 0;
     const clamp = (v) => (v < -0.5 ? -0.5 : v > 0.5 ? 0.5 : v);
     const write = () => {
       r = 0;
-      if (f) f.style.setProperty('--px', x), f.style.setProperty('--py', y);
+      s.setProperty('--px', x), s.setProperty('--py', y);
     };
     addEventListener('pointerover', (e) => {
-      const n = e.target.closest ? e.target.closest('.cover-frame') : null;
+      const n = e.target.closest ? e.target.closest('.cover-frame,.card-link,.title-spot') : null;
       if (n === f) return;
-      if (f) f.style.removeProperty('--px'), f.style.removeProperty('--py');
+      if (!n) s.removeProperty('--px'), s.removeProperty('--py');
       b = (f = n) && n.getBoundingClientRect();
     }, { passive: true });
     addEventListener('pointermove', (e) => {

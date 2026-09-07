@@ -99,3 +99,224 @@ test('reduced-motion — 보드 스태거 애니메이션 제거 실측', async 
   expect(animated).not.toBe('none'); // baseline: the stagger exists
   expect(reduced).toBe('none');
 });
+
+/**
+ * Hover treatments, 2026-09-07. A screenshot cannot prove any of these — a
+ * still frame of an animation is indistinguishable from a still frame of no
+ * animation — so the three properties that could regress silently are
+ * measured: the underline grows from the CENTRE, it does not move the item
+ * it belongs to, and the reduced-motion path still SHOWS the state instead
+ * of hiding it. That last one is the reason this test exists at all:
+ * "respect the preference" is easy to implement as "delete the indicator",
+ * which would leave a keyboard-and-motion-sensitive reader with no hover
+ * feedback at all.
+ */
+test('내비 hover 밑줄 — 가운데에서 퍼짐 · 시프트 0 · reduced-motion에서는 즉시 표시', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(u('/'));
+  const link = page.locator('.nav-link').nth(1); // not the current page
+  const read = () =>
+    link.evaluate((el) => {
+      const a = getComputedStyle(el, '::after');
+      const r = el.getBoundingClientRect();
+      return { transform: a.transform, origin: a.transformOrigin, duration: a.transitionDuration, width: r.width, height: r.height };
+    });
+  const scaleX = (m: string) => (m === 'none' ? 1 : Number(m.match(/matrix\(([-\d.]+)/)![1]));
+
+  const rest = await read();
+  expect(scaleX(rest.transform), '기본 상태에서 밑줄이 이미 보임').toBe(0);
+  // The origin is the box's own centre — that IS "opens from the middle".
+  expect(Math.abs(parseFloat(rest.origin) - rest.width / 2)).toBeLessThan(1);
+  expect(parseFloat(rest.duration), '애니메이션 없음').toBeGreaterThan(0.05);
+
+  await link.hover();
+  // Polled, not slept: the bar is mid-transition for 120ms after the pointer
+  // arrives, and reading it on the same tick measures the animation's first
+  // frame rather than its destination.
+  await expect.poll(async () => scaleX((await read()).transform)).toBeCloseTo(1, 2);
+  const hovered = await read();
+  // Zero layout shift: the bar is an absolutely positioned pseudo-element
+  // over a permanently reserved 2px border, so the item cannot move.
+  expect([hovered.width, hovered.height]).toEqual([rest.width, rest.height]);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await link.hover();
+  const still = await read();
+  expect(parseFloat(still.duration), 'reduce에서 전환이 살아 있음').toBeLessThanOrEqual(0.001);
+  // No poll here on purpose: under `reduce` the bar has to be at full width
+  // on the SAME tick the pointer arrives. Polling would hide exactly the
+  // failure this line exists to catch.
+  expect(scaleX(still.transform), 'reduce에서 상태 표시 자체가 사라짐').toBeCloseTo(1, 2);
+});
+
+test('About hover — 밑줄 없음 · 색은 바뀜 · focus-visible 아웃라인 유지', async ({ page }) => {
+  await page.goto(u('/'));
+  const about = page.locator('.footer-about');
+  const read = () =>
+    about.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return {
+        color: s.color,
+        decoration: s.textDecorationLine,
+        border: s.borderBottomColor,
+        after: getComputedStyle(el, '::after').content,
+      };
+    });
+  const rest = await read();
+  await about.hover();
+  // …the link must still answer the pointer, or it stops reading as one.
+  // Polled: the colour step is a 120ms transition.
+  await expect.poll(async () => (await read()).color).not.toBe(rest.color);
+  const hovered = await read();
+  // Three ways an underline could appear here; none of them may.
+  expect(hovered.decoration).toBe('none');
+  expect(hovered.border).toContain('rgba(0, 0, 0, 0)');
+  expect(hovered.after).toBe('none');
+  // The keyboard reader's position indicator is untouched by all of that.
+  const outline = await about.evaluate((el) => {
+    el.focus();
+    const s = getComputedStyle(el);
+    return `${s.outlineStyle} ${s.outlineWidth}`;
+  });
+  expect(outline).toBe('solid 2px');
+});
+
+/**
+ * The home section heading's spotlight (--title-spot). Three properties, and
+ * the last two are the ones that could regress silently:
+ *   · the colour changes with the pointer's position across the glyphs;
+ *   · the RESTING heading is never clipped — `background-clip: text` with a
+ *     transparent colour is one typo away from an invisible headline, so the
+ *     un-hovered state has to paint a real colour;
+ *   · every environment without a pointer to follow (reduced motion, touch)
+ *     lands on flat lavender rather than on the middle of the ramp.
+ */
+test('홈 섹션 제목 hover — 커서 위치로 글자 색이 변하고, 비호버·reduced-motion은 단색 라벤더', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(u('/'));
+  const heading = page.locator('.title-spot').first();
+  await expect(heading).toBeVisible();
+
+  // Resting state: a real colour, no clipping. If this ever reports
+  // `rgba(0, 0, 0, 0)` the heading is invisible on screen.
+  const resting = await heading.evaluate((el) => ({
+    color: getComputedStyle(el).color,
+    image: getComputedStyle(el).backgroundImage,
+  }));
+  expect(resting.color, '비호버 상태에서 제목이 투명').toBe('rgb(185, 165, 247)');
+  expect(resting.image).toBe('none');
+
+  // Hovered: the gradient is positioned by the pointer, so moving across the
+  // heading moves the light. The background-position is what carries it —
+  // `color` is transparent while clipping, so the glyph colour cannot be
+  // sampled with getComputedStyle and the gradient's own value is the proof.
+  const box = (await heading.boundingBox())!;
+  const imageAt = async (fraction: number) => {
+    await page.mouse.move(box.x + box.width * fraction, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+    return heading.evaluate((el) => getComputedStyle(el).backgroundImage);
+  };
+  const left = await imageAt(0.05);
+  const right = await imageAt(0.95);
+  expect(left, '커서를 옮겨도 스포트라이트가 그대로').not.toBe(right);
+  expect(left).toContain('gradient');
+  expect(await heading.evaluate((el) => getComputedStyle(el).color)).toBe('rgba(0, 0, 0, 0)');
+
+  // No pointer to follow → flat lavender, and NOT clipped.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2);
+  await page.waitForTimeout(200);
+  const reduced = await heading.evaluate((el) => ({
+    color: getComputedStyle(el).color,
+    image: getComputedStyle(el).backgroundImage,
+  }));
+  expect(reduced.color).toBe('rgb(185, 165, 247)');
+  expect(reduced.image).toBe('none');
+});
+
+/**
+ * The home CARD title's ramp (--title-sheen) — the second of the two
+ * pointer-driven colour effects, and a separate object from the heading
+ * spotlight above: the heading is lit per glyph, the card shifts as a whole.
+ * Both are asserted, because both share one listener and one pair of custom
+ * properties, so a change to the tracking can break either one silently.
+ *
+ * The half worth the most here is the fallback: the ramp exists only where a
+ * pointer does, and everywhere else — reduced motion, touch, no script — the
+ * title must land on the flat lavender it had before, not on the middle of
+ * the ramp and not on an invalid colour that resolves to inherited ink.
+ */
+test('홈 카드 제목 hover — 커서 위치로 색이 변하고, 폴백은 단색 라벤더', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(u('/'));
+  const card = page.locator('section[aria-label="최신 리뷰"] .card-link').first();
+  const title = card.locator('.title').first();
+  await card.hover();
+
+  const box = (await card.boundingBox())!;
+  // Settled colour at a pointer position: the 120ms transition on .title is
+  // what makes the ramp follow rather than flicker, so every read waits for
+  // it to land instead of sampling a frame of the travel.
+  const colourAt = async (fraction: number) => {
+    await page.mouse.move(box.x + box.width * fraction, box.y + box.height * 0.9);
+    await page.waitForTimeout(300);
+    return title.evaluate((el) => getComputedStyle(el).color);
+  };
+  const left = await colourAt(0.06);
+  const middle = await colourAt(0.5);
+  const right = await colourAt(0.94);
+  expect(new Set([left, middle, right]).size, '커서를 옮겨도 색이 같음').toBe(3);
+
+  // The far end of the travel is the colour this hover always was. Compared
+  // through an identical color-mix so the two strings share a colour space:
+  // color-mix computes in oklab and getComputedStyle reports oklab().
+  const lavender = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'color-mix(in oklab, var(--accent-2-ink) 100%, var(--accent-ink))';
+    document.body.appendChild(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return c;
+  });
+  await page.evaluate(() => document.documentElement.style.removeProperty('--px'));
+  await expect
+    .poll(async () => title.evaluate((el) => getComputedStyle(el).color), { message: '--px 없을 때의 폴백' })
+    .toBe(lavender);
+
+  // Under `reduce` the media-query override replaces the whole declaration,
+  // so the value is a plain colour and must not move even with --px forced
+  // to the far end of the ramp.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await card.hover();
+  await page.evaluate(() => document.documentElement.style.setProperty('--px', '-0.5'));
+  expect(await title.evaluate((el) => getComputedStyle(el).color), 'reduce에서도 램프가 살아 있음').toBe(
+    'rgb(185, 165, 247)',
+  );
+});
+
+/**
+ * The list thumbnail's score chip (2026-09-07) is the ONE place this site
+ * overlays album art, so the trade it was accepted on is measured: the
+ * figure's legibility must not depend on the artwork underneath. The chip is
+ * opaque, which is what makes that true — this test would fail the moment
+ * someone made it translucent to show more of the cover.
+ */
+test('목록 썸네일 점수 칩 — 커버와 무관한 불투명 배경 · 커버 위 우하단', async ({ page }) => {
+  await page.goto(u('/archive/reviews/'));
+  const chip = page.locator('.thumb-score').first();
+  const frame = page.locator('.article-card .cover-frame').first();
+  await expect(chip).toBeVisible();
+
+  const bg = await chip.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg, '반투명 배경은 커버에 가독성을 맡기는 것').toBe('rgb(31, 38, 55)');
+
+  // Bottom-right, inside the artwork, and small: the overlay is a corner
+  // mark, not a band across the cover.
+  const c = (await chip.boundingBox())!;
+  const f = (await frame.boundingBox())!;
+  expect(c.x + c.width).toBeLessThanOrEqual(f.x + f.width + 0.5);
+  expect(c.y + c.height).toBeLessThanOrEqual(f.y + f.height + 0.5);
+  expect(c.x).toBeGreaterThan(f.x + f.width / 2);
+  expect(c.y).toBeGreaterThan(f.y + f.height / 2);
+  expect((c.width * c.height) / (f.width * f.height), '커버를 가리는 면적').toBeLessThan(0.15);
+});

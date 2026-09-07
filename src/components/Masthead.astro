@@ -9,9 +9,12 @@
  * year's list, the artist index, archive and about. Shell pages for these
  * routes are a W5.2 obligation (E-112 readiness).
  *
- * ORDER (settled 2026-09-07): Reviews · Notes · Charts · Artists · Archive.
- * The first four are the publication's CONTENT — the two formats it
- * publishes, the list its scores produce, and the people it writes about.
+ * ORDER (revised 2026-09-07): Charts · Reviews · Notes · Artists · Archive.
+ * The row now reads in the SAME order the home stacks its sections — Charts,
+ * then Latest Reviews, then Notes — so a reader who scrolls the front page
+ * and a reader who scans the nav are given the publication in one order
+ * rather than two. Charts leads because the annual list is what this site is
+ * for; the two formats follow; Artists is the people it writes about; and
  * Archive closes the row as the tool for finding any of them again.
  *
  * ABOUT IS NOT HERE. It moved to the footer: it is the colophon, not a
@@ -35,9 +38,9 @@ const site = getSiteConfig();
 
 // Every href passes withBase — subpath deploys 404 otherwise (B-1).
 const items = [
+  { key: 'list', label: 'Charts', href: withBase(`/list/${site.active_year}/`) },
   { key: 'reviews', label: 'Reviews', href: withBase('/archive/reviews/') },
   { key: 'stories', label: 'Notes', href: withBase('/archive/stories/') },
-  { key: 'list', label: 'Charts', href: withBase(`/list/${site.active_year}/`) },
   { key: 'artists', label: 'Artists', href: withBase('/artists/') },
   { key: 'archive', label: 'Archive', href: withBase('/archive/') },
 ] as const;
@@ -109,18 +112,62 @@ const items = [
     display: inline-flex;
     align-items: center;
     min-height: 44px;
-    /* Reserved from the start so hover/current never shift the row by 2px. */
+    /* The 2px rule is RESERVED SPACE, permanently transparent: the visible
+       bar is the ::after below. Keeping the border means the row's height is
+       identical in every state, so neither hovering nor landing on a page
+       can shift the masthead by 2px (CLS stays 0). */
     border-bottom: 2px solid transparent;
-    transition: color var(--t-micro), border-color var(--t-micro);
+    /* The bar is positioned against the padding box, which the transparent
+       border sits just outside of — hence bottom: -2px below. */
+    position: relative;
+    transition: color var(--t-micro);
   }
-  .nav-link:hover {
-    color: var(--ink);
-    border-bottom-color: var(--line-strong);
+  /* Hover underline, drawn from the CENTRE OUT. scaleX on a pseudo-element
+     rather than an animated width/border: a transform is composited, so the
+     bar cannot reflow the item it belongs to, and `transform-origin: center`
+     is the whole of the "opens outwards from the middle" effect. The element
+     is always in the box at scaleX(0) — nothing is created on hover, so
+     there is nothing to lay out. */
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 2px;
+    background: var(--line-strong);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform var(--t-micro);
   }
+  .nav-link:hover::after {
+    transform: scaleX(1);
+  }
+  /* Current page: THREE channels, unchanged in substance — ink colour,
+     weight 800, and the bar — so the state never rests on colour alone
+     (WCAG 1.4.1). The bar moved from border-bottom-color onto the same
+     pseudo-element the hover uses, because two bars stacked in the same 2px
+     of space would have hidden the accent under the hover grey. Declared
+     AFTER the hover rule (equal specificity) so hovering the current item
+     keeps the accent rather than repainting it. */
   .nav-link.current {
     color: var(--ink);
     font-weight: 800;
-    border-bottom-color: var(--accent);
+  }
+  .nav-link.current::after {
+    background: var(--accent);
+    transform: scaleX(1);
+  }
+  /* Reduced motion: the underline still APPEARS — removing the state
+     indicator would be a worse answer than removing the animation — it just
+     arrives at full width instead of growing to it. The global rule in
+     global.css already collapses the duration; this states the intent
+     locally so a later edit to that rule cannot silently reintroduce the
+     sweep here. */
+  @media (prefers-reduced-motion: reduce) {
+    .nav-link::after {
+      transition: none;
+    }
   }
   @media (max-width: 640px) {
     .masthead-inner {

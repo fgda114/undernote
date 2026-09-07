@@ -196,17 +196,32 @@ test('US-9/SS-12 — 아티스트 집계: 공유 아티스트 2편, 복수 아�
  *                   framework runtime. This is the clause that makes
  *                   "hand-written and reviewable" enforceable rather than
  *                   aspirational.
- *   byte ceiling  · a hand-written enhancement fits in 1KB; a library does
- *                   not. Raising this number is a decision someone has to
- *                   make on purpose, in a diff, with a reason.
+ *   byte ceiling  · a hand-written enhancement fits in a couple of KB; a
+ *                   library does not. Raising this number is a decision
+ *                   someone has to make on purpose, in a diff, with a reason.
  *
  * Turning goatcounter on adds a second (external) tag and will fail this
  * test until it is taught about that one — deliberately: the budget should
  * notice a change of that size.
+ *
+ * CEILING HISTORY. 1024 → 2048 when the chart pager arrived; 2048 → 2304 on
+ * 2026-09-07, when the pointer tracking grew from one reader to THREE (the
+ * cover zoom, plus a hovered card title's colour ramp and a hovered section
+ * heading's spotlight) and the block measured 2076B. It was raised rather
+ * than shaved: a ceiling you sit two bytes under is not a ceiling, it is a
+ * trap for the next edit, and shortening working comments to hit a byte
+ * count is the wrong reason to edit a comment. 2304 leaves ~228B — room for
+ * one more hand-written line, not for a runtime.
+ *
+ * The number moved twice inside that day, which is worth recording because
+ * it is what the mechanism is FOR: the ramp was implemented, withdrawn on a
+ * re-scoping, and reinstated when the re-scoping turned out to be an
+ * addition rather than a replacement. Each time, this line is what said so
+ * out loud instead of letting the payload drift quietly.
  */
-const INLINE_JS_BUDGET_BYTES = 2048;
+const INLINE_JS_BUDGET_BYTES = 2304;
 
-test('NFR — 클라이언트 JS 예산: 지면당 인라인 1개 · 외부 JS 0 · 2KB 이하', () => {
+test('NFR — 클라이언트 JS 예산: 지면당 인라인 1개 · 외부 JS 0 · 상한 이하', () => {
   for (const p of pages) {
     const html = readPage(dir, p);
     const tags = html.match(/<script\b[^>]*>[\s\S]*?<\/script>/g) ?? [];
