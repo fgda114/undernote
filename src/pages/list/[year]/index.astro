@@ -46,7 +46,7 @@ export async function getStaticPaths() {
 }
 
 const year = Number(Astro.params.year);
-const { site, board, top10, data } = getSiteData();
+const { board, top10, data } = getSiteData();
 const snapshot = data.snapshots.find((s) => s.data.year === year);
 
 const albumCovers = new Map(data.albums.map((a) => [a.slug, a.data.cover]));

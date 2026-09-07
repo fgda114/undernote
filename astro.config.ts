@@ -10,9 +10,15 @@
  *     E-1xx failure throws — nothing invalid can deploy, and the editor gets
  *     ONE complete list, not n round trips.
  *
- *  2. POST-BUILD at astro:build:done: dist-wide OG trio scan (E-111) and
- *     internal link resolution (E-112). E-115 is NOT a substring scan — it
- *     is enforced structurally (og input types carry no score field).
+ *  2. POST-BUILD at astro:build:done: dist-wide OG trio scan (E-111),
+ *     internal link resolution (E-112), the script allow-list (E-116) and
+ *     the CSP hash pairing (E-117). E-115 is NOT a substring scan — it is
+ *     enforced structurally (og input types carry no score field).
+ *
+ *     E-116/E-117 run HERE rather than in e2e on purpose: the e2e budget
+ *     tests read a dist built from synthetic fixtures, so until now the
+ *     "one hand-written script" contract was never applied to the bytes that
+ *     actually deploy (10-security UN-SEC-010).
  *
  * Build-only on purpose: the dev server must keep running while the editor
  * fixes content, so neither gate blocks `astro dev`.
@@ -68,7 +74,9 @@ function undernoteChecker(): AstroIntegration {
       },
       'astro:build:done': ({ dir, logger }) => {
         if (command !== 'build') return;
-        const postFailures = runPostBuildChecks(fileURLToPath(dir), baseUrl.pathname);
+        // goatcounter widens BOTH the script allow-list and the CSP by
+        // exactly one origin, so the two must read the same config value.
+        const postFailures = runPostBuildChecks(fileURLToPath(dir), baseUrl.pathname, siteYaml.goatcounter_code);
         const finalResult: CheckResult = { ...preResult, failures: postFailures };
         writeBuildReport(root, finalResult, boardState);
         if (postFailures.length > 0) {
@@ -77,17 +85,20 @@ function undernoteChecker(): AstroIntegration {
               formatReport({ failures: postFailures, warnings: [], notices: [] }),
           );
         }
-        logger.info('무결성 검사 통과 (OG 3요소 · 내부 링크).');
+        logger.info('무결성 검사 통과 (OG 3요소 · 내부 링크 · 스크립트 허용 목록 · CSP 해시).');
       },
     },
   };
 }
 
-// base_url is schema-validated by the checker gate; this early read only
-// needs the string (build aborts later if the config is broken anyway).
-const baseUrl = new URL(
-  (parseYaml(readFileSync(new URL('./config/site.yaml', import.meta.url), 'utf8')) as { base_url: string }).base_url,
-);
+// base_url and goatcounter_code are schema-validated by the checker gate;
+// this early read only needs the strings (build aborts later if the config
+// is broken anyway).
+const siteYaml = parseYaml(readFileSync(new URL('./config/site.yaml', import.meta.url), 'utf8')) as {
+  base_url: string;
+  goatcounter_code?: string;
+};
+const baseUrl = new URL(siteYaml.base_url);
 
 export default defineConfig({
   site: baseUrl.origin,

@@ -179,13 +179,16 @@ a {
   }
 }
 
-/* The cursor spotlight (`.title-spot`) is NOT here. It has exactly one host
-   -- the home browsing card's title -- so its rules live in ArticleCard,
-   where Astro's scoping keeps them from fighting that component's own
-   `.card-link:hover .title`. The token it paints with is --title-spot in
-   tokens.css, and the guards it needs are the same three .head-sheen carries
-   above; ArticleCard states them again rather than importing a pattern that
-   only one file uses. */
+/* .head-sheen IS NOW THE ONLY CLIPPED TEXT ON THIS SITE (2026-09-07). A
+   second one lived in ArticleCard — a cursor-following mint band on hovered
+   article-list titles — and it was withdrawn. Its forced-colors escape hatch
+   lost a specificity fight that its `forced-color-adjust: none` won, which
+   left every list title opted out of the system palette while holding this
+   palette's dark ink (1.21:1 on a white canvas). The rule above survives the
+   same audit for a structural reason worth stating: it is declared HERE, in
+   the global sheet, so no Astro scoping attribute inflates its competitors.
+   Anything that clips text inside a component has to beat that component's
+   own `color` rules, and it has to be measured, not assumed. */
 
 /* ── Cover hover zoom (2026-09-07) ─────────────────────────────────────
    Hovering a link that contains album art zooms the art inside its own

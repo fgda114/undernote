@@ -60,12 +60,36 @@ jobs:
           npm run build
           mv dist dist-1
 
-      # Second build from a cold cache — same input must give the same output.
-      - name: Build (2nd — determinism)
+      # Second build — WARM. The OG render cache (.cache/og-cards) is left in
+      # place on purpose: a fresh checkout has none, so build 1 is always cold
+      # and fills it, and this build then asserts the one property the cache
+      # can actually break — that a cached card is byte-identical to a drawn
+      # one. Astro's own caches are still cleared, so nothing else carries.
+      - name: Build (2nd — warm OG cache)
         run: |
           rm -rf .astro node_modules/.astro
           npm run build
           mv dist dist-2
+
+      # Third build — CACHE OFF, and it is here to keep the ORIGINAL gate.
+      #
+      # Build 2 reads cards from disk instead of drawing them. That means a
+      # non-deterministic RENDERER would be baked into build 1, replayed by
+      # build 2, and the two would agree — a green gate over the exact defect
+      # the gate exists to catch. Build 3 draws every card again from scratch,
+      # so dist-1 == dist-3 is the cold-versus-cold assertion this workflow
+      # made before the cache existed, unchanged.
+      #
+      # Cost is one build, and it is the cheap direction to be wrong in: the
+      # alternative is reasoning about which subsystems "could not possibly"
+      # be non-deterministic, which is the reasoning this gate replaces.
+      - name: Build (3rd — determinism, cache bypassed)
+        env:
+          UNDERNOTE_OG_CACHE: '0'
+        run: |
+          rm -rf .astro node_modules/.astro
+          npm run build
+          mv dist dist-3
 
       # Hash scope is dist/ ONLY (story AC4): reports/ contains built_at,
       # which is inherently non-deterministic and lives outside dist by design.
@@ -74,10 +98,17 @@ jobs:
           hash_dir() { (cd "$1" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1); }
           h1=$(hash_dir dist-1)
           h2=$(hash_dir dist-2)
-          echo "dist-1: $h1"
-          echo "dist-2: $h2"
+          h3=$(hash_dir dist-3)
+          echo "dist-1 (cold)      : $h1"
+          echo "dist-2 (warm cache): $h2"
+          echo "dist-3 (no cache)  : $h3"
+          if [ "$h1" != "$h3" ]; then
+            echo "::error::결정성 위반 — 캐시 없이 두 번 빌드한 dist/ 해시가 다릅니다 (빌드 자체가 비결정적)"
+            diff -r dist-1 dist-3 | head -50 || true
+            exit 1
+          fi
           if [ "$h1" != "$h2" ]; then
-            echo "::error::결정성 위반 — 동일 입력 2회 빌드의 dist/ 해시가 다릅니다"
+            echo "::error::OG 렌더 캐시 위반 — 캐시가 채워진 빌드의 dist/ 해시가 콜드 빌드와 다릅니다 (캐시가 낡은 카드를 돌려줍니다)"
             diff -r dist-1 dist-2 | head -50 || true
             exit 1
           fi

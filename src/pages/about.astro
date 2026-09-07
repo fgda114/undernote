@@ -15,10 +15,27 @@
  * that voice with a copy editor's. Only the paragraph structure and the third
  * paragraph's internal break are typeset here.
  *
- * The album-cover rights contact line that used to close this page is GONE
- * (lead decision, same day) — from here and from the footer both. It was the
- * visible contact path ADR-0008 leans on. The reasoning and how to restore it
- * are recorded in the impl notes; it is not this page's job to remember.
+ * THE RIGHTS CONTACT LINE IS BACK (2026-09-07), at the foot of this page and
+ * nowhere else. ADR-0008 lets this site publish album art it does not own on
+ * three conditions — reduced copies only, sources recorded, and a way for a
+ * rights holder to reach the publisher. Two rounds of deleting self-
+ * describing copy took the third one off the site entirely, and a measurement
+ * of the built output found the result: three streaming search links in the
+ * whole site and not one repository link or mailto. A rights holder had no
+ * route at all.
+ *
+ * WHY HERE AND NOT IN THE FOOTER. About is where a reader looks for who is
+ * behind a site, and the footer links to it from every page — so the path is
+ * one click from anywhere without putting a second sentence into the site
+ * chrome, which is what this cycle has spent its time removing. It is one
+ * line, it is quiet, and it is findable, which was the whole requirement.
+ *
+ * THE SECOND SENTENCE IS THE POINT, not politeness. "요청하시면 지체 없이
+ * 내립니다" is what makes the door a request door: with it, a rights holder's
+ * first contact is an email rather than a notice.
+ *
+ * Deliberately NOT inside .intro — that section is the writer's own three
+ * paragraphs, verbatim, and browser.flows.spec.ts counts them.
  */
 import Base from '../layouts/Base.astro';
 
@@ -39,6 +56,26 @@ import { SITE_TAGLINE } from '../lib/site.ts';
       <p>전문적인 지식이나 글쓰는 솜씨는 부족하지만<br />음악을 향한 진심을 담아 쉬운 언어로 가볍고 편안하게 음악을 소개하겠습니다.</p>
       <p>시대를 넘나드는 위대한 명반부터<br />갓 나온 신보까지 언제든 편하게 들러 같이 만나요.</p>
     </section>
+
+    {/* ADR-0008 §4. The URL is a literal because config/ is data the editor
+        owns and this is a property of the code's home, not of the
+        publication; a repo move is a one-line edit here. */}
+    <footer class="rights">
+      <p>
+        앨범 커버 등 권리 문의는 <a href="https://github.com/fgda114/undernote/issues" rel="noopener">저장소 이슈</a>로
+        연락해 주세요. 요청하시면 해당 이미지는 지체 없이 내립니다.
+      </p>
+      {/* Font attribution. The OFL does not require a notice on the PAGE —
+          it requires the licence to travel with the font files, which is what
+          licenses/ does — so this line is a credit, not compliance, and it is
+          one sentence for that reason. It sits beside the rights-contact line
+          because both answer "whose work is on this page that is not the
+          writer's", and that question has exactly one place to be answered. */}
+      <p>
+        본문 서체는 <a href="https://github.com/orioncactus/pretendard" rel="noopener">Pretendard</a>와
+        <a href="https://github.com/notofonts/noto-cjk" rel="noopener">Noto Serif KR</a>입니다 — 둘 다 SIL Open Font License 1.1.
+      </p>
+    </footer>
   </main>
 </Base>
 
@@ -65,11 +102,38 @@ import { SITE_TAGLINE } from '../lib/site.ts';
     font-size: var(--fs-17);
     line-height: 1.85;
   }
+  /* Set at the page's smallest text size in --muted: this is a notice, not
+     something the reader came for, and it should read as the colophon it is.
+     The link keeps the site's link grammar — --accent-2-ink plus an underline,
+     never colour alone (WCAG 1.4.1) — because a contact path nobody
+     recognises as clickable is the same as no contact path. */
+  .rights {
+    max-width: var(--column);
+    font-size: var(--fs-13);
+    line-height: 20px;
+    color: var(--muted);
+    /* Two notices now (rights contact, font credit). Flex + gap rather than
+       paragraph margins so the block's spacing comes from the scale and a
+       third notice needs no new rule. --s-12 keeps them reading as one
+       colophon: the .intro gap above is twice this, which is what separates
+       "the writer's prose" from "the small print". */
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-12);
+  }
+  .rights a {
+    color: var(--accent-2-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .rights a:hover {
+    text-decoration-thickness: 2px;
+  }
   @media (max-width: 640px) {
     .about {
       padding-top: var(--s-32);
     }
-  
+
     .intro {
       font-size: var(--fs-16);
       line-height: 1.8;

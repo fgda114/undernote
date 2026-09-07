@@ -228,6 +228,15 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
     overflow: hidden;
     transition: color var(--t-micro);
   }
+  /* NO SPOTLIGHT HERE, and it is the one article list without one
+     (2026-09-07). Every other list's title takes the travelling mint band
+     (ArticleCard); this card does not, because its title sits about 8px
+     under the rank plate — which on the bucket leader is the site's one
+     filled MINT surface. Running mint through the title that close to it
+     stops the plate reading as "the score made this" and starts it reading
+     as "this card is minty", which is the exact failure §2.3 bans by
+     capping a page at one large accent surface. The card still answers the
+     pointer: lavender, like every other hovered title on the site. */
   .row-link:hover .title {
     color: var(--accent-2-ink);
   }
@@ -288,9 +297,12 @@ const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 96
     .chart-card.feature .row-link {
       display: flex;
       flex-direction: column;
-      /* MUST reset — see ArticleCard: the desktop grid's align-items:center
-         would make the column flex shrink-wrap its children, and the nowrap
-         artist line then overflows the viewport at 360px. */
+      /* MUST reset: the desktop grid's align-items:center above would make
+         the column flex shrink-wrap its children, and the nowrap artist line
+         then overflows the viewport at 360px. (ArticleCard had the same
+         reset for its own `feature` layout before that layout was deleted
+         2026-09-07 — the failure mode this guards against is not unique to
+         this component.) */
       align-items: stretch;
     }
     .chart-card.feature .body {

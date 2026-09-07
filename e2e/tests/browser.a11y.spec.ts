@@ -182,64 +182,60 @@ test('About hover — 밑줄 없음 · 색은 바뀜 · focus-visible 아웃라�
 });
 
 /**
- * The home CARD title's cursor spotlight (--title-spot). Three properties,
- * and the last two are the ones that could regress silently:
- *   · the light moves with the pointer across the glyphs;
- *   · a RESTING title is never clipped — `background-clip: text` with a
- *     transparent colour is one typo away from an invisible title, so the
- *     un-hovered state has to paint a real colour;
- *   · every environment without a pointer to follow (reduced motion, touch)
- *     lands on flat lavender rather than on the middle of the ramp.
+ * THE HOVER ANSWER ON A CARD TITLE, AND THE ABSENCE OF CLIPPING.
  *
- * The effect moved here from the section headings on 2026-09-07. This test
- * moved with it rather than being rewritten from scratch, which is why it
- * asserts the same three properties about a different element.
+ * This test used to assert a cursor-following mint spotlight (--title-spot).
+ * The effect was withdrawn on 2026-09-07; the assertions were MOVED rather
+ * than deleted, because two of the three were never about the spotlight —
+ * they were about the ways a title can stop being readable:
+ *   · a RESTING title must paint a real colour. `background-clip: text` with
+ *     `color: transparent` is one typo away from an invisible title, and the
+ *     resting state is where that would be permanent;
+ *   · a hovered title must ANSWER. A list whose links do nothing under the
+ *     pointer does not read as a list of links;
+ *   · nothing on this element may be clipped any more. That is the new half:
+ *     with the gradient gone, `color: transparent` at any point in the hover
+ *     chain is a defect rather than a mechanism, so it is asserted directly
+ *     instead of being asserted only in the resting state.
  */
-test('홈 카드 제목 hover — 커서 위치로 스포트라이트가 움직이고, 비호버·reduced-motion은 단색', async ({ page }) => {
+test('홈 카드 제목 hover — 라벤더 한 단계 · 어느 상태에서도 클리핑 없음', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto(u('/'));
   const card = page.locator('section[aria-label="최신 리뷰"] .card-link').first();
-  const title = card.locator('.title-spot').first();
+  const title = card.locator('.title').first();
   await expect(title).toBeVisible();
+  const read = () =>
+    title.evaluate((el) => ({ color: getComputedStyle(el).color, image: getComputedStyle(el).backgroundImage }));
 
   // Resting: a real colour, no clipping. `rgba(0, 0, 0, 0)` here would mean
   // every card title on the home is invisible.
-  const resting = await title.evaluate((el) => ({
-    color: getComputedStyle(el).color,
-    image: getComputedStyle(el).backgroundImage,
-  }));
+  const resting = await read();
   expect(resting.color, '비호버 카드 제목이 투명').toBe('rgb(232, 233, 242)');
   expect(resting.image).toBe('none');
 
-  // Pointer on the CARD but not on the title: flat lavender, still no clip.
+  // Pointer on the card: lavender. This is the whole affordance now, so it is
+  // asserted at both places the pointer can be — the body of the card and the
+  // title itself — and it has to be the SAME answer in both.
   await card.locator('.excerpt, .date').first().hover();
-  await page.waitForTimeout(250);
-  expect(await title.evaluate((el) => getComputedStyle(el).color)).toBe('rgb(185, 165, 247)');
+  await expect.poll(async () => (await read()).color).toBe('rgb(185, 165, 247)');
+  expect((await read()).image, '카드 hover에서 배경이 칠해짐').toBe('none');
 
-  // Pointer on the TITLE: the gradient is positioned by the pointer, so
-  // moving across the glyphs moves the light. background-position is what
-  // carries it — `color` is transparent while clipping, so the glyph colour
-  // cannot be sampled and the gradient's own value is the proof.
   const box = (await title.boundingBox())!;
-  const imageAt = async (fraction: number) => {
+  for (const fraction of [0.1, 0.5, 0.9]) {
     await page.mouse.move(box.x + box.width * fraction, box.y + box.height / 2);
-    await page.waitForTimeout(200);
-    return title.evaluate((el) => getComputedStyle(el).backgroundImage);
-  };
-  const left = await imageAt(0.1);
-  const right = await imageAt(0.9);
-  expect(left, '커서를 옮겨도 스포트라이트가 그대로').not.toBe(right);
-  expect(left).toContain('gradient');
-  expect(await title.evaluate((el) => getComputedStyle(el).color)).toBe('rgba(0, 0, 0, 0)');
+    await page.waitForTimeout(120);
+    const hovered = await read();
+    expect(hovered.color, `제목 hover x=${fraction}에서 색이 라벤더가 아님`).toBe('rgb(185, 165, 247)');
+    // The old failure shape, now forbidden outright rather than only in the
+    // resting state: a clipped title reports its colour as transparent.
+    expect(hovered.image, `제목 hover x=${fraction}에서 그라데이션이 다시 칠해짐`).toBe('none');
+  }
 
-  // No pointer to follow → flat lavender, and NOT clipped.
+  // No pointer to follow → the same flat lavender, still not clipped.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2);
-  await page.waitForTimeout(200);
-  const reduced = await title.evaluate((el) => ({
-    color: getComputedStyle(el).color,
-    image: getComputedStyle(el).backgroundImage,
-  }));
+  await page.waitForTimeout(120);
+  const reduced = await read();
   expect(reduced.color).toBe('rgb(185, 165, 247)');
   expect(reduced.image).toBe('none');
 });
@@ -278,6 +274,262 @@ test('홈 섹션 제목 — Charts만 고정 그라데이션, 셋 다 hover 효�
     });
     expect(after, `섹션 제목 ${i}에 hover 효과`).toBe(before);
   }
+});
+
+/**
+ * The row variant's UNDERLINE is the assertion that outlived the spotlight,
+ * and it is the one that matters most. A row title answers the pointer with
+ * colour AND a rule, so the affordance never rests on colour alone (WCAG
+ * 1.4.1) — which is what a reader with a colour vision deficiency, or one
+ * whose high-contrast palette has flattened the hue, is left with.
+ *
+ * It used to be asserted against a specific hazard (a decoration paints in
+ * currentColor, which was `transparent` while the text was clipped, so the
+ * underline vanished exactly where the colour was working hardest). That
+ * hazard is gone with the clipping. The PROPERTY is not, so it stays.
+ */
+test('아카이브 행 제목 hover — 라벤더 + 밑줄, 두 채널이 모두 산다', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(u('/archive/reviews/'));
+  const title = page.locator('.row-card-link .title').first();
+  await expect(title).toBeVisible();
+
+  const read = () =>
+    title.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { color: cs.color, image: cs.backgroundImage, deco: cs.textDecorationLine, decoColor: cs.textDecorationColor };
+    });
+
+  const resting = await read();
+  expect(resting.color, '비호버 행 제목이 투명').toBe('rgb(232, 233, 242)');
+  expect(resting.deco).toBe('none');
+
+  const box = (await title.boundingBox())!;
+  for (const fraction of [0.15, 0.85]) {
+    await page.mouse.move(box.x + box.width * fraction, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+    const hovered = await read();
+    expect(hovered.color, `행 제목 hover x=${fraction}`).toBe('rgb(185, 165, 247)');
+    expect(hovered.image, '행 제목에 그라데이션이 다시 칠해짐').toBe('none');
+    // Both channels, and the underline in a colour that is actually painted.
+    expect(hovered.deco).toBe('underline');
+    expect(hovered.decoColor, '밑줄이 보이지 않는 색').toBe('rgb(185, 165, 247)');
+  }
+});
+
+/**
+ * NO TITLE ON THIS SITE IS A CLIPPING HOST ANY MORE (2026-09-07).
+ *
+ * This test used to assert the one EXCEPTION to the spotlight — Charts, whose
+ * card title sits ~8px under the site's only filled mint surface, where a
+ * mint highlight would have stopped reading as "the score made this". The
+ * exception outlived the rule: the spotlight is gone from every list, so the
+ * assertion is generalised rather than dropped. `.title-spot` returning zero
+ * across the site is what proves the removal is complete rather than partial
+ * — a leftover host would keep the forced-colors defect alive on whichever
+ * page still carried it.
+ *
+ * The second half is unchanged and is the reason this is not just a grep:
+ * Charts' title still ANSWERS the pointer, in the same lavender as every
+ * other title. Removing an effect must not remove the affordance.
+ */
+test('제목 클리핑 호스트 0 — 차트 카드 제목은 여전히 라벤더로 답한다', async ({ page }) => {
+  for (const path of ['/', '/archive/reviews/', '/archive/stories/']) {
+    await page.goto(u(path));
+    await expect(page.locator('.title-spot'), `${path}에 스포트라이트 호스트가 남음`).toHaveCount(0);
+  }
+
+  await page.goto(u('/'));
+  await expect(page.locator('.chart-card')).not.toHaveCount(0);
+  const title = page.locator('.chart-card .title').first();
+  await page.locator('.chart-card a.row-link').first().hover();
+  await expect
+    .poll(async () => title.evaluate((el) => getComputedStyle(el).color))
+    .toBe('rgb(185, 165, 247)');
+  expect(await title.evaluate((el) => getComputedStyle(el).backgroundImage)).toBe('none');
+});
+
+/**
+ * THE MASTHEAD IS ONE ROW, AND ITS ITEMS SHARE ONE LINE (2026-09-07).
+ *
+ * Two reported defects, one measurement. The nav wrapped on narrow screens —
+ * ARCHIVE dropped to a second line at 360px and ARTISTS joined it below
+ * ~345px — which made the site's navigation a two-storey block above every
+ * mobile page. And the items were reported as sitting at different heights
+ * from each other.
+ *
+ * The second report did not reproduce: measured on the shipped build, the
+ * five items' glyph boxes and their PAINTED INK were identical to within
+ * 0.25px at 1x, 2x and 4x, on three pages and five widths. The only real
+ * vertical difference in that masthead was the wrap itself. So this test
+ * fixes the invariant in place rather than a bug: at every audited width the
+ * five items occupy ONE ROW and ONE vertical position, and the touch target
+ * stays whole in both axes. If either half ever stops being true it is now a
+ * failing test rather than something someone has to notice.
+ *
+ * 320px is deliberately NOT audited: the supported floor is 360, and below
+ * ~345 the row is allowed to wrap rather than overflow — degrading into a
+ * second line is the correct failure, a horizontal scrollbar is not.
+ */
+test('마스트헤드 내비 — 360px부터 다섯 항목이 한 줄 · 세로 위치 동일 · 44px 타깃', async ({ page }) => {
+  await page.goto(u('/'));
+  const problems: string[] = [];
+  const lines: string[] = [];
+  for (const width of [360, 400, 480, 640, 768, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(80);
+    const m = await page.evaluate(() => {
+      const items = [...document.querySelectorAll('.nav-link')].map((a) => {
+        const box = a.getBoundingClientRect();
+        // The glyph run, not the padded box: this is where a baseline shift
+        // would show up and the box would not.
+        const range = document.createRange();
+        range.selectNodeContents(a);
+        const glyph = range.getBoundingClientRect();
+        return {
+          label: (a.textContent ?? '').trim(),
+          w: box.width,
+          h: box.height,
+          glyphTop: Math.round(glyph.top * 100) / 100,
+        };
+      });
+      return {
+        items,
+        rows: new Set(items.map((i) => i.glyphTop)).size,
+        scrollW: document.documentElement.scrollWidth,
+        clientW: document.documentElement.clientWidth,
+      };
+    });
+    expect(m.items.length, '내비 항목이 5개가 아님').toBe(5);
+    lines.push(
+      `${width}: rows=${m.rows} · ${m.items.map((i) => `${i.label} ${i.w.toFixed(1)}x${i.h.toFixed(1)}`).join(' · ')}`,
+    );
+    if (m.rows !== 1) problems.push(`${width}px — 내비가 ${m.rows}줄로 접힘`);
+    for (const i of m.items) {
+      if (i.w < 44 || i.h < 44) {
+        problems.push(`${width}px — ${i.label} 터치 타깃 ${i.w.toFixed(1)}x${i.h.toFixed(1)} (44px 미만)`);
+      }
+    }
+    if (m.scrollW > m.clientW) problems.push(`${width}px — 가로 스크롤 ${m.scrollW}>${m.clientW}`);
+  }
+  console.log(`마스트헤드 내비 실측:\n  ${lines.join('\n  ')}`);
+  expect(problems, problems.join('\n')).toEqual([]);
+
+  // aria-current and the hover underline survive the mobile tightening: the
+  // row was made to fit by changing tracking and gap, never by removing a
+  // state indicator.
+  await page.setViewportSize({ width: 360, height: 900 });
+  await page.goto(u('/archive/reviews/'));
+  const current = page.locator('.nav-link.current');
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveAttribute('aria-current', 'page');
+  const marks = await current.evaluate((el) => ({
+    color: getComputedStyle(el).color,
+    weight: getComputedStyle(el).fontWeight,
+    bar: getComputedStyle(el, '::after').backgroundColor,
+    scale: getComputedStyle(el, '::after').transform,
+  }));
+  expect(marks.color).toBe('rgb(232, 233, 242)');
+  expect(marks.weight).toBe('800');
+  expect(marks.bar, '현재 항목 바가 악센트가 아님').toBe('rgb(99, 239, 192)');
+  expect(marks.scale, '현재 항목 바가 접혀 있음').not.toContain('0, 0, 0, 1, 0, 0');
+
+  // A non-current item's underline is present-but-collapsed at rest and opens
+  // on hover — the animation, not just the bar, is the thing a tightening
+  // edit could quietly drop.
+  const other = page.locator('.nav-link:not(.current)').first();
+  expect(await other.evaluate((el) => getComputedStyle(el, '::after').transform)).toContain('0, 0, 0, 1, 0, 0');
+  await other.hover();
+  await expect
+    .poll(async () => other.evaluate((el) => getComputedStyle(el, '::after').transform))
+    .not.toContain('0, 0, 0, 1, 0, 0');
+});
+
+/**
+ * THE WORDMARK AND THE NAV SIT ON ONE OPTICAL LINE (2026-09-08).
+ *
+ * The test above pins the five nav items to each other. It cannot see the
+ * defect this one is for: all five were 1px high AGAINST THE WORDMARK, at
+ * every width, so they agreed with each other perfectly while the masthead
+ * read crooked.
+ *
+ * WHY THE ELEMENT BOXES WERE NO HELP. They were already flush — both centres
+ * landed on 32.00px. The text inside them was not: `.nav-link` reserved 2px
+ * of transparent border-bottom for its underline, box-sizing charged that to
+ * the box, and `align-items: center` then centred the label in the 42px that
+ * remained. A box-level assertion is exactly the assertion that passes while
+ * this is broken, which is why this test measures the GLYPH RUN.
+ *
+ * TOLERANCE, and why it is not zero. Painted ink at dpr 4 puts the residue at
+ * 0.125px: the wordmark is lowercase with ascenders, the nav is caps-only, so
+ * the two ink bands are not the same shape and their centres cannot coincide
+ * exactly without a per-typeface fudge factor. 0.125px is an eighth of a CSS
+ * pixel — below one device pixel even at 2x. 0.25px is the same tolerance the
+ * nav-to-nav check uses, and it is an order of magnitude under the 1.125px
+ * defect, so this fails loudly if the structural bias ever comes back.
+ *
+ * Widths below ~471px are skipped BY MEASUREMENT, not by a hardcoded list:
+ * there the nav wraps onto its own row under the wordmark, and comparing the
+ * vertical centres of two different rows would be meaningless rather than
+ * wrong. The wrap itself is already covered above.
+ */
+test('마스트헤드 — 워드마크와 내비의 글자 중심이 같은 줄에서 일치', async ({ page }) => {
+  await page.goto(u('/'));
+  const problems: string[] = [];
+  const lines: string[] = [];
+  for (const width of [480, 640, 768, 1024, 1440, 1920, 2560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(80);
+    const m = await page.evaluate(() => {
+      const centre = (el: Element) => {
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        const b = r.getBoundingClientRect();
+        return { mid: (b.top + b.bottom) / 2, top: b.top, h: b.height };
+      };
+      const wm = centre(document.querySelector('.wordmark')!);
+      const nav = [...document.querySelectorAll('.nav-link')].map((a) => ({
+        label: (a.textContent ?? '').trim(),
+        ...centre(a),
+      }));
+      return { wm, nav, sameRow: nav.every((n) => Math.abs(n.top - wm.top) < 30) };
+    });
+    if (!m.sameRow) {
+      lines.push(`${width}: 내비가 별도 행 — 비교 대상 아님`);
+      continue;
+    }
+    const worst = Math.max(...m.nav.map((n) => Math.abs(n.mid - m.wm.mid)));
+    lines.push(`${width}: 워드마크 ${m.wm.mid.toFixed(3)} · 내비 ${m.nav.map((n) => n.mid.toFixed(3)).join(' ')} · 최대차 ${worst.toFixed(3)}`);
+    if (worst > 0.25) {
+      problems.push(`${width}px — 워드마크와 내비의 글자 중심이 ${worst.toFixed(3)}px 어긋남 (허용 0.25)`);
+    }
+  }
+  console.log(`마스트헤드 세로 정렬 실측:\n  ${lines.join('\n  ')}`);
+  expect(problems, problems.join('\n')).toEqual([]);
+  // At least one width must actually have been compared — a run where every
+  // width wrapped would otherwise report success having measured nothing.
+  expect(lines.filter((l) => l.includes('최대차')).length, '비교된 폭이 하나도 없음').toBeGreaterThan(4);
+
+  // The fix works by reserving the underline's 2px on BOTH block edges, which
+  // only holds the alignment if it leaves the underline and the touch target
+  // where they were. Both are asserted here so a later "cleanup" of the top
+  // border has to explain itself to a failing test.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const geom = await page.locator('.nav-link').first().evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return {
+      borderTop: cs.borderTopWidth,
+      borderBottom: cs.borderBottomWidth,
+      height: r.height,
+      afterBottom: getComputedStyle(el, '::after').bottom,
+      afterHeight: getComputedStyle(el, '::after').height,
+    };
+  });
+  expect(geom.borderTop, '위쪽 예약 공간이 사라지면 내비가 다시 1px 올라간다').toBe(geom.borderBottom);
+  expect(geom.height, '44px 터치 타깃').toBeGreaterThanOrEqual(44);
+  expect(geom.afterBottom).toBe('-2px');
+  expect(geom.afterHeight).toBe('2px');
 });
 
 /**

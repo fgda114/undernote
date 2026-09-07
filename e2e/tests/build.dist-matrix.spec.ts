@@ -152,6 +152,33 @@ test('US-15/SS-15 — 전 지면 OG 5요소 + twitter:card, 메타에 점수 0 (
   }
 });
 
+/**
+ * OG cache busting (2026-09-07). Share platforms key their image cache on
+ * the URL, so a card whose DESIGN changes keeps serving the version they
+ * scraped months ago — which is exactly what happened to this site's reskin.
+ * The og:image URL now carries a version derived from the OG library's
+ * source (src/lib/og/version.ts).
+ *
+ * Two properties, and the second is the one a careless "fix" would break:
+ * every page must carry the key, and every page must carry the SAME key. A
+ * per-page or per-build value would bust the cache on every deploy, which
+ * turns a cache into a bandwidth bill and makes the previews flicker between
+ * scrapes. Determinism itself is covered by the double-build hash gate — a
+ * clock or a random value would fail that instead.
+ */
+test('OG 캐시 버스팅 — 전 지면 og:image에 동일한 버전 키', () => {
+  const versions = new Set<string>();
+  for (const p of pages) {
+    const html = readPage(dir, p);
+    const m = html.match(/property="og:image" content="([^"]+)"/);
+    expect(m, `${p} og:image 부재`).not.toBeNull();
+    const url = m![1];
+    expect(url, `${p} og:image에 버전 키 없음`).toMatch(/\.png\?v=[0-9a-f]{8}$/);
+    versions.add(url.slice(url.indexOf('?v=')));
+  }
+  expect(versions.size, `버전 키가 지면마다 다름: ${[...versions].join(' ')}`).toBe(1);
+});
+
 test('OG 카드 산출물 — 전 평론 PNG + 리스트 카드 + 기본형', () => {
   for (const a of [...RICH_SET.map((r) => r.slug), 'fixture-artist-fixture-album']) {
     expect(existsSync(join(dir, 'dist', 'og', 'reviews', `${a}.png`)), a).toBe(true);
@@ -210,16 +237,32 @@ test('US-9/SS-12 — 아티스트 집계: 공유 아티스트 2편, 복수 아�
  * heading's spotlight) and the block measured 2076B. It was raised rather
  * than shaved: a ceiling you sit two bytes under is not a ceiling, it is a
  * trap for the next edit, and shortening working comments to hit a byte
- * count is the wrong reason to edit a comment. 2304 leaves ~228B — room for
- * one more hand-written line, not for a runtime.
+ * count is the wrong reason to edit a comment.
  *
- * The number moved twice inside that day, which is worth recording because
- * it is what the mechanism is FOR: the ramp was implemented, withdrawn on a
- * re-scoping, and reinstated when the re-scoping turned out to be an
- * addition rather than a replacement. Each time, this line is what said so
- * out loud instead of letting the payload drift quietly.
+ * 2304 → 2048, LATER THE SAME DAY, when the card-title spotlight was
+ * withdrawn: the tracked-box selector lost `.title-spot` and the comment
+ * naming its second reader went with it, and the block measured 1995B. THE
+ * CEILING CAME DOWN BECAUSE A BUDGET NOBODY IS NEAR IS NOT A BUDGET — it
+ * stops being a decision anyone has to make and becomes a number in a file.
+ * 2048 is where this block sat before the tracking grew, and the 53B of
+ * headroom is the same standard as before, stated honestly: the next
+ * hand-written line moves this number, on purpose, in a diff.
+ *
+ * The number has now moved three times inside two days, which is worth
+ * recording because it is what the mechanism is FOR: the ramp was
+ * implemented, withdrawn on a re-scoping, reinstated when the re-scoping
+ * turned out to be an addition, and finally removed outright. Each time,
+ * this line is what said so out loud instead of letting the payload drift.
+ *
+ * THE CEILING DID NOT MOVE A FOURTH TIME, but the payload shrank again:
+ * 1995B → 1970B on 2026-09-08, when the module's text moved out of
+ * Base.astro into src/scripts/enhance.js so that the CSP hash and the shipped
+ * bytes come from one string (lib/csp.ts). Twenty-five bytes of prose moved
+ * to the emit point, where comments cost nothing; nothing was minified and no
+ * behaviour changed. 2048 stays: a move that shrinks the payload by 1% is not
+ * a decision about the budget.
  */
-const INLINE_JS_BUDGET_BYTES = 2304;
+const INLINE_JS_BUDGET_BYTES = 2048;
 
 test('NFR — 클라이언트 JS 예산: 지면당 인라인 1개 · 외부 JS 0 · 상한 이하', () => {
   for (const p of pages) {

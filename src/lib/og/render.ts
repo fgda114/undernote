@@ -4,10 +4,16 @@
  * Fonts are the build-only subset TTFs from src/assets/fonts (satori cannot
  * read woff2; these never ship in dist). Deterministic: same input + same
  * lockfile ⇒ byte-identical PNG — the CI double-build hash gate covers this.
+ *
+ * That same determinism is what makes cache.ts safe: if the inputs decide
+ * the bytes, a stored PNG is indistinguishable from a redrawn one. This is
+ * the ONLY place cards are drawn, so putting the cache here covers all three
+ * card routes without any of them knowing it exists.
  */
 import { readFileSync } from 'node:fs';
 import { Resvg } from '@resvg/resvg-js';
 import satori from 'satori';
+import { readCard, writeCard } from './cache.ts';
 import { cardTree } from './template.ts';
 import type { CardInput } from './types.ts';
 
@@ -30,6 +36,9 @@ function loadFonts() {
 }
 
 export async function renderCard(input: CardInput): Promise<Uint8Array<ArrayBuffer>> {
+  const cached = readCard(input);
+  if (cached) return cached;
+
   const svg = await satori(cardTree(input) as Parameters<typeof satori>[0], {
     width: 1200,
     height: 630,
@@ -38,5 +47,7 @@ export async function renderCard(input: CardInput): Promise<Uint8Array<ArrayBuff
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } }).render().asPng();
   // Copy into a plain ArrayBuffer-backed view — Response's BodyInit typing
   // rejects ArrayBufferLike (SharedArrayBuffer-capable) views.
-  return new Uint8Array(png);
+  const bytes = new Uint8Array(png);
+  writeCard(input, bytes);
+  return bytes;
 }

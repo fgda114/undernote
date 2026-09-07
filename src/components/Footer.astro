@@ -7,12 +7,13 @@
  * this. Putting it at the foot is the ordinary place for that, and it frees
  * the masthead to be a list of things to read.
  *
- * WHAT LEFT. The footer used to repeat About and Archive from the masthead
- * (a repeated destination costs a screen-reader user a second reading and
- * buys nothing), and then briefly carried the album-cover rights contact.
- * Both are gone: Archive stays in the masthead only, and the rights line was
- * removed from the site by decision — see 08-impl-notes/frontend.md, which
- * records what that removes and how to put it back.
+ * WHAT LEFT, AND WHERE ONE OF IT WENT. The footer used to repeat About and
+ * Archive from the masthead (a repeated destination costs a screen-reader
+ * user a second reading and buys nothing), and it briefly carried the
+ * album-cover rights contact as well. Archive stays in the masthead only.
+ * The rights line is NOT gone from the site — it lives at the foot of
+ * /about/ (ADR-0008 §4), one click from here on every page, which keeps the
+ * path findable without putting a second sentence into the chrome.
  *
  * `current` comes down from Base so this link can carry aria-current on
  * /about/, exactly as a masthead item would.

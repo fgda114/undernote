@@ -11,6 +11,10 @@ try {
 
 export default defineConfig({
   testDir: './tests',
+  // One run per checkout — the suite shares a single .sandbox/rich and a
+  // single port, so a second concurrent run deletes this one's dist mid-flight.
+  globalSetup: './lib/global-setup.mjs',
+  globalTeardown: './lib/global-teardown.mjs',
   timeout: 300_000,
   fullyParallel: false,
   workers: 2,
@@ -32,7 +36,16 @@ export default defineConfig({
     // and the spawning shell splits the unquoted path at the space.
     command: `"${process.execPath}" lib/static-server.mjs 4180`,
     url: `http://127.0.0.1:4180${base}/`,
-    reuseExistingServer: true,
+    // FALSE, changed 2026-09-07 (Matthias). `true` meant a server this run
+    // did not start — a leftover from a killed run, or one somebody launched
+    // by hand — was adopted silently, and Playwright does not kill a server
+    // it does not own (measured: same PID listening before and after a run).
+    // The adopted process is then a shared, unsupervised dependency of every
+    // browser test, and when it dies nothing restarts it. `false` turns that
+    // whole class into one loud failure at second zero: the port is busy,
+    // here is the message, go look. Cost: you can no longer keep a static
+    // server up between runs — which is the habit that made the flake.
+    reuseExistingServer: false,
     timeout: 60_000,
   },
 });
