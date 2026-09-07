@@ -10,11 +10,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Entry, RepoData } from '../../src/lib/checker/load';
 import {
+  CARD_EXCERPT_MAX,
   boardState,
   compareR1,
   currentYearMonthSeoul,
   deriveBadgeMap,
   deriveBoard,
+  deriveHomeSections,
   deriveHomeVariant,
   deriveLatestArticles,
   deriveMonthlyRecaps,
@@ -280,7 +282,7 @@ describe('홈 상태 분기 (시계 없음)', () => {
   });
 });
 
-describe('최신 글 (ui-spec §1.1) — 점수 필드 부재가 계약', () => {
+describe('최신 글 (ui-spec §1.1) — D2-R2 이후의 점수 계약', () => {
   const repo = repoOf({
     albums: [albumOf('rev-a')],
     reviews: [reviewOf('rev-a', '8.3', '2026-05-01')],
@@ -294,11 +296,15 @@ describe('최신 글 (ui-spec §1.1) — 점수 필드 부재가 계약', () => 
     expect(items.map((i) => i.type)).toEqual(['story', 'review']);
   });
 
-  it('어떤 항목에도 score 키가 없다 (D2 데이터 레벨 강제 — Matthias N-2)', () => {
-    for (const item of items) {
-      expect(Object.keys(item)).not.toContain('score');
-    }
-    expect(JSON.stringify(items)).not.toContain('"score"');
+  // D2-R2 (2026-09-07) reversed this. The field exists now, so the data-level
+  // guarantee is gone and the assertion is inverted rather than deleted: what
+  // must still hold is that a STORY never carries one, because a story has no
+  // score to carry. The surface-level guard moved to ArticleCard's opt-in
+  // `showScore` and to build.dist-matrix.spec.ts's two-way surface list.
+  it('평론 항목은 score를 싣고 이야기 항목은 싣지 않는다 (D2-R2)', () => {
+    const byType = Object.fromEntries(items.map((i) => [i.type, i]));
+    expect(byType.review.score).toBe('8.3');
+    expect(byType.story.score).toBeUndefined();
   });
 
   it('보드 캡션 날짜 = 저장소 유래 최신 발행일 (빌드 시계 금지)', () => {
@@ -325,5 +331,180 @@ describe('latestReviewHero (ui-spec §1.5 early variant, W6 m-4 — 페이지에
 
   it('평론이 없으면 null', () => {
     expect(latestReviewHero(joinReviews(repoOf({})))).toBeNull();
+  });
+});
+
+describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
+  const storyOf = (slug: string, date: string) =>
+    entry<Story>(slug, { title: `이야기 ${slug}`, date, albums: [], tags: [] } as Story, '이야기 본문.');
+
+  /** Board + articles for a repo, in the same order the home consumes them. */
+  const sectionsFor = (repo: RepoData, limit?: number) => {
+    const joined = joinReviews(repo);
+    const board = deriveBoard(joined, genres, 2026);
+    const articles = deriveLatestArticles(repo, joined, excerptFrom, Number.MAX_SAFE_INTEGER);
+    return deriveHomeSections(board, articles, limit);
+  };
+
+  it('charts = 보드를 버킷 순서 → 순위 순으로 평탄화하고 버킷 라벨·버킷 내 순위를 싣는다', () => {
+    const repo = repoOf({
+      albums: [albumOf('pop-hi'), albumOf('pop-lo'), albumOf('hip', { bucket: 'hiphop-rnb' })],
+      reviews: [
+        reviewOf('pop-hi', '9.0', '2026-01-01'),
+        reviewOf('pop-lo', '7.0', '2026-01-02'),
+        reviewOf('hip', '8.0', '2026-01-03'),
+      ],
+    });
+    const { charts } = sectionsFor(repo);
+    // genres.yaml order is hiphop-rnb(1) → pop(2) → rock(3), and rank is the
+    // position INSIDE the bucket, so both buckets start again at 1.
+    expect(charts.map((c) => [c.album, c.bucketLabel, c.rank])).toEqual([
+      ['hip', '힙합/R&B', 1],
+      ['pop-hi', '팝', 1],
+      ['pop-lo', '팝', 2],
+    ]);
+    // bucketCount travels with the rank (2026-09-07). The card prints the
+    // ordinal only from two entries up, because the home flattens the
+    // buckets into one row and a "1위" out of one album orders nothing —
+    // which is a judgment the CARD makes and the derive layer only supplies
+    // the fact for. Both cases are present here on purpose: the lone
+    // hiphop-rnb entry and the two-deep pop bucket.
+    expect(charts.map((c) => c.bucketCount)).toEqual([1, 2, 2]);
+  });
+
+  it('빈 버킷은 charts에 아무것도 기여하지 않는다 (R-4 — 홈은 미출력, 구조는 /list/{year}/가 보인다)', () => {
+    const repo = repoOf({
+      albums: [albumOf('only-pop')],
+      reviews: [reviewOf('only-pop', '8.0', '2026-01-01')],
+    });
+    const { charts } = sectionsFor(repo);
+    expect(charts).toHaveLength(1);
+    expect(charts.every((c) => c.bucketLabel === '팝')).toBe(true);
+  });
+
+  // Direction reversed 2026-09-07 (the home always shows three sections, so
+  // suppressing this one would leave an empty 최신 리뷰 under a full chart).
+  // The assertion is kept, not deleted: it still pins what happens when the
+  // chart already covers every review — the overlap is now ALLOWED, and the
+  // two cards of the same album must be different objects (the chart card
+  // carries the score, the review card carries no score field at all).
+  it('차트가 전 평론을 싣고 있어도 최신 리뷰는 같은 평론을 다시 싣는다 (중복 허용 · 서로 다른 카드)', () => {
+    const repo = repoOf({
+      albums: [albumOf('one')],
+      reviews: [reviewOf('one', '8.0', '2026-01-01')],
+    });
+    const { charts, latestReviews } = sectionsFor(repo);
+    expect(charts).toHaveLength(1);
+    expect(latestReviews.map((a) => a.url)).toEqual(['/reviews/one/']);
+    expect(charts[0].score).toBe('8.0');
+    // Both cards now carry the figure (D2-R2); what still separates them is
+    // that only the chart card carries a RANK.
+    expect(latestReviews[0].score).toBe('8.0');
+    expect(charts[0].rank).toBe(1);
+    expect('rank' in latestReviews[0]).toBe(false);
+  });
+
+  it('차트 밖 평론이 하나라도 있으면 최신 리뷰가 발행일 내림차순으로 나온다 (중복 허용)', () => {
+    // 6 pop albums: the board keeps 5, so 'sixth' can never be in charts.
+    const albums = ['a', 'b', 'c', 'd', 'e', 'f'].map((k) => albumOf(`pop-${k}`));
+    const reviews = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) =>
+      reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`),
+    );
+    const { charts, latestReviews } = sectionsFor(repoOf({ albums, reviews }));
+    expect(charts).toHaveLength(5); // top-5 cut
+    // Newest first; the lowest-scored album is the newest review here. The
+    // DEFAULT limit dropped 6 → 4 on 2026-09-07 when the home's browsing
+    // grids became a fixed four-column row — six cards would have left two
+    // empty tracks on a second row. Asserted explicitly rather than by
+    // shortening the list, because "one full row" is the property.
+    expect(latestReviews).toHaveLength(4);
+    expect(latestReviews.map((a) => a.url)).toEqual([
+      '/reviews/pop-f/',
+      '/reviews/pop-e/',
+      '/reviews/pop-d/',
+      '/reviews/pop-c/',
+    ]);
+  });
+
+  it('연도 밖 발매작만 있으면 charts는 비고 최신 리뷰가 그 평론을 싣는다 (R-3 귀속 2축)', () => {
+    const repo = repoOf({
+      albums: [albumOf('old', { release_date: '2024-05-01' })],
+      reviews: [reviewOf('old', '9.5', '2026-01-01')],
+    });
+    const { charts, latestReviews } = sectionsFor(repo);
+    expect(charts).toEqual([]);
+    expect(latestReviews.map((a) => a.url)).toEqual(['/reviews/old/']);
+  });
+
+  it('notes는 이야기만, 발행일 내림차순, limit까지', () => {
+    const repo = repoOf({
+      stories: [storyOf('s-old', '2026-01-01'), storyOf('s-new', '2026-03-01'), storyOf('s-mid', '2026-02-01')],
+    });
+    const { notes } = sectionsFor(repo, 2);
+    expect(notes.map((n) => n.url)).toEqual(['/stories/s-new/', '/stories/s-mid/']);
+    expect(notes.every((n) => n.type === 'story')).toBe(true);
+  });
+
+  it('콘텐츠 0 = 세 섹션 모두 빈 배열 (파생 계층은 자리를 채우지 않는다)', () => {
+    // The derive layer never fabricates: zero content is three empty arrays.
+    // What the home puts in the resulting hole is a page decision
+    // (SectionDefinition), not a data one — no placeholder item ever enters
+    // these lists.
+    const { charts, latestReviews, notes } = sectionsFor(repoOf({}));
+    expect([charts, latestReviews, notes]).toEqual([[], [], []]);
+  });
+
+  it('카드 발췌 — 평론·이야기 양쪽에 실리고 CARD_EXCERPT_MAX를 넘지 않는다', () => {
+    const repo = repoOf({
+      albums: [albumOf('rev')],
+      reviews: [reviewOf('rev', '8.0', '2026-01-01')],
+      stories: [storyOf('story', '2026-02-01')],
+    });
+    const { latestReviews, notes } = sectionsFor(repo);
+    expect(latestReviews[0].excerpt).toBeTruthy();
+    expect(notes[0].excerpt).toBeTruthy();
+    for (const item of [...latestReviews, ...notes]) {
+      expect(item.excerpt!.length).toBeLessThanOrEqual(CARD_EXCERPT_MAX + 1); // +1 = the ellipsis
+    }
+  });
+
+  it('D2 — 첫 문단에 자기 점수가 있으면 카드 발췌를 싣지 않는다 (탐색 지면 무점수)', () => {
+    const repo = repoOf({
+      albums: [albumOf('leaky'), albumOf('clean')],
+      reviews: [
+        { ...reviewOf('leaky', '8.5', '2026-01-02'), body: '이 앨범에 8.5점을 줬다. 이유는 다음과 같다.' },
+        { ...reviewOf('clean', '8.5', '2026-01-01'), body: '점수 이야기는 아직 하지 않는다.' },
+      ],
+    });
+    const { latestReviews } = sectionsFor(repo);
+    const byUrl = new Map(latestReviews.map((a) => [a.url, a]));
+    expect(byUrl.get('/reviews/leaky/')!.excerpt).toBeUndefined();
+    // The card itself survives — only the excerpt drops out.
+    expect(byUrl.get('/reviews/leaky/')!.title).toBeTruthy();
+    expect(byUrl.get('/reviews/clean/')!.excerpt).toBe('점수 이야기는 아직 하지 않는다.');
+  });
+
+  it('D2 — 다른 앨범의 점수가 인용된 문단은 발췌로 살아남는다 (숫자가 아니라 이 평론의 판단이 기준)', () => {
+    const repo = repoOf({
+      albums: [albumOf('quoting')],
+      reviews: [{ ...reviewOf('quoting', '8.4', '2026-01-01'), body: '그 시절 나는 다른 앨범에 8.5점을 줬다.' }],
+    });
+    const { latestReviews } = sectionsFor(repo);
+    expect(latestReviews[0].excerpt).toBe('그 시절 나는 다른 앨범에 8.5점을 줬다.');
+  });
+
+  it('D2-R2 — 최신 리뷰 항목은 저장된 점수 문자열을 그대로 싣는다', () => {
+    const albums = ['a', 'b', 'c', 'd', 'e', 'f'].map((k) => albumOf(`pop-${k}`));
+    const reviews = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) =>
+      reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`),
+    );
+    // Explicit limit: this test is about the SCORE STRINGS, not about how
+    // many cards the home shows, so it asks for all six rather than tracking
+    // the section cap (which moved 6 → 4 on 2026-09-07).
+    const { latestReviews, notes } = sectionsFor(repoOf({ albums, reviews }), 6);
+    // Verbatim, never reformatted — the same rule list surfaces follow.
+    expect(latestReviews.map((a) => a.score)).toEqual(['4.0', '5.0', '6.0', '7.0', '8.0', '9.0']);
+    // Stories still cannot carry one.
+    expect(notes.every((n) => n.score === undefined)).toBe(true);
   });
 });

@@ -1,10 +1,20 @@
 ---
 /**
- * /archive/ — the 4-axis browse hub (ui-spec §6), replacing the W5.2 shell.
+ * /archive/ — the browse hub (ui-spec §6), replacing the W5.2 shell.
  * Axes: Year(발행 기준) / Genre(버킷 — bold labels) / Tags(muted chips — the
- * tab itself disappears while the registry is empty) / 아티스트. Type presets
- * (평론·이야기) sit on top — the global nav lands there. Empty axis values
- * simply don't exist (R-4). No scores anywhere on browsing surfaces (D2).
+ * tab itself disappears while the registry is empty). Axis titles are set as
+ * structural LABELS, not headings: an axis name is scaffolding, the values
+ * are the content. Presets sit on top — the global nav lands there. Empty
+ * axis values simply don't exist (R-4). No scores anywhere (D2).
+ *
+ * ARTISTS MOVED (2026-09-07). It used to be a fourth axis enumerating every
+ * artist here, and /artists/ now does that with counts and its own nav item.
+ * Two identical lists on one site is the duplication this round removed from
+ * the footer, so only one of them may enumerate. The axis did not vanish
+ * though — it became a PRESET, next to Reviews and Notes, which is what it
+ * always was in kind: a destination that holds a whole listing, not a
+ * vocabulary of values you pick from. The hub keeps its job as the table of
+ * every way in.
  */
 import Base from '../../layouts/Base.astro';
 import { ETC_BUCKET_LABEL } from '../../lib/derive/archive.ts';
@@ -26,8 +36,6 @@ const buckets = [...archive.by_bucket.keys()]
 const tagLabels = new Map((data.tags?.tags ?? []).map((t) => [t.slug, t.label]));
 const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tagLabels.get(slug) ?? slug }));
 
-const artistNames = new Map(data.artists.map((a) => [a.slug, a.data.name]));
-const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name: artistNames.get(slug) ?? slug }));
 ---
 
 <Base title="Archive" description="연도·장르·태그·아티스트로 찾아보는 전체 글." path="/archive/" current="archive">
@@ -37,6 +45,7 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
     <ul class="presets">
       <li><a href={withBase('/archive/reviews/')}>Reviews</a></li>
       <li><a href={withBase('/archive/stories/')}>Notes</a></li>
+      <li><a href={withBase('/artists/')}>Artists</a></li>
     </ul>
 
     {
@@ -85,57 +94,53 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
       )
     }
 
-    {
-      artists.length > 0 && (
-        <section class="axis">
-          <h2 class="axis-title">Artists</h2>
-          <ul class="values">
-            {artists.map((artist) => (
-              <li>
-                <a class="value-strong" href={withBase(`/artists/${artist.slug}/`)}>{artist.name}</a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )
-    }
   </main>
 </Base>
 
 <style>
   .archive {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
     display: flex;
     flex-direction: column;
     gap: var(--s-32);
-  }
-  .page-title {
-    font-family: var(--serif);
-    font-size: var(--fs-27);
-    font-weight: 700;
   }
   .presets {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
-    gap: var(--s-24);
+    gap: var(--s-16);
+    flex-wrap: wrap;
   }
+  /* Filled chips: the preset is a destination, the axis values below are a
+     vocabulary — the fill separates the two without adding a colour. */
   .presets a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
-    font-size: var(--fs-15);
+    padding: 0 var(--s-12);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: var(--fs-13);
+    line-height: 16px;
+    letter-spacing: 0.08em;
     font-weight: 700;
+    text-transform: uppercase;
+    transition: color var(--t-micro);
   }
   .presets a:hover {
-    color: var(--seal);
+    color: var(--accent-2-ink);
   }
   .axis-title {
-    font-size: var(--fs-15);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    letter-spacing: var(--label-ls);
     font-weight: 700;
+    text-transform: uppercase;
     color: var(--muted);
   }
   .values {
@@ -146,29 +151,44 @@ const artists = [...archive.by_artist.keys()].sort().map((slug) => ({ slug, name
     flex-wrap: wrap;
     gap: var(--s-8) var(--s-16);
   }
-  /* Buckets/years/artists: bold ink labels — tags: quiet lowercase chips.
+  /* Buckets/years/artists: bold ink labels — tags: quiet chips.
      The visual split IS the two-tier genre statement (ADR-0007). */
   .value-strong {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
     font-size: var(--fs-16);
+    line-height: 22px;
     font-weight: 700;
+    color: var(--ink);
   }
   .value-strong:hover {
-    color: var(--seal);
+    color: var(--accent-2-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .chip {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
     padding: 0 var(--s-12);
-    font-size: var(--fs-14);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    letter-spacing: 0.04em;
+    font-weight: 500;
     color: var(--muted);
-    background: var(--wash);
-    border-radius: var(--r-2);
+    background: var(--surface-3);
+    border-radius: var(--r-0);
+    transition: color var(--t-micro), background var(--t-micro);
   }
   .chip:hover {
-    color: var(--seal);
+    color: var(--accent-2-ink);
+    background: var(--surface-2);
+  }
+  @media (max-width: 640px) {
+    .archive {
+      padding-top: var(--s-32);
+    }
   }
 </style>

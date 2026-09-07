@@ -1,0 +1,305 @@
+---
+/**
+ * ChartCard — one album on the home's "올해의 앨범" (Charts) grid.
+ *
+ * Charts is a LIST surface (D2), so unlike ArticleCard this card is allowed
+ * to carry a score, and it does: cover, then a plate butted straight against
+ * the cover's bottom edge holding the rank and the figure.
+ *
+ * Why under and not over the cover: the brief asked for a plate "on" the
+ * cover, and the reference does overlay it — but album art is the one asset
+ * on this site the publication does not own (that is what the `cover_source`
+ * field is for), and design direction §4.5 forbids cropping or covering it.
+ * A full-width plate at zero gap reads as one object with the art while
+ * leaving every pixel of it visible. Flipping to a real overlay later is a
+ * position/inset change in `.art`, nothing else.
+ *
+ * Accent budget: only the bucket leader (rank 1) gets the filled accent
+ * plate; ranks 2..5 get a neutral --surface-3 plate. Six accent plates on
+ * one page would flatten the "the accent means the score made this" rule
+ * into wallpaper, and rank 1 stays marked three ways — plate colour, the
+ * rank NUMBER, and the left border — never by colour alone (WCAG 1.4.1).
+ *
+ * The cover zooms on hover; the rule and its reduced-motion opt-out live in
+ * global.css (`.cover-frame`), not here — the clipping frame is <picture>
+ * itself, so `.art` keeps holding the art and the plate side by side without
+ * an extra wrapper.
+ *
+ * e2e contracts this markup satisfies:
+ *   · the anchor keeps `class="row-link"` inside `.board` (one click from
+ *     home to a review — browser.flows.spec.ts)
+ *   · the figure is the ONLY text node of its element, so scores are still
+ *     locatable as `>8.4<` (build.dist-matrix.spec.ts)
+ */
+import type { ChartCardEntry } from '../lib/derive/lists.ts';
+import CoverImage from './CoverImage.astro';
+import { withBase } from '../lib/paths.ts';
+import { hasNonAscii } from '../lib/typography.ts';
+
+interface Props {
+  entry: ChartCardEntry;
+  /** True for the single card that fills the row on its own (count === 1). */
+  feature?: boolean;
+  /** Above-the-fold cards load their cover eagerly; the rest stream in. */
+  eager?: boolean;
+  /** Anchor target for the section's pager arrows — set on the first and
+   * last card only. Without JavaScript the arrows are ordinary in-page
+   * links to these two ids, which is what makes the pager work at all when
+   * the script does not run. */
+  anchorId?: string;
+}
+
+const { entry, feature = false, eager = false, anchorId } = Astro.props;
+
+// THE ORDINAL IS PRINTED ONLY WHERE IT ORDERS SOMETHING (2026-09-07).
+// The plate used to open with a bare "1" on every bucket leader. On the home
+// that number is the rank inside a BUCKET, but the home flattens the buckets
+// into one row, so two leaders sat side by side both reading "1" with only a
+// small overline a line below to say they were counting different things —
+// and where a bucket holds a single album, "1위" is not a rank at all, it is
+// the only album restating itself. The numeral now appears from two entries
+// up, which is the point at which it starts distinguishing.
+//
+// The accent plate and the left rail are NOT conditional on this: they mark
+// "this album currently leads its genre", which is true of a bucket of one
+// and is the same claim NominateBadge makes in words on the review page.
+// Where a rank IS asserted (bucketCount >= 2) all three of the leader's
+// channels are still present — plate colour, the numeral, the rail — so the
+// "never by colour alone" rule holds exactly where there is something to
+// convey (WCAG 1.4.1).
+const showRank = entry.bucketCount > 1;
+// Assistive tech keeps the ordinal either way: hearing "8.0" alone tells a
+// screen-reader user less than the plate tells a sighted one, so the
+// sentence carries the rank even where the glyph is dropped.
+const rankSentence = `${entry.rank}위 · 평점 ${entry.score} / 10점 만점`;
+
+// Rendered box widths: 192px in the 5-up grid, 440px as the feature card.
+// The srcset only holds w320 and w640, so these two hints are what decide
+// which one the browser pulls.
+const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 960px) 200px, (min-width: 641px) 33vw, 100vw';
+---
+
+<li class:list={['chart-card', { first: entry.rank === 1, feature }]} id={anchorId}>
+  <a href={withBase(entry.review_url)} class="row-link">
+    <span class="art">
+      <CoverImage
+        cover={entry.cover}
+        size="fill"
+        albumTitle={entry.title}
+        loading={eager ? 'eager' : 'lazy'}
+        fillSizes={FILL_SIZES}
+      />
+      {/* `.plate` (global.css) supplies the accent fill and the sheen for
+          rank 1. Pulling it from the global sheet is what keeps every
+          accent-surface rule in one place rather than duplicated here. */}
+      <span class:list={['rank-plate', { plate: entry.rank === 1 }]}>
+        <span class="figures">
+          {showRank && <span class="rank tnum" aria-hidden="true">{entry.rank}</span>}
+          <span class="score tnum" aria-hidden="true">{entry.score}</span>
+        </span>
+        {/* Bare numerals are meaningless read aloud; this sentence is what
+            assistive tech announces instead. It keeps the ordinal even where
+            the plate does not print it, so a screen-reader user still hears
+            where the album sits. The bucket is deliberately NOT repeated
+            here: `.bucket` below is real text and follows one node later in
+            reading order. */}
+        <span class="sr-only">{rankSentence}</span>
+      </span>
+    </span>
+    <span class="body">
+      <span class:list={['bucket', { ko: hasNonAscii(entry.bucketLabel) }]}>{entry.bucketLabel}</span>
+      <span class="title">{entry.title}</span>
+      <span class="artists">{entry.artists_label}</span>
+    </span>
+  </a>
+</li>
+
+<style>
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    /* Reserved in every card so the leader's marker cannot shift the grid. */
+    border-left: 3px solid transparent;
+    transition: background var(--t-micro), border-color var(--t-micro);
+  }
+  .chart-card.first {
+    border-left-color: var(--accent);
+  }
+  .chart-card:hover {
+    background: var(--surface-2);
+    border-color: var(--line-strong);
+  }
+  .chart-card.first:hover {
+    border-left-color: var(--accent);
+  }
+  .row-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .art {
+    display: block;
+  }
+
+  /* ── The plate ── */
+  /* Centres `.figures` as one box; the two numerals share a baseline inside
+     it. Same two-part correction as ScoreMark — see the note there for why
+     `align-items: baseline` on this element pushed the figures to the top of
+     the plate and why the line boxes had to lose their leading as well. */
+  .rank-plate {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    padding: var(--s-4) var(--s-8);
+    /* Matches .plate's reserved border so leader and non-leader plates are
+       exactly the same height, in normal and in forced-colors rendering
+       alike (global.css draws a real edge on both under forced-colors). */
+    border: 2px solid transparent;
+  }
+  /* :not(.plate) keeps this out of the leader's way. Astro scopes component
+     rules with an attribute selector, which would otherwise outrank the
+     global .plate class and repaint the leader neutral. */
+  .rank-plate:not(.plate) {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+  .figures {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-8);
+  }
+  .rank {
+    font-family: var(--mono);
+    font-size: var(--fs-13);
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .score {
+    font-family: var(--mono);
+    font-size: var(--fs-15);
+    line-height: 1;
+    font-weight: 800;
+    /* When the rank is not printed the score is the plate's only figure;
+       this keeps it against the right edge, where the score sits in every
+       other plate on the site. */
+    margin-left: auto;
+  }
+
+  /* ── Text ── */
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    padding: var(--s-8) var(--s-12) var(--s-12);
+  }
+  .bucket {
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    font-weight: 700;
+    /* Genre labels are English since 2026-09-07 ("Pop", "Rock"), so this
+       takes the wide Latin tracking; `.ko` below is what a Korean label gets
+       instead. The labels are editor-configured text, so the tracking has to
+       follow the string rather than an assumption about it
+       (lib/typography.ts). */
+    letter-spacing: var(--label-ls);
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .bucket.ko {
+    letter-spacing: var(--label-ls-ko);
+  }
+  .title {
+    font-family: var(--display);
+    font-size: var(--fs-16);
+    line-height: 22px;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+    color: var(--ink);
+    /* Two lines max: a third would push the artist line out of alignment
+       with the neighbouring cards. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    transition: color var(--t-micro);
+  }
+  .row-link:hover .title {
+    color: var(--accent-2-ink);
+  }
+  .artists {
+    font-size: var(--fs-13);
+    line-height: 18px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Feature (the section holds exactly one card) ──
+     Not a scaled-up grid card: the cover takes its own column and the title
+     steps up two sizes, because a lone card in a 5-column grid reads as a
+     defect while a full-width feature reads as an editorial choice. */
+  /* The text track is capped at the reading measure; the pair sits at the
+     card's LEFT edge. At --shell 1440 a `1fr` text track would have been
+     928px holding a title, an artist line and nothing else — the wider the
+     screen, the emptier the card. Capping it fixes that, and `start` (not
+     `center`) keeps the cover flush against the card's left border where
+     the rank-1 accent rail is drawn: centring opened a gap between the rail
+     and the artwork it marks. The object is then the same shape at 1440,
+     1920 and 2560 — only the quiet surface to its right grows. */
+  .chart-card.feature .row-link {
+    display: grid;
+    grid-template-columns: 440px minmax(0, var(--column));
+    justify-content: start;
+    gap: var(--s-32);
+    align-items: center;
+  }
+  .chart-card.feature .body {
+    gap: var(--s-8);
+    padding: var(--s-24) var(--s-24) var(--s-24) 0;
+  }
+  .chart-card.feature .title {
+    font-size: var(--fs-44);
+    line-height: 48px;
+    letter-spacing: -0.03em;
+    font-weight: 800;
+  }
+  .chart-card.feature .artists {
+    font-size: var(--fs-17);
+    line-height: 24px;
+  }
+  .chart-card.feature .rank-plate {
+    min-height: 48px;
+    padding: var(--s-8) var(--s-16);
+  }
+  .chart-card.feature .score {
+    font-size: var(--fs-27);
+    line-height: 32px;
+  }
+
+  @media (max-width: 900px) {
+    /* Below the width where a 440px cover still leaves a readable text
+       column, the feature card stacks like every other card. */
+    .chart-card.feature .row-link {
+      display: flex;
+      flex-direction: column;
+      /* MUST reset — see ArticleCard: the desktop grid's align-items:center
+         would make the column flex shrink-wrap its children, and the nowrap
+         artist line then overflows the viewport at 360px. */
+      align-items: stretch;
+    }
+    .chart-card.feature .body {
+      padding: var(--s-8) var(--s-12) var(--s-12);
+    }
+    .chart-card.feature .title {
+      font-size: var(--fs-27);
+      line-height: 32px;
+      letter-spacing: -0.02em;
+    }
+  }
+</style>

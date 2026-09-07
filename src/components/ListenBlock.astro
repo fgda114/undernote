@@ -1,6 +1,6 @@
 ---
 /**
- * ListenBlock (components.md §9) — the tail of a review: where to go hear it.
+ * ListenBlock (components.md §12) — the tail of a review: where to go hear it.
  *
  * Was ScoreVerdict until D2-R (2026-09-06). The score and the nominate badge
  * both moved to the hero (ScoreMark / hero-text), so what remains is the
@@ -45,12 +45,14 @@ const { listenLinks } = Astro.props;
     gap: var(--s-12);
     align-items: flex-start;
   }
+  /* The rule is a divider, not a judgement: it lost the accent in the
+     reskin, because the accent here would compete with the score plate. */
   .rule {
     width: 48px;
     height: 2px;
     margin: 0;
     border: 0;
-    background: var(--seal);
+    background: var(--line-strong);
   }
   .listen {
     list-style: none;
@@ -60,15 +62,22 @@ const { listenLinks } = Astro.props;
     flex-wrap: wrap;
     gap: var(--s-16);
   }
+  /* Underlined, not just tinted: these used to be color plus a small
+     arrow glyph, which is close enough to color-alone to be worth
+     fixing (WCAG 1.4.1). */
   .listen a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
     font-size: var(--fs-15);
-    color: var(--muted);
-    transition: color var(--t-micro);
+    line-height: 20px;
+    font-weight: 600;
+    color: var(--accent-2-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: text-decoration-thickness var(--t-micro);
   }
   .listen a:hover {
-    color: var(--seal);
+    text-decoration-thickness: 2px;
   }
 </style>

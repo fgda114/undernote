@@ -1,47 +1,216 @@
 /**
- * Design tokens — the CSS translation of 07-design/design-system/tokens.md
- * (the single source of truth; every component references these variables,
- * hardcoded values are a review reject).
+ * Design tokens — the CSS translation of
+ * 07-design/reskin-2026-09/tokens.md, re-coloured for the W5 palette pass
+ * (2026-09-06). Every component references these variables; hardcoded values
+ * are a review reject.
  *
- * Identity: "잉크와 낙관" — warm-biased neutrals (paper/ink), one accent
- * (--seal) reserved for exactly five editorial-judgement slots: verdict
- * score, #1 rank, nominate badge, format overline, body links.
+ * Identity: still "야간 인쇄(night print)", but the reference the editorial
+ * side pointed at is a different colour world from the first reskin's
+ * fluorescent lime on a neutral dark: a near-black-to-deep-navy ground, mint
+ * green FLOWING AS A GRADIENT through large display type and arriving at
+ * lavender/purple, the whole thing iridescent. The target is that world, not
+ * "the same thing but quieter" — the mint here is bright and chromatic
+ * (#63EFC0), not a pastel wash.
  *
- * Dark mode is prefers-color-scheme only — no toggle, zero client JS.
+ * The two-series doctrine is unchanged; only the values moved:
+ *   --accent   (mint)     = whatever the score made — score plate, #1 rank,
+ *                           nominate badge, wordmark period, focus outline
+ *   --accent-2 (lavender) = the way out — body links, listen links, artist
+ *                           links, hovered card/row titles
+ * No component gained or lost an accent slot in this pass, so nothing below
+ * needs a media query.
+ *
+ * DARK ONLY (decided 2026-09-07, reversing reskin Q2). There is no light
+ * palette and no toggle: `color-scheme: dark` tells the UA to render its own
+ * widgets — scrollbars, form controls, the canvas before CSS lands — dark
+ * too, so the page has no white flash and no light-on-light native chrome.
+ * The consequence is recorded as an explicit accessibility decision, not an
+ * oversight: a reader who prefers light gets no way out, because a toggle
+ * would mean client JS and this site ships none (ADR-0002). The
+ * `prefers-contrast` and `forced-colors` paths below and in global.css are
+ * therefore the ONLY user-side colour controls left, and they stay.
+ *
+ * --accent-ink / --accent-2-ink survive the light removal on purpose. They
+ * now hold the same values as --accent / --accent-2, but they are the rule
+ * every component follows — "*-ink when the colour is TEXT, the bare token
+ * when it is a FILL (with --on-accent* on top)". Collapsing them would erase
+ * the distinction from ~15 call sites and buy nothing; keeping them costs
+ * two lines. The gradient tokens follow the same split: --accent-sheen is a
+ * fill, --head-sheen is text.
+ *
+ * Every ratio quoted in this file was computed with the WCAG 2.x formula and
+ * is reproduced in full in 08-impl-notes/frontend.md.
  */
 :root {
-  /* ── Color (light) — contrast figures verified in tokens.md §2 ── */
-  --paper: #faf9f7;
-  --surface: #ffffff;
-  --wash: #f3f1ec;
-  --ink: #201e1b;
-  --muted: #6e6a63;
-  --line: #e7e4de;
-  --seal: #b23a2f;
-  --seal-deep: #9a2f25;
-  --good: #2e6b4f;
-  --warn: #8a6d1f;
-  --critical: #8f2b21;
+  color-scheme: dark;
 
-  /* ── Type ── */
+  /* ── Color (the only scheme — see the intro) ──
+     The neutral ramp is a deep NAVY, not a blue-violet grey: the reference's
+     ground is where its mint gets its glow, and a hue-neutral dark makes the
+     same mint read as mineral green. */
+  --bg: #080c16;
+  --surface: #0f1420;
+  --surface-2: #161c2a;
+  --surface-3: #1f2637;
+  --ink: #e8e9f2;
+  --ink-prose: #d3d6e4; /* body text only — 13.50:1 avoids halation on long Korean prose */
+  --muted: #98a0b8;
+  --line: #242c3d; /* hairline, DECORATION ONLY (1.39:1 — never carries meaning) */
+  --line-strong: #6f7791; /* borders that mean something (4.39:1 on --bg) */
+
+  --accent: #63efc0; /* fill — mint */
+  --accent-dim: #45d3a5; /* fill hover/active */
+  --accent-ink: #63efc0; /* text — identical to the fill in dark */
+  --on-accent: #04170f; /* text on an --accent fill (12.90:1) */
+
+  --accent-2: #b9a5f7; /* fill — lavender */
+  --accent-2-ink: #b9a5f7; /* text */
+  --on-accent-2: #140c2e; /* text on an --accent-2 fill (8.72:1) */
+
+  --good: #7ce8b4;
+  --warn: #f0ce7c;
+  --critical: #ff8a80;
+
+  /* ── Iridescence: three gradient tokens, deliberately NOT colour tokens ──
+     The reference's signature is a gradient running mint → lavender through
+     big display type, over a ground where the same two families bleed into
+     each other. CSS does all of it with zero JS. What keeps it from
+     dissolving the token system is a hard boundary, one token per job:
+
+       --accent-sheen  FILLS only — the review score plate and the home chart
+                       leader plate. MINT FAMILY ONLY. All three stops clear
+                       AA against --on-accent (14.39 / 12.90 / 10.78:1), so
+                       the figure on top is legible wherever the ramp lands.
+       --head-sheen    TEXT only, and only on the two annual-list headings
+                       (see below). This is the token that crosses from mint
+                       into lavender.
+       --bg-sheen      the page wash on <body>, under everything.
+
+     WHERE --head-sheen may be used, exactly: the home's Charts section
+     heading and /list/{year}/'s H1. Those two headings name the list the
+     SCORES produced, which is what --accent means. Painting "최신 리뷰" or a
+     review's album title with it would put the score's colour on something
+     the score did not make, and the doctrine would be decoration again.
+     (Both of those were briefly gradient on 2026-09-07 and were put back;
+     the rule is unchanged, it was the rule that decided the revert.)
+
+     WHY --head-sheen crosses into lavender and --accent-sheen does not
+     (changed 2026-09-07). The brief wants the reference's visible mint-to-
+     purple flow, and a ramp that only travels inside one family does not
+     read as iridescent. The cost is real: lavender means "the way out", so a
+     score heading now ends in a colour the score did not earn. The loss is
+     contained to the two places where the accent is TYPE rather than SURFACE
+     — a headline is read as one object, a filled plate is read as a mark. So
+     surfaces stay pure: --accent-sheen keeps its mint-only stops, which is
+     what paints ScoreMark and the chart leader plate. Mixing is allowed only
+     in the named tokens listed at the end of this block, and nowhere else.
+
+     Every stop below is a value that already exists in the palette —
+     #8BF7D2 (mint, one step up), --accent, --accent-2 — so the ramp is
+     literally "the accent flowing into the other accent" rather than three
+     free-floating colours. Measured against --bg #080C16 the stops are
+     15.20 / 13.62 / 9.10:1 and against the worst-case page wash #1E2D38
+     they are 10.97 / 9.83 / 6.57:1; the interpolated middle of the ramp is
+     brighter than both ends, so 6.57 is the floor. AA (4.5:1) holds across
+     the whole ramp with no threshold lowered.
+
+     THE LIST, written as a list rather than a count because it moved three
+     times in one day (2026-09-07) and a number would have said nothing about
+     what moved:
+
+       --bg-sheen      the page wash, carries no meaning
+       --head-sheen    the home's Charts head + /list/{year}/'s H1 — the two
+                       headings that name the list the scores produced
+       --title-spot    a hovered home CARD title, a travelling spotlight
+
+     The clause that matters never moved: mixing lives in a list of named
+     tokens and nowhere else, and each entry states its own cost where it is
+     declared. A fourth entry (--title-sheen, a whole-element colour-mix on
+     card titles) existed between those revisions and is gone: the spotlight
+     took over its host, so keeping both would have been two answers to one
+     question. */
+  --accent-sheen: linear-gradient(135deg, #8bf7d2 0%, #63efc0 45%, #46d9de 100%);
+  --head-sheen: linear-gradient(100deg, #8bf7d2 0%, #63efc0 34%, #b9a5f7 100%);
+  /* --title-spot  TEXT only, and only on a HOVERED home CARD title. The
+     third — and, by the rule above, last — token allowed to cross from mint
+     into lavender.
+
+     WHAT IT IS. A hovered card's title rests in lavender and a mint
+     spotlight travels across the glyphs the pointer passes: a radial
+     gradient positioned by the pointer and clipped to the text. The title is
+     one object under one moving light.
+
+     WHERE IT IS NOT. The home's SECTION headings had this for half a day and
+     gave it back (2026-09-07). A section heading is not a link and should
+     not behave like one, and the two headings that are not Charts have no
+     claim to either accent. Charts keeps --head-sheen, fixed, no hover.
+
+     · --px/--py are the pointer's offset from the tracked box's centre,
+       -0.5..0.5, written on :root by the inline module in Base.astro — the
+       same two properties that drive the cover zoom. No listener was added.
+       `calc((var(--px) + 0.5) * 100%)` is the whole conversion from that
+       range to a background position.
+     · THE RADIUS IS --spot-r, AND IT IS DECLARED HERE, NOT BY THE HOST.
+       That is a constraint, not a preference: this token lives on :root, so
+       every var() inside it is substituted against :ROOT's values. --px gets
+       away with it because :root is exactly where the script writes it, but
+       a --spot-r set on the card title would be silently ignored and the
+       gradient would keep the fallback — measured, and it is how the first
+       attempt at 44px turned out to be a 96px circle in disguise. If a
+       second host ever needs a different light, move this declaration onto
+       the hosts; do not add a second --spot-r and expect it to win.
+       The value: 96px was right for the 34px section heading this effect
+       started on. On a 17px card title, whose two lines are ~48px tall, a
+       96px circle swallows the whole block and reads as a wash. 44px covers
+       roughly two and a half Korean glyphs — the sweep is in
+       08-impl-notes/frontend.md.
+     · FALLBACK 0/0 centres the circle, but nothing sees it: the gradient
+       applies only under :hover, and every environment without a pointer
+       (touch, prefers-reduced-motion, no script, no background-clip) is
+       pinned to flat lavender by the host.
+     · sRGB interpolation, deliberately NOT `in oklab`: an engine that parses
+       background-clip:text but not colour-space interpolation would drop the
+       whole gradient while `color: transparent` still applied — an invisible
+       title. The ramp is measured as it actually renders; against the
+       hovered card's ground (--surface-2) the floor is 7.93:1 and the peak
+       11.87:1 — no mid-ramp dip, AAA everywhere (full table in
+       08-impl-notes/frontend.md).
+     · Doctrine cost, stated: lavender means "the way out" and mint means
+       "what the score made". A card title IS a link, so the lavender end is
+       earned; the mint end is on loan. It is contained the same way
+       --head-sheen is — TYPE, momentary, reader-initiated, never a SURFACE —
+       and the score plates stay mint-only. */
+  --spot-r: 44px;
+  --title-spot: radial-gradient(
+    circle var(--spot-r) at calc((var(--px, 0) + 0.5) * 100%) calc((var(--py, 0) + 0.5) * 100%),
+    var(--accent-ink) 0%,
+    var(--accent-2-ink) 100%
+  );
+
+  /* ── Type: role tokens. Adding faces later is a 4-line change here and a
+     @font-face pair in Base.astro — components never name a family. ── */
   --sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --serif: 'Noto Serif KR', 'Apple SD Gothic Neo', serif;
-  /* Scale ratio 1.26: 13 · 15 · 17 · 21 · 27 · 34 · 42 */
+  --display: var(--sans);
+  --mono: var(--sans);
+  --label-ls: 0.16em; /* English label tracking */
+  --label-ls-ko: 0.04em; /* Korean labels NEVER get 0.16em — it slows reading */
+
+  /* Scale: 12 · 13 · 14 · 15 · 16 · 17 · 21 · 27 · 34 · 44 · 56 */
+  --fs-12: 0.75rem;
   --fs-13: 0.8125rem;
-  /* 14/16 are not on the 1.26 scale but are fixed by component contracts
-     (components.md §4·§10: BoardRow meta 14, title 16, badge 14). */
   --fs-14: 0.875rem;
   --fs-15: 0.9375rem;
   --fs-16: 1rem;
   --fs-17: 1.0625rem;
   --fs-21: 1.3125rem;
   --fs-27: 1.6875rem;
-  /* Story H1 is contract-fixed at 29/1.4/800 (tokens.md §3 type table). */
-  --fs-29: 1.8125rem;
   --fs-34: 2.125rem;
-  --fs-42: 2.625rem;
+  --fs-44: 2.75rem;
+  --fs-56: 3.5rem;
 
-  /* ── Spacing (8pt) ── */
+  /* ── Spacing (8pt + a 2px keyline correction) ── */
+  --s-2: 2px;
   --s-4: 4px;
   --s-8: 8px;
   --s-12: 12px;
@@ -52,42 +221,105 @@
   --s-64: 64px;
   --s-96: 96px;
 
-  /* ── Radius — print flatness is the default; not everything gets rounded ── */
-  --r-2: 2px;
-  --r-4: 4px;
-  --r-8: 8px;
+  /* ── Radius — square is the default. 0 is a density device, not a style:
+     rounded corners demand visual air, square blocks read when butted up. ── */
+  --r-0: 0px;
+  --r-2: 2px; /* the single exception: cover image corners */
 
-  /* ── Elevation — hairlines (--line) do the separating; one shadow level ── */
-  --e-1: 0 1px 2px rgba(32, 30, 27, 0.04), 0 8px 24px rgba(32, 30, 27, 0.05);
+  /* ── Elevation — none. Depth is surface steps + a 1px keyline; shadows do
+     not read on a dark page. ── */
+  --e-key: inset 0 0 0 1px var(--line);
 
-  /* ── Motion — the site's entire motion vocabulary is these two ── */
-  --t-micro: 120ms ease-out;                       /* hover color/underline only */
-  --t-board-row: 240ms;                            /* home board load stagger */
+  /* ── Motion — three entries, and the third is new (2026-09-07) ──
+     micro (hover colour) + the home board stagger were the whole vocabulary.
+     The brief asks for a cover that zooms on hover, which cannot be
+     expressed as a colour transition, so `--t-cover` joins them as a named
+     third entry rather than as an ad-hoc duration inside a component. It is
+     slower than --t-micro on purpose (a 120ms scale snaps, and the cover is
+     the largest object on a card) but well short of the board stagger: the
+     same transition also carries the cursor tracking, and past ~350ms a
+     followed cursor stops reading as magnetic and starts reading as lag.
+     Both --t-cover and --t-micro collapse under prefers-reduced-motion, and
+     the tracking is removed outright there (global.css). ── */
+  --t-micro: 120ms ease-out; /* hover color/background/border only */
+  --t-board-row: 240ms; /* home board load stagger */
   --t-board-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --t-board-stagger: 60ms;
+  --t-cover: 320ms cubic-bezier(0.2, 0.7, 0.3, 1); /* cover hover zoom + tracking */
+  --cover-zoom: 1.06; /* enough to read as motion, small enough not to soften the art */
+  /* Cursor-tracking travel, as a share of the cover's own edge. The zoom
+     leaves (1.06 − 1) / 2 = 3% of head-room on each side before the art
+     would pull away from its frame; the pointer offset is clamped to ±0.5,
+     so 5% x 0.5 x 1.06 = 2.65% stays inside it at every cover size. Express
+     it in % and not px precisely so that a 64px archive thumbnail and a
+     440px feature cover both stay within their own frames. */
+  --cover-track: 5%;
 
   /* ── Layout ── */
-  --column: 660px;                                 /* reading column ≈ 38 Korean chars */
   /* Page shell — EVERY page frame uses this so the layout does not jump
-     width as the reader moves between nav items. --column is only for
-     running prose sitting inside the shell. */
-  --shell: 960px;
+     width as the reader moves between nav items.
+     1080 → 1440 (2026-09-07). Measured on a 1920px display, a 1080 frame
+     left 420px of background on each side and the site read as a narrow
+     column on a wide screen — a phone layout that had been stretched
+     slightly. 1440 − 40 padding = 1400 inner, which leaves ~240px each side
+     at 1920 and reads as a page occupying its screen.
+     What this does NOT change is reading measure: --column stays 660px
+     (≈38 Korean characters), and the review page caps its own two-column
+     block rather than letting the prose float in a 1032px track. A frame is
+     how much of the screen the publication occupies; a measure is how long a
+     line may be. They are different numbers and only one of them is a
+     reading decision. */
+  --shell: 1440px;
+  /* Side gutter — RESPONSIVE, because one number cannot serve both ends.
+     A fixed 20px was fine while the shell was 1080 (the frame ran out before
+     the screen did), but at 1440 it put the content against the edge on a
+     1440px laptop — the exact width most readers have.
+
+     THE RATE, NOT THE SHAPE, CHANGED (2026-09-07, second pass). `4vw` still
+     read as cramped through 1440–1700: that band is the one place where
+     neither end of the clamp helps, because the shell (1440) has not started
+     capping the frame yet and so every pixel of screen the gutter does not
+     take goes into the content instead. Below ~1580 the gutter is now a
+     LINE THROUGH TWO MEASURED POINTS rather than a share of the screen:
+
+         768px → 30.5px  (deliberately where 4vw already was — the tablet
+                          end was not the complaint and must not shrink)
+        1580px → 120px   (the ceiling, reached just before the shell caps)
+
+     which is `0.11 * vw − 54px`. Measured across the checked widths:
+
+       screen   gutter   content   side margin
+        360      20        320        20     (floor holds — unchanged)
+        768      30.5      707       30.5    (was 30.7 — unchanged in practice)
+       1024      58.6      907       58.6
+       1440     104.4     1231      104.4    ← was 58px, the reported defect
+       1680     120       1440       120     (shell starts capping here)
+       1920     120       1440       240
+       2560     120       1440       560
+
+     The 120px ceiling only bites in the ~1580–1680 band; above it the shell
+     caps the frame first and the margin grows on its own, so a gutter that
+     kept climbing would only be measuring the same space twice.
+
+     COST, STATED: content at 1440 drops 1325 → 1231, so every card width on
+     the page moved and the hierarchy table had to be re-measured from
+     scratch (08-impl-notes/frontend.md). Containers use
+     `width: min(var(--shell), 100% - 2 * var(--gutter))` rather than
+     max-width + padding, so the gutter is REAL SPACE outside the box and a
+     full-bleed child (a rule, a divider) can still reach the edge. */
+  --gutter: clamp(20px, 11vw - 54px, 120px);
+  /* The review page's own outer bound: rail + gap + measure + the 20px page
+     padding on each side. The +40 is not decoration — max-width bounds the
+     BORDER box, so leaving it out charges the padding to the prose and the
+     measure lands at 620 instead of 660 (measured). Reading pages are
+     allowed to be narrower than the frame — that is what --column has always
+     done — but the whole two-column block has to move together, or the
+     full-width title above it stops sharing a left edge with the body under
+     it. */
+  --reading-shell: calc(var(--rail) + var(--s-48) + var(--column));
+  --column: 660px; /* running prose ≈ 38 Korean chars */
+  --rail: 320px; /* review left rail = cover edge length */
   --masthead-h: 64px;
   --masthead-h-mobile: 56px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #191817;
-    --surface: #201f1d;
-    --wash: #242320;
-    --ink: #eceae6;
-    --muted: #a8a49c;
-    --line: #34322e;
-    --seal: #e06a5b;
-    --seal-deep: #ea8072;
-    --good: #6fbf97;
-    --warn: #d4b45a;
-    --critical: #e06a5b;
-  }
-}

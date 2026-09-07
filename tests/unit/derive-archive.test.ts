@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Entry, RepoData } from '../../src/lib/checker/load';
-import { deriveArchiveIndex, detectOrphans, ETC_BUCKET_LABEL } from '../../src/lib/derive/archive';
+import { deriveArchiveIndex, deriveArtistIndex, detectOrphans, ETC_BUCKET_LABEL } from '../../src/lib/derive/archive';
 import type { Album, Artist, ReviewFrontmatter, SiteConfig, Story } from '../../src/lib/schema';
 
 function entry<T>(slug: string, data: T, body = '본문'): Entry<T> {
@@ -89,6 +89,46 @@ describe('4축 역인덱스', () => {
     for (const items of index.by_year.values()) {
       for (const item of items) expect(Object.keys(item).sort()).toEqual(['date', 'title', 'type', 'url']);
     }
+  });
+});
+
+describe('deriveArtistIndex — /artists/ 인덱스 (2026-09-07)', () => {
+  it('형식별 편수를 각각 센다 (평론·이야기는 다른 작업물)', () => {
+    const entries = deriveArtistIndex(repo, index);
+    expect(entries.map((e) => [e.slug, e.reviews, e.stories])).toEqual([
+      ['artist-a', 2, 1],
+      ['artist-b', 1, 1],
+    ]);
+  });
+
+  it('고아 아티스트는 목록에 들어올 수 없다 (E-113이 빌드를 막는 대상)', () => {
+    expect(deriveArtistIndex(repo, index).map((e) => e.slug)).not.toContain('orphan-artist');
+  });
+
+  it('표시명 코드포인트 오름차순 — 라틴 블록이 한글 블록보다 앞', () => {
+    // localeCompare would order these by the runner's ICU tables and could
+    // differ between machines, which the double-build hash gate would catch
+    // as nondeterminism (R-10). Code-point order is one fixed answer.
+    const named: RepoData = {
+      ...repo,
+      artists: [
+        entry<Artist>('a1', { name: '한글가' }),
+        entry<Artist>('a2', { name: 'Zebra' }),
+        entry<Artist>('a3', { name: 'Apple' }),
+        entry<Artist>('a4', { name: '한글나' }),
+      ],
+    };
+    const idx = { ...index, by_artist: new Map(['a1', 'a2', 'a3', 'a4'].map((k) => [k, index.by_artist.get('artist-b')!])) };
+    expect(deriveArtistIndex(named, idx).map((e) => e.name)).toEqual(['Apple', 'Zebra', '한글가', '한글나']);
+  });
+
+  it('동명이인은 slug로 갈린다 (전순서 — 빌드마다 같은 순서)', () => {
+    const dupes: RepoData = {
+      ...repo,
+      artists: [entry<Artist>('zz', { name: '같은 이름' }), entry<Artist>('aa', { name: '같은 이름' })],
+    };
+    const idx = { ...index, by_artist: new Map(['zz', 'aa'].map((k) => [k, index.by_artist.get('artist-b')!])) };
+    expect(deriveArtistIndex(dupes, idx).map((e) => e.slug)).toEqual(['aa', 'zz']);
   });
 });
 

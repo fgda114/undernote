@@ -1,6 +1,9 @@
 ---
 /**
- * BoardPanel (components.md §5) — one bucket column: label + BoardRow×0~5.
+ * BoardPanel (components.md §10) — one bucket column: label + BoardRow×0~5.
+ * The panel gained a surface in the reskin: on a dark page a bare column has
+ * no edge, and depth here is made of surface steps plus a 1px keyline, not
+ * shadows.
  * Empty bucket shows the exact copy (never hidden — the annual structure
  * being visible IS the point of the board, D5); 1~4 rows show as-is with no
  * placeholder padding (R-4).
@@ -8,6 +11,7 @@
  */
 import type { Board } from '../lib/derive/lists.ts';
 import BoardRow from './BoardRow.astro';
+import { hasNonAscii } from '../lib/typography.ts';
 
 interface Props {
   bucket: Board['buckets'][number];
@@ -17,7 +21,7 @@ const { bucket } = Astro.props;
 ---
 
 <section class="panel">
-  <h3 class="bucket-label">{bucket.label}</h3>
+  <h3 class:list={['bucket-label', { ko: hasNonAscii(bucket.label) }]}>{bucket.label}</h3>
   {
     bucket.entries.length > 0 ? (
       <ol class="rows">
@@ -32,18 +36,40 @@ const { bucket } = Astro.props;
 </section>
 
 <style>
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-0);
+    padding: var(--s-12);
+  }
   .bucket-label {
-    font-size: var(--fs-15);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    /* Genre labels are English since 2026-09-07 ("Pop", "Rock",
+       "Hip-Hop / R&B") and take the wide Latin tracking. The `.ko` override
+       below is what a Korean label would get instead — the labels are
+       editor-configurable text, so the tracking has to follow the string,
+       not an assumption about it (lib/typography.ts). */
+    letter-spacing: var(--label-ls);
     font-weight: 700;
-    margin-bottom: var(--s-8);
+    text-transform: uppercase;
+    color: var(--ink);
+    padding-bottom: var(--s-8);
+    border-bottom: 1px solid var(--line);
+  }
+  .bucket-label.ko {
+    letter-spacing: var(--label-ls-ko);
   }
   .rows {
     list-style: none;
-    margin: 0;
+    margin: var(--s-8) 0 0;
     padding: 0;
   }
   .empty {
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
     color: var(--muted);
+    padding: var(--s-12) 0;
   }
 </style>

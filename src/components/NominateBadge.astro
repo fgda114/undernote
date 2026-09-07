@@ -3,11 +3,18 @@
  * NominateBadge (components.md §10) — "● 지금 {버킷} 노미네이트 {n}위",
  * linking to the year list (the review→board reverse path, D6-3).
  *
- * Lives in the review hero, under the album line (D2-R): the badge is
- * derived from the score (SS-4), and since the score itself now opens the
- * page there is nothing left to leak.
+ * Lives at the FOOT OF THE REVIEW RAIL, under the spec block (moved there
+ * 2026-09-07; it sat in the hero under the album line from D2-R until then).
+ * It is derived from the score (SS-4), so it belongs with the rail's other
+ * derived facts rather than with the headline — and on a narrow screen the
+ * single column now reaches the score before the thing the score produced,
+ * which the hero placement had backwards.
  * Not nominated → the caller simply doesn't render this (no empty shell).
- * Color-independence: the text says everything; seal is reinforcement.
+ * Color-independence: the text says everything; the colour is reinforcement.
+ *
+ * Outline, not fill: a page may carry exactly one large accent surface, and
+ * that one is the score plate. A second filled block would halve its weight,
+ * so the badge stays a line until you hover it.
  */
 interface Props {
   bucketLabel: string;
@@ -31,16 +38,18 @@ const { bucketLabel, rank, year } = Astro.props;
     align-items: center;
     gap: var(--s-8);
     min-height: 44px;
-    padding: var(--s-4) var(--s-12);
-    background: var(--wash);
-    border-radius: var(--r-2);
-    color: var(--seal);
+    padding: 0 var(--s-12);
+    border: 1px solid var(--accent);
+    border-radius: var(--r-0);
+    color: var(--accent-ink);
     font-family: var(--sans);
     font-size: var(--fs-14);
+    line-height: 20px;
     font-weight: 600;
-    transition: color var(--t-micro);
+    transition: color var(--t-micro), background var(--t-micro);
   }
   .badge:hover {
-    color: var(--seal-deep);
+    background: var(--accent);
+    color: var(--on-accent);
   }
 </style>

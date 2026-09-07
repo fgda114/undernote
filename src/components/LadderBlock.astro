@@ -1,6 +1,6 @@
 ---
 /**
- * LadderBlock (components.md §11) — the review→story bridge (US-3).
+ * LadderBlock (components.md §13) — the review→story bridge (US-3).
  * Sans-serif on purpose: the block speaks in the story voice, inviting the
  * reader across the tone bridge (charter §4).
  *
@@ -43,13 +43,15 @@ const leadCopy =
 <style>
   .ladder {
     margin-top: var(--s-48);
-    background: var(--wash);
-    border-radius: var(--r-4);
-    padding: var(--s-24);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-0);
+    padding: var(--s-16);
     font-family: var(--sans);
   }
   .lead {
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
     color: var(--muted);
   }
   .stories {
@@ -62,27 +64,30 @@ const leadCopy =
   }
   .stories a {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: var(--s-8);
     min-height: 44px;
-    align-items: center;
   }
   .story-title {
     font-size: var(--fs-17);
+    line-height: 24px;
     font-weight: 700;
+    color: var(--ink);
+    transition: color var(--t-micro);
   }
   .excerpt {
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
     color: var(--muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .arrow {
-    color: var(--seal);
+    color: var(--accent-2-ink);
   }
   .stories a:hover .story-title {
-    color: var(--seal);
+    color: var(--accent-2-ink);
     text-decoration: underline;
     text-underline-offset: 3px;
   }

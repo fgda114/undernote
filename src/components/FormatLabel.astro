@@ -1,29 +1,55 @@
 ---
 /**
- * FormatLabel — the seal-colored overline (components.md §3). Not decoration:
+ * FormatLabel — the structural overline (components.md §3). Not decoration:
  * real text, read first by screen readers on purpose (the format IS the
- * context). One of the five sanctioned --seal slots.
+ * context), so `aria-hidden` is forbidden here.
+ *
+ * The 2026-09 reskin STRIPPED the accent color from this component. An
+ * overline sits on nearly every card and page head; painting it with the accent would
+ * turn the whole grid fluorescent and bury the score plate, which is the
+ * one thing the accent is reserved for. The `chip` variant carries the visual
+ * weight instead — a filled surface, not a colored word.
  */
+import { hasNonAscii } from '../lib/typography.ts';
+
 interface Props {
-  /** Label text: Reviews / Notes / Artists / page overlines (e.g. "2026 올해의 앨범"). */
+  /** Label text: Reviews / Notes / Artists / page overlines (e.g. "Archive"). */
   text: string;
+  variant?: 'plain' | 'chip';
 }
 
-const { text } = Astro.props;
+const { text, variant = 'plain' } = Astro.props;
+
+// English labels get wide 0.16em tracking; Korean never does — spaced-out
+// Hangul measurably slows reading. The rule moved to lib/typography.ts when
+// two more components (the genre bucket headings) needed the same decision.
+const ko = hasNonAscii(text);
 ---
 
-<p class="format-label">{text}</p>
+<p class:list={['format-label', variant, { ko }]}>{text}</p>
 
 <style>
   .format-label {
-    font-family: var(--sans);
-    font-size: var(--fs-13);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
     font-weight: 700;
-    line-height: 1;
-    letter-spacing: 0.14em;
+    letter-spacing: var(--label-ls);
     /* Section names are English (D2-R sibling decision); uppercase is a
-       no-op on the Korean page overlines that still pass through here. */
+       no-op on the Korean page overlines that also pass through here. */
     text-transform: uppercase;
-    color: var(--seal);
+    color: var(--muted);
+  }
+  .format-label.ko {
+    letter-spacing: var(--label-ls-ko);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: var(--s-4) var(--s-8);
+    background: var(--surface-2);
+    color: var(--ink);
+    border-radius: var(--r-0);
   }
 </style>

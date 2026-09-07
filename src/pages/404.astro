@@ -1,49 +1,131 @@
 ---
 /**
- * 404 — one serif line, two links, zero decoration (ui-spec §9). The only
- * error state a reader can ever reach: everything else is blocked at build
- * time (SS-1·8 — zero broken states shipped is the design goal).
+ * 404 — the only error state a reader can ever reach: everything else is
+ * blocked at build time (SS-1·8 — zero broken states shipped is the design
+ * goal). Rebuilt 2026-09-07, when it was the one page that did not look like
+ * it belonged to this site: it had the right frame and not one thing inside
+ * it.
+ *
+ * THE TITLE IS `404`, and it follows the title rules in global.css rather
+ * than taking an exception from them. Every other surface names itself in
+ * one short line — Reviews, Notes, Charts 2026, Artists, Archive, About —
+ * and `404` is what this one is called, in the only vocabulary the web has
+ * for it. It takes no overline (rule 3: the h1 IS the name) and it is set at
+ * the ordinary .page-title size, NOT blown up as a display numeral: a giant
+ * "404" is the decorative-numbering cliché the direction bans outright
+ * (§2.3 — "숫자는 실제 순위·점수일 때만"), and at 34px the figure is a page
+ * title rather than an ornament.
+ *
+ * THE SENTENCE MOVED FROM THE TITLE INTO THE BODY, which needs rule 4 said
+ * out loud rather than bent. Rule 4 forbids captions under a page title
+ * because that slot is where self-describing sentences live — "this section
+ * shows the latest reviews". It already carried one exception, the finalized
+ * list's immutability line, on the grounds that it STATES SOMETHING rather
+ * than describing the surface. This line is the second of that kind:
+ * "이 주소에는 글이 없습니다." reports what happened at this URL. It does
+ * not describe what kind of page this is, and it does not apologise for it —
+ * the tone is the one the empty states settled on (`아직 글이 없습니다.`),
+ * not "죄송합니다" or "페이지를 찾을 수 없습니다".
+ *
+ * THE EXITS ARE LAVENDER, AND THAT IS THE WHOLE ACCENT BUDGET OF THIS PAGE.
+ * --accent-2 means "the way out", and a 404 is nothing but ways out, so the
+ * page is saturated with the one accent it has a claim to. There is no mint
+ * anywhere on it, and that is not an oversight: --accent means "whatever the
+ * score made", and nothing here was made by a score. The most colourless
+ * page on the site is colourless in exactly one direction, for a reason it
+ * can state.
+ *
+ * WHICH EXITS (revised). `Home` and `Archive` became `Reviews`, `Notes`,
+ * `Archive`. A dead URL under this site was almost certainly a piece of
+ * WRITING — /reviews/… or /stories/… — so the two format listings are where
+ * the thing being looked for actually lives, and the archive is the tool for
+ * finding it again by year, tag, genre or artist. `Home` left because the
+ * wordmark at the top of this very page already is it, and Charts left
+ * because a missing article is not a missing list.
  */
 import Base from '../layouts/Base.astro';
 import { withBase } from '../lib/paths.ts';
+
+// Same order the masthead uses, minus the two the page has no use for.
+const exits = [
+  { label: 'Reviews', href: withBase('/archive/reviews/') },
+  { label: 'Notes', href: withBase('/archive/stories/') },
+  { label: 'Archive', href: withBase('/archive/') },
+] as const;
 ---
 
-<Base title="이 주소에는 글이 없습니다" description="이 주소에는 글이 없습니다." path="/404/">
+<Base title="404" description="이 주소에는 글이 없습니다." path="/404/">
   <main class="notfound">
-    <h1 class="line">이 주소에는 글이 없습니다.</h1>
-    <ul class="links">
-      <li><a href={withBase('/')}>Home</a></li>
-      <li><a href={withBase('/archive/')}>Archive</a></li>
+    <h1 class="page-title tnum">404</h1>
+    <p class="line">이 주소에는 글이 없습니다.</p>
+    <ul class="exits">
+      {
+        exits.map((exit) => (
+          <li>
+            <a href={exit.href}>{exit.label}</a>
+          </li>
+        ))
+      }
     </ul>
   </main>
 </Base>
 
 <style>
   .notfound {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-96) 20px 0;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    /* Not centred in the viewport. The page keeps the same top rhythm as
+       every other surface (the masthead line, then the title) so that
+       arriving here reads as landing on a page of this site rather than on
+       an interstitial — the footer sticks to the bottom on its own
+       (global.css), which is what fills the short page. The 48/32 padding is
+       the same pair every listing uses; it was 96 while this page was a
+       single lonely line, and that extra 48px was the main thing making it
+       sit somewhere other than where a page of this site sits. */
+    padding: var(--s-48) 0 0;
   }
   .line {
-    font-family: var(--serif);
-    font-size: var(--fs-27);
-    font-weight: 700;
+    margin-top: var(--s-16);
+    max-width: var(--column);
+    font-size: var(--fs-17);
+    line-height: 26px;
+    color: var(--ink-prose);
   }
-  .links {
+  .exits {
     list-style: none;
-    margin: var(--s-24) 0 0;
+    margin: var(--s-32) 0 0;
     padding: 0;
     display: flex;
+    flex-wrap: wrap;
     gap: var(--s-24);
   }
-  .links a {
+  /* Body-link grammar, exactly as global.css defines it for prose: colour
+     AND underline, never colour alone (WCAG 1.4.1). These are not nav items
+     with a hover underline — they are the destinations this page exists to
+     offer, so they look like links at rest. */
+  .exits a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+    font-family: var(--mono);
     font-size: var(--fs-15);
-    font-weight: 600;
+    line-height: 20px;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--accent-2-ink);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    transition: text-decoration-thickness var(--t-micro);
   }
-  .links a:hover {
-    color: var(--seal);
+  /* Thickens rather than shifting hue, so the affordance never depends on
+     the reader seeing a colour change — the same rule .prose a follows. */
+  .exits a:hover {
+    text-decoration-thickness: 2px;
+  }
+  @media (max-width: 640px) {
+    .notfound {
+      padding-top: var(--s-32);
+    }
   }
 </style>

@@ -5,7 +5,10 @@
 years:
   - year: 2026
     buckets:
-      - { id: "hiphop-rnb", label: "힙합/R&B", order: 1 }
-      - { id: "pop", label: "팝", order: 2 }
-      - { id: "rock", label: "록", order: 3 }
+      # Labels are English (2026-09-07) to match the site's section-name rule;
+      # the ids are UNCHANGED and must stay so — album `bucket` values and the
+      # /archive/genre/{id}/ routes are keyed on them, not on the label.
+      - { id: "hiphop-rnb", label: "Hip-Hop / R&B", order: 1 }
+      - { id: "pop", label: "Pop", order: 2 }
+      - { id: "rock", label: "Rock", order: 3 }
     min_reviews_to_publish: 3

@@ -91,6 +91,55 @@ export function deriveArchiveIndex(data: RepoData): ArchiveIndex {
 /** Fixed display label for the reserved bucket (never configured — E-109). */
 export const ETC_BUCKET_LABEL = '그 외';
 
+/** One row of /artists/ — display name plus what this publication has
+ * written about them, split by format because the two are different work. */
+export interface ArtistIndexEntry {
+  slug: string;
+  name: string;
+  reviews: number;
+  stories: number;
+}
+
+/**
+ * The /artists/ index (2026-09-07). Derived here rather than in the page,
+ * like every other list on this site (P1): the page renders the result.
+ *
+ * SORT: display name ascending by CODE POINT, slug as the tiebreaker.
+ *
+ * Not localeCompare — it is environment-dependent and would break the
+ * double-build hash gate on a runner with a different ICU build (R-10, the
+ * same reason compareR1 exists). Code-point order puts Latin names before
+ * Hangul ones, which reads as two clean blocks rather than as a mistake.
+ *
+ * Not "most reviewed first", which was the other candidate: an index is a
+ * LOOKUP surface, and count-ordering moves every name on the page each time
+ * something is published. A reader who remembers where a name sat would find
+ * it somewhere else next visit. The counts are still shown — they are just
+ * not the axis.
+ *
+ * Artists with nothing written about them cannot appear: they cannot exist
+ * (E-113 fails the build on an unreferenced artist), so this list is empty
+ * only when the whole site is.
+ */
+export function deriveArtistIndex(data: RepoData, index: ArchiveIndex): ArtistIndexEntry[] {
+  const names = new Map(data.artists.map((a) => [a.slug, a.data.name]));
+  const entries: ArtistIndexEntry[] = [];
+  for (const [slug, items] of index.by_artist) {
+    entries.push({
+      slug,
+      name: names.get(slug) ?? slug,
+      reviews: items.filter((i) => i.type === 'review').length,
+      stories: items.filter((i) => i.type === 'story').length,
+    });
+  }
+  return entries.sort((a, b) => cp(a.name, b.name) || cp(a.slug, b.slug));
+}
+
+/** Code-point compare — never localeCompare (see deriveArtistIndex). */
+function cp(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /**
  * E-113 — orphan check, final form (W5.3): every published piece must be
  * reachable through at least one axis. Reviews and stories always land in

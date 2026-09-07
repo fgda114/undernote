@@ -1,16 +1,19 @@
 ---
 /**
- * ScoreMark (components.md §9a) — the hero score dial.
+ * ScoreMark (components.md §5) — the review hero's score plate.
  *
- * Placement: review hero, left of the title (D2-R 2026-09-06 — the score is
- * the entry point, not the conclusion; supersedes the original D2 "말미 배치").
- * One of the five sanctioned --seal slots (verdict score).
+ * Placement: review hero only, directly under the cover with zero gap, so
+ * "this album, this score" reads as one object (D2-R 2026-09-06 — the score
+ * is the entry point, not the conclusion). The 96px ring it replaced was a
+ * leftover from the light, paper-and-seal identity; a filled square holds
+ * its weight when it shrinks to a phone width, a hairline ring does not.
  *
  * Renders the STORED STRING verbatim ("8.3" stays "8.3", never 8.30/8) —
  * lib/score.ts owns the format and this component never reformats it.
  *
- * The ring is drawn with border, not an SVG: one element, no extra request,
- * and it inherits --seal in both color schemes for free.
+ * Markup contract: the figure must be the ONLY text node of its element —
+ * a dist-wide test locates scores as `>8.3<`. That is why `/10` is a
+ * separate span and not a suffix on the same node.
  */
 interface Props {
   score: string;
@@ -19,51 +22,71 @@ interface Props {
 const { score } = Astro.props;
 ---
 
-<p class="score-mark">
-  <span class="value" aria-hidden="true">{score}</span>
+<p class="score-mark plate">
+  {/* The two figures are wrapped so the plate can CENTRE them as one box
+      while they keep sharing a baseline with each other — see the style
+      note below for why that needs two elements. */}
+  <span class="figures">
+    <span class="value tnum" aria-hidden="true">{score}</span>
+    <span class="scale" aria-hidden="true">/10</span>
+  </span>
   {/* AT reads the full scale — a bare "8.3" is meaningless out of context. */}
   <span class="sr-only">평점 {score} / 10점 만점</span>
 </p>
 
 <style>
+  /* VERTICAL CENTRING, IN TWO PARTS (2026-09-07 — the plate read as
+     top-heavy: no gap above the figure and ~40px below it).
+     1. A single-line flex container with `align-items: baseline` places its
+        line at the START of the container, so all of the slack in an 88px
+        plate landed under the number. The two figures moved into `.figures`,
+        which the plate now centres as one box while the figures go on
+        sharing a baseline INSIDE it — one property cannot do both jobs on
+        the same element.
+     2. `line-height: 1` on the number. A 44px line box around a 44px digit
+        reserves descender room that digits never occupy, which pushes the
+        ink above the box's centre even after the box is centred.
+     ChartCard's rank plate, ArticleCard's card plate and the list thumbnail
+     chip take the same two-part correction: the four score marks are one
+     object at four sizes, and they were all top-heavy for the same reason.
+     Measured ink offsets are in 08-impl-notes/frontend.md. */
   .score-mark {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 96px;
-    height: 96px;
-    border: 3px solid var(--seal);
-    border-radius: 50%;
+    width: 100%;
+    height: 88px;
+    padding: 0 var(--s-16);
     margin: 0;
   }
-  .value {
-    font-family: var(--serif);
-    font-size: var(--fs-29);
-    font-weight: 700;
-    line-height: 1;
-    color: var(--seal);
-    /* Tabular figures keep 8.3 and 10.0 optically centred in the ring. */
-    font-variant-numeric: tabular-nums;
+  .figures {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
   }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
+  .value {
+    font-family: var(--display);
+    font-size: var(--fs-44);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    color: var(--on-accent);
+  }
+  .scale {
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    color: var(--on-accent);
   }
   @media (max-width: 640px) {
     .score-mark {
-      width: 72px;
       height: 72px;
-      border-width: 2px;
     }
     .value {
-      font-size: var(--fs-21);
+      font-size: var(--fs-34);
+      line-height: 1;
     }
   }
 </style>

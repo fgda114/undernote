@@ -6,6 +6,17 @@
  *
  * Score strings NEVER pass through here: OG assembly input types have no
  * score field at all (E-115 is enforced at the type level, src/lib/og).
+ *
+ * CLIENT JS: "zero" became "a budget" on 2026-09-07 (lead decision). Exactly
+ * ONE inline module ships, from this file, under the ceiling in
+ * build.dist-matrix.spec.ts (2304B; the block measures 2055B), and it does
+ * two decorative things. What replaced the old zero as the guard is measured, not
+ * assumed — build.dist-matrix.spec.ts fails the build if any page carries
+ * more than one script tag, if any script has a src, or if the inline body
+ * exceeds the byte budget; browser.flows.spec.ts still proves that no
+ * JavaScript is fetched over the network, and additionally renders the site
+ * with scripting disabled. Read the full reasoning in
+ * 08-impl-notes/frontend.md before adding a second one.
  */
 import Footer from '../components/Footer.astro';
 import Masthead from '../components/Masthead.astro';
@@ -22,11 +33,19 @@ interface Props {
   ogImage?: string;
   /** Site-relative canonical path of this page, e.g. "/reviews/foo/". */
   path: string;
-  current?: 'reviews' | 'stories' | 'list' | 'archive' | 'about';
+  current?: 'reviews' | 'stories' | 'list' | 'artists' | 'archive' | 'about';
+  /**
+   * Preload the serif faces. Since the 2026-09 reskin the serif is used by
+   * exactly two surfaces — review bodies and the finalized annual preface —
+   * so every other page would otherwise pay 322.1KB for a face it never
+   * paints. The @font-face declarations stay global (a declaration alone
+   * downloads nothing); only the preload hint is conditional.
+   */
+  preloadSerif?: boolean;
 }
 
 const site = getSiteConfig();
-const { title, description, ogType = 'website', ogImage = '/og/default.png', path, current } = Astro.props;
+const { title, description, ogType = 'website', ogImage = '/og/default.png', path, current, preloadSerif = false } = Astro.props;
 const goatcounter = site.goatcounter_code;
 const fullTitle = title === site.site_name ? title : `${title} — ${site.site_name}`;
 
@@ -56,21 +75,137 @@ const fontFaceCss = `
     <meta property="og:url" content={absoluteUrl(path)} />
     <meta property="og:site_name" content={site.site_name} />
     <meta name="twitter:card" content="summary_large_image" />
-    {/* Fonts are small subsets; preloading the two first-paint faces avoids FOUT on the wordmark. */}
-    <link rel="preload" href={withBase('/fonts/NotoSerifKR-700-sub.woff2')} as="font" type="font/woff2" crossorigin />
+    {/* Pretendard paints the wordmark and every headline, so it is always
+        preloaded; the serif only on the two pages that actually set prose in it. */}
     <link rel="preload" href={withBase('/fonts/PretendardVariable-sub.woff2')} as="font" type="font/woff2" crossorigin />
+    {
+      preloadSerif && (
+        <>
+          <link rel="preload" href={withBase('/fonts/NotoSerifKR-400-sub.woff2')} as="font" type="font/woff2" crossorigin />
+          <link rel="preload" href={withBase('/fonts/NotoSerifKR-700-sub.woff2')} as="font" type="font/woff2" crossorigin />
+        </>
+      )
+    }
     <Fragment set:html={`<style>${fontFaceCss}</style>`} />
   </head>
   <body>
     <Masthead current={current} />
     <slot />
-    <Footer />
+    <Footer current={current} />
+    {/* The site's ONE script. Two decorations, both progressive enhancement
+        in the strict sense: everything they touch already works without them
+        — the chart pager arrows are in-page links to the first and last card,
+        and the cover hover zoom is pure CSS. Nothing here creates, moves, focuses or
+        labels anything, so a reader without JavaScript is missing an effect,
+        not a feature — which is why there is no <noscript> counterpart to
+        write. Ship budget: this block is the whole of it. The ceiling has
+        moved twice — 1KB → 2KB when the pager arrived, 2048B → 2304B when
+        the tracking below grew from one reader to three — and each move is
+        recorded with its reason in build.dist-matrix.spec.ts, which holds
+        the number and fails the build when a feature outgrows it.
+
+        THE PAGER never creates a control. The arrows are anchors in the
+        HTML, so a reader without JavaScript gets "jump to the start / to the
+        end" instead of "step one screen" — less, but never a dead button.
+        aria-disabled is advisory only: the link stays operable, it simply
+        has nowhere left to go, and it is marked dimmed AND announced so the
+        state is never carried by colour alone.
+
+        THE CURSOR TRACKING passes three gates before a single listener
+        exists:
+          · a fine hovering pointer — a touch device has no cursor to follow,
+            and attaching pointermove there would burn battery for nothing;
+          · prefers-reduced-motion — refused at the ENTRY POINT, not merely
+            hidden in CSS, so the work is never even scheduled;
+          · a tracked box under the pointer — a .cover-frame, a home
+            browsing card (.card-link) or that card's title (.title-spot) —
+            otherwise pointermove returns on its first line.
+
+        TWO READERS, ONE MEASUREMENT (2026-09-07). --px/--py are written on
+        :root rather than on the tracked element, because the second reader —
+        the hovered card title's mint spotlight (--title-spot) — is a
+        SIBLING of the cover, not a descendant of it, and a custom property
+        only travels downwards. Writing at the root costs nothing (only the
+        hovered anchor has a rule that reads them) and is what lets one
+        listener serve both effects.
+        THREE BOXES, ONE MEASUREMENT, and `closest` returning the INNERMOST
+        match is what makes them cooperate rather than fight. Each reader
+        needs the pointer's position inside its own box — the zoom inside the
+        cover, the spotlight inside the title — and the innermost rule hands
+        each one exactly that at the moment it is the thing under the
+        pointer. The looser cases are bounded rather than wrong: over a
+        card's title the cover's travel takes title-relative coordinates,
+        which the ±0.5 clamp keeps inside the frame anyway.
+
+        No layout thrash: the frame is measured ONCE per enter, writes are
+        coalesced into one rAF, and the only thing written is two custom
+        properties that CSS turns into a composited transform. Every listener
+        in this file is passive except the pager's click, so nothing here can
+        block scrolling.
+
+        Values are clamped to ±0.5. The measured box goes stale if the page
+        scrolls while the pointer sits still on a cover; the clamp bounds how
+        wrong the result can be, and the effect is decorative enough that
+        re-measuring on scroll would cost more than it is worth. */}
+    <script type="module" is:inline>
+  const q = (m) => matchMedia(m).matches;
+  const still = q('(prefers-reduced-motion:reduce)');
+
+  // Chart pager. The arrows are links that already work without this; here
+  // they become one-screenful steps and learn when they have run out of row.
+  for (const box of document.querySelectorAll('.chart-cards')) {
+    const btns = box.parentElement.querySelectorAll('[data-scroll]');
+    if (!btns.length) continue;
+    const sync = () => {
+      const end = box.scrollWidth - box.clientWidth - 1;
+      for (const b of btns) {
+        const atEnd = b.dataset.scroll < 0 ? box.scrollLeft <= 0 : box.scrollLeft >= end;
+        b.setAttribute('aria-disabled', atEnd);
+      }
+    };
+    for (const b of btns)
+      b.addEventListener('click', (e) => {
+        e.preventDefault();
+        box.scrollBy({ left: box.clientWidth * 0.8 * b.dataset.scroll, behavior: still ? 'auto' : 'smooth' });
+      });
+    box.addEventListener('scroll', sync, { passive: true });
+    addEventListener('resize', sync, { passive: true });
+    sync();
+  }
+
+  // Pointer tracking: --px/--py on :root, read by the cover zoom and by the
+  // card title's spotlight. See the note above.
+  if (q('(hover:hover) and (pointer:fine)') && !still) {
+    const s = document.documentElement.style;
+    let f = null, b = null, x = 0, y = 0, r = 0;
+    const clamp = (v) => (v < -0.5 ? -0.5 : v > 0.5 ? 0.5 : v);
+    const write = () => {
+      r = 0;
+      s.setProperty('--px', x), s.setProperty('--py', y);
+    };
+    addEventListener('pointerover', (e) => {
+      const n = e.target.closest ? e.target.closest('.cover-frame,.card-link,.title-spot') : null;
+      if (n === f) return;
+      if (!n) s.removeProperty('--px'), s.removeProperty('--py');
+      b = (f = n) && n.getBoundingClientRect();
+    }, { passive: true });
+    addEventListener('pointermove', (e) => {
+      if (!f) return;
+      x = clamp((e.clientX - b.left) / b.width - 0.5);
+      y = clamp((e.clientY - b.top) / b.height - 0.5);
+      if (!r) r = requestAnimationFrame(write);
+    }, { passive: true });
+  }
+    </script>
     {
-      /* Analytics — the ONE sanctioned exception to "client JS 0" (ADR-0002):
+      /* Analytics — the only EXTERNAL script this site may load (ADR-0002):
          OPT-IN via config/site.yaml#goatcounter_code; absent = zero scripts.
-         Do not remove as a "JS 0" cleanup — charter §3 requires measured
+         Do not remove as a cleanup — charter §3 requires measured
          referral/dwell data and the performance-budget reset depends on it
          (lead decision 2026-09-02, recorded in api-contracts §3.8).
+         Turning it on puts a SECOND script tag on every page and the dist
+         budget test (one tag per page) will fail until it is taught about
+         this one — that is deliberate: the budget should notice.
          GoatCounter: cookieless, no GDPR banner, ~3.5KB. HTTPS explicit —
          protocol-relative URLs are obsolete and break file:// viewing. */
       goatcounter && (

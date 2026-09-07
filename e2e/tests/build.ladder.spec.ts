@@ -6,7 +6,7 @@
  * direct ref).
  */
 import { expect, test } from '@playwright/test';
-import { rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { basePathOf, build, makeSandbox, readPage } from '../lib/sandbox.mjs';
 import { writeBaseContent } from '../lib/rich-content.mjs';
@@ -86,7 +86,16 @@ albums:
   const result = build(dir);
   expect(result.status, result.out.slice(-2000)).toBe(0);
   const review = readPage(dir, REVIEW_PATH);
-  expect(review).toContain('이 장르가 낯설다면 — 팝 이야기');
+  // The lead copy interpolates the BUCKET LABEL, which is editor-configured
+  // text (config/genres.yaml — it read "팝" until the 2026-09-07 pass made
+  // the labels English). Read the label out of the same config the build
+  // read it from rather than hardcoding today's value: what this line is
+  // about is that the bucket stage produced its own lead, not what the
+  // editor happens to have called the genre.
+  const popLabel = readFileSync(join(dir, 'config', 'genres.yaml'), 'utf8').match(
+    /id:\s*"pop",\s*label:\s*"([^"]+)"/,
+  )![1];
+  expect(review).toContain(`이 장르가 낯설다면 — ${popLabel} 이야기`);
   expect(review).toContain(`href="${B}/stories/fixture-story/"`);
 });
 

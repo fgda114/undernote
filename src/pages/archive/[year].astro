@@ -4,6 +4,7 @@
  * "what did this magazine WRITE this year", unlike the release-keyed lists).
  * Mixed types, ArticleCards, no scores.
  */
+import FormatLabel from '../../components/FormatLabel.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/derive/site-data.ts';
@@ -20,6 +21,9 @@ const items = (archive.by_year.get(year!) ?? []).map((i) => articleByUrl.get(i.u
 
 <Base title={`${year} — Archive`} description={`${year}년에 발행된 전체 글.`} path={`/archive/${year}/`} current="archive">
   <main class="listing">
+    {/* The h1 is a VALUE on an axis, not the axis name, so it takes the
+        overline (title-system rule, global.css). */}
+    <FormatLabel text="Archive" />
     <h1 class="page-title tnum">{year}</h1>
     <ul class="cards">
       {items.map((item) => <ArticleCard item={item} />)}
@@ -29,14 +33,9 @@ const items = (archive.by_year.get(year!) ?? []).map((i) => articleByUrl.get(i.u
 
 <style>
   .listing {
-    max-width: var(--shell);
-    margin: 0 auto;
-    padding: var(--s-48) 20px 0;
-  }
-  .page-title {
-    font-family: var(--serif);
-    font-size: var(--fs-27);
-    font-weight: 700;
+    width: min(var(--shell), 100% - 2 * var(--gutter));
+    margin-inline: auto;
+    padding: var(--s-48) 0 0;
   }
   .cards {
     list-style: none;

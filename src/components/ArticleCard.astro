@@ -1,72 +1,667 @@
 ---
 /**
- * ArticleCard (components.md §7) — browsing rows (home latest, archive in
- * W5.3). NO score property exists on this interface — that is the contract
- * (D2: browsing surfaces never receive score data at all).
+ * ArticleCard (components.md §4) — two variants of the same object.
+ *
+ *   row  — archive listings, artist pages, "다른 글": dense scanning entries,
+ *          a 64px cover on the left of the text block (2026-09-07).
+ *   card — the home's browsing grids: cover on top, text below. A card can
+ *          additionally be the `feature`, which is the layout a section uses
+ *          when it holds exactly ONE item: cover in its own column, headline
+ *          two steps up. A single card sitting in a three-column grid reads
+ *          as a defect; a full-width feature reads as an editorial choice
+ *          (layouts.md §2.4 — "빈 껍데기 금지" applied to grids). `compact`
+ *          steps the type down for the home's 4-up browsing grids, which sit
+ *          below the Charts grid and must not compete with it.
+ *
+ * SIZE IS THE SURFACE'S JOB (2026-09-07). The home shows covers at grid
+ * width because the home is for looking; the archive shows them at 64px
+ * because the archive is for scanning a list. Same component, same data, two
+ * densities — the difference is which variant the page asks for, never a
+ * per-page override of the card's internals.
+ *
+ * D2-R2 (2026-09-07): `showScore` prints the review's figure. It is OPT-IN
+ * PER CALL SITE and the default is off, which is what replaces the old
+ * type-level guarantee (ArticleItem used to have no score field at all — see
+ * lib/derive/lists.ts for the full accounting). Two pages pass it today:
+ * the home's 최신 리뷰 section and /archive/reviews/. Every other surface
+ * that renders this component — artist pages, the year/genre/tag archives,
+ * a review's "다른 글" — deliberately does not, so adding a third is a
+ * decision someone makes in a diff.
+ *
+ * The figure is the ONLY text node of its element, so it stays locatable as
+ * `>8.4<` (the dist matrix greps for exactly that, contract §6-4).
+ *
+ * WHERE THE FIGURE SITS — AND A DIRECTION AMENDMENT (2026-09-07). On the
+ * CARD variant it still sits in a plate BUTTED UNDER the cover at zero gap,
+ * never on the artwork. On the ROW variant it now sits ON the thumbnail's
+ * bottom-right corner, which reverses direction §4.5 ("no crops, no
+ * overlays") for that one surface by explicit editorial decision. The rule
+ * was cited twice to argue for the adjacent plate and was overruled the
+ * third time, so it is amended rather than quietly broken:
+ *
+ *   §4.5 as it now stands — album art is not this publication's work. It is
+ *   never cropped, and it is never overlaid EXCEPT by the list thumbnail's
+ *   score chip: a corner mark of about 11% of a 64px thumbnail, opaque so
+ *   the figure does not depend on the artwork, and nowhere else on the site.
+ *
+ * The home's chart card keeps its full-width plate under the cover, and the
+ * review hero keeps ScoreMark under the cover. The amendment is scoped to
+ * the size where a full-width plate under a 64px square would be a second
+ * 64px object — i.e. where the plate would cost more of the row than the
+ * chip costs of the art.
+ *
+ * THE TYPE OVERLINE IS OPT-OUT (`showFormat`, 2026-09-07). It defaults ON,
+ * and a surface turns it off when ITS OWN HEADING ALREADY SAYS THE TYPE and
+ * nothing of another type can appear under that heading. Both conditions are
+ * required, which is why this is a per-surface flag and not a rule the
+ * component could apply itself — the card knows what it is, but only the page
+ * knows what it is sitting next to. Turned off on four surfaces: the home's
+ * Latest Reviews and Notes sections, /archive/reviews/ and /archive/stories/.
+ * Left on everywhere the label is INFORMATION rather than an echo — the
+ * year/tag archives and artist pages mix reviews and stories under one
+ * heading, and /archive/genre/{id}/ is headed by a genre, not by a format.
+ *
+ * THE CARD TITLE IS THE SITE'S ONE SPOTLIGHT SURFACE (2026-09-07). Hovering
+ * the card turns the title lavender; hovering the title itself runs a mint
+ * spotlight across the glyphs under the pointer. The effect spent half a day
+ * on the home's section headings before landing here — see the style block
+ * for the radius that move required and for the three guards that keep a
+ * clipped title from ever rendering invisible.
+ *
+ * The `card` variant carries an EXCERPT (2026-09-07). Title + artist alone
+ * made the grid a directory: two cards about wildly different records looked
+ * identical apart from the art, and none of the writing — which is the
+ * product — was visible before the click. The excerpt is derived, capped and
+ * score-screened upstream (deriveLatestArticles); this component only
+ * renders it when it is there, and a card with no excerpt is a valid card
+ * shape rather than a gap to fill.
+ *
+ * A story's `subtitle` IS its first paragraph, so the card variant prints
+ * the subtitle for reviews only (where it is the artist label) — otherwise a
+ * story card would show the same sentence twice at two sizes. The row
+ * variant is untouched and still uses subtitle for both types.
+ *
+ * A story has no album art and never will, so the card variant gives it a
+ * typographic block instead of a stock image or a gradient — fabricating
+ * imagery to keep a grid tidy is exactly what the no-fabrication rule
+ * forbids. The `feature` layout drops that block entirely: the block IS the
+ * headline, and next to a 44px headline it is the same words twice at two
+ * sizes. A story feature is therefore pure type across the full width.
+ *
+ * At ROW size the same problem has a different answer: a headline set inside
+ * a 64px square is not a page of type, it is unreadable. The row gives a
+ * story the title's first letter on --surface-3 — the identical geometry
+ * CoverImage uses for an album with no cover, because it means the identical
+ * thing (there is no artwork, and what is absent should be quiet). It is
+ * aria-hidden: the title itself is the next node.
  */
 import type { ArticleItem } from '../lib/derive/lists.ts';
+import CoverImage from './CoverImage.astro';
+import FormatLabel from './FormatLabel.astro';
 import { withBase } from '../lib/paths.ts';
 
 interface Props {
   item: ArticleItem;
+  variant?: 'row' | 'card';
+  /** First grid row loads its covers eagerly; everything below is lazy. */
+  eager?: boolean;
+  /** Sole card in its section — see the intro. */
+  feature?: boolean;
+  /** Denser type for the home's 4-up browsing grids — see the intro. */
+  compact?: boolean;
+  /** Print the review's score (D2-R2) — opt-in per surface, see the intro. */
+  showScore?: boolean;
+  /** Print the type overline — see the intro. Default on; off only where
+   * the surface's own heading already says the type. */
+  showFormat?: boolean;
 }
 
-const { item } = Astro.props;
+const {
+  item,
+  variant = 'row',
+  eager = false,
+  feature = false,
+  compact = false,
+  showScore = false,
+  showFormat = true,
+} = Astro.props;
+
+// Rendered box: at most 320px in the home's browsing grids (the track cap —
+// see index.astro), 336px in a 3-up one, 440px as the feature card. Getting
+// this wrong silently downloads the 640 source for a 248px box, or the 320
+// source for a 440px one (visibly soft). The compact hint is a single 320px
+// above the page's one shared breakpoint because the track is capped there
+// at every step of the 4 → 3 → 2 ladder, so the widest it can ever be is the
+// same number at all three.
+const FILL_SIZES = feature
+  ? compact
+    ? '(min-width: 900px) 320px, 100vw'
+    : '(min-width: 900px) 440px, 100vw'
+  : compact
+    ? '(min-width: 641px) 320px, 100vw'
+    : '(min-width: 960px) 336px, (min-width: 641px) 50vw, 100vw';
+
+// See the intro: the story type-block is redundant at feature size.
+const showVisual = item.type === 'review' || !feature;
+
+// Row thumbnails: 64px displayed, which CoverImage maps to the w320 source
+// (w96 is short of 2x at this size). Stories fall through to the letter mark
+// below — they have no cover to map.
+const ROW_COVER = 64;
+// Array.from = code-point safe (astral chars); matches CoverImage's rule.
+const rowLetter = Array.from(item.title.trim())[0] ?? '';
+
+// Stories have no score and never will, so the plate simply does not exist
+// on a story card — no zero, no dash, no reserved gap.
+const score = showScore ? item.score : undefined;
 ---
 
-<li class="article-card">
-  <a href={withBase(item.url)} class="card-link">
-    <span class="format">{item.formatLabel}</span>
-    <span class="title">{item.title}</span>
-    {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
-    <time class="date tnum" datetime={item.date}>{item.date}</time>
-  </a>
-</li>
+{
+  variant === 'card' ? (
+    <li class:list={['article-card', 'card', { feature, compact, 'no-visual': !showVisual }]}>
+      <a href={withBase(item.url)} class="card-link">
+        {showVisual && (
+        <span class="visual">
+          {item.type === 'review' ? (
+            <CoverImage
+              cover={item.cover ?? null}
+              size="fill"
+              albumTitle={item.title}
+              loading={eager ? 'eager' : 'lazy'}
+              fillSizes={FILL_SIZES}
+            />
+          ) : (
+            /* aria-hidden: the same words are the card title one line below,
+               and hearing the headline twice helps nobody. */
+            <span class="type-block" aria-hidden="true">
+              <span class="type-block-text">{item.title}</span>
+            </span>
+          )}
+          {score && (
+            /* Neutral fill, not the accent plate the chart leader gets: one
+               page may carry one large accent surface (§2.3), and six mint
+               plates in a browsing grid would turn "the accent means the
+               score made this" into wallpaper. */
+            <span class="card-score">
+              <span class="figure tnum" aria-hidden="true">{score}</span>
+              {/* A bare numeral is meaningless read aloud. */}
+              <span class="sr-only">평점 {score} / 10점 만점</span>
+            </span>
+          )}
+        </span>
+        )}
+        <span class="body">
+          {showFormat && <FormatLabel text={item.formatLabel} variant="chip" />}
+          {/* `title-spot` is both the JS tracking hook (Base.astro measures
+              the pointer against this box) and the clipping target. */}
+          <span class="title title-spot">{item.title}</span>
+          {item.type === 'review' && item.subtitle && <span class="subtitle">{item.subtitle}</span>}
+          {item.excerpt && <span class="excerpt">{item.excerpt}</span>}
+          <time class="date tnum" datetime={item.date}>
+            {item.date}
+          </time>
+        </span>
+      </a>
+    </li>
+  ) : (
+    <li class="article-card">
+      <a href={withBase(item.url)} class="row-card-link">
+        <span class="thumb">
+          {item.type === 'review' ? (
+            <CoverImage
+              cover={item.cover ?? null}
+              size={ROW_COVER}
+              albumTitle={item.title}
+              loading={eager ? 'eager' : 'lazy'}
+            />
+          ) : (
+            /* aria-hidden: the title is the very next node — see the intro. */
+            <span class="type-mark" aria-hidden="true">{rowLetter}</span>
+          )}
+          {score && (
+            /* The figure sits ON the thumbnail's bottom-right corner — see
+               the intro for the §4.5 amendment this is. */
+            <span class="thumb-score">
+              <span class="figure tnum" aria-hidden="true">{score}</span>
+              <span class="sr-only">평점 {score} / 10점 만점</span>
+            </span>
+          )}
+        </span>
+        <span class="text">
+          {showFormat && <span class="format">{item.formatLabel}</span>}
+          <span class="title">{item.title}</span>
+          {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
+        </span>
+        <time class="date tnum" datetime={item.date}>
+          {item.date}
+        </time>
+      </a>
+    </li>
+  )
+}
 
 <style>
-  .card-link {
+  /* ── row ─────────────────────────────────────────────────────────── */
+  /* Thumbnail column + the original two-column text block beside it. The
+     thumb spans all three text rows, so the row height is max(64px, text) —
+     which on a two-line entry is the text, i.e. the archive did not get
+     taller for most rows. */
+  /* THREE COLUMNS, ONE BASELINE OF ALIGNMENT (rebuilt 2026-09-07). The row
+     used to be a 3x3 area grid whose top row held the type overline on the
+     left and the date on the right. Two of this round's changes emptied that
+     row on the listing pages — the overline came off where the page heading
+     already says the type, and the figure moved onto the thumbnail — and a
+     reserved-but-empty row left the title floating high against a 64px
+     thumbnail. Rather than patch the gap, the row is now what it always
+     described: a thumbnail, a stack of text, and a date, vertically centred
+     against each other. The overline, where a mixed listing still needs it,
+     is the first line of the text stack instead of a separate row. */
+  .row-card-link {
     display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      'format date'
-      'title title'
-      'subtitle subtitle';
-    gap: var(--s-4) var(--s-16);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-16);
     padding: var(--s-12) var(--s-8);
     min-height: 44px;
     border-bottom: 1px solid var(--line);
   }
-  .format {
-    grid-area: format;
-    font-size: var(--fs-13);
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    /* Same treatment as FormatLabel — the card overline is the same object. */
-    text-transform: uppercase;
-    color: var(--seal);
+  .thumb {
+    display: block;
+    flex: none;
+    /* Positioning context for the score chip below — the chip is a SIBLING
+       of the picture, not a child, so the cover frame's overflow:hidden (and
+       the hover zoom that lives inside it) cannot clip or scale it. */
+    position: relative;
   }
-  .title {
-    grid-area: title;
-    font-size: var(--fs-17);
+  /* The text stack: optional overline, title, subtitle. min-width:0 lets the
+     nowrap subtitle ellipsise instead of widening the column. */
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+    min-width: 0;
+  }
+  /* ── The score, ON the cover (2026-09-07) ──
+     Deliberately the smallest mark that stays readable: ~26x18 on a 64px
+     thumbnail is about 11% of the artwork, in the corner, and it never
+     crosses the image. See the component intro for the direction §4.5
+     amendment.
+     OPAQUE, not a translucent wash: a cover can be any colour, and the one
+     thing that must not depend on the artwork is whether the figure can be
+     read. --surface-3 on --ink is 12.48:1 over any cover that will ever
+     exist, because the cover is not in the calculation. The pair is the same
+     one .card-score uses, so the two score marks are one object at two
+     sizes rather than two inventions. */
+  .thumb-score {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 18px;
+    padding: 0 var(--s-4);
+    background: var(--surface-3);
+    color: var(--ink);
+    /* Follows the cover's own corner so the chip reads as part of the same
+       stamped object rather than a sticker on top of it. */
+    border-bottom-right-radius: var(--r-2);
+  }
+  .thumb-score .figure {
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    /* line-height 1 + a centred flex box: the figure's own line box carries
+       no leading to push the digits off the chip's centre (see the plate
+       note in ScoreMark). */
+    line-height: 1;
+    font-weight: 800;
+  }
+  /* A story has no artwork: same square, same weight, the title's first
+     letter — identical to CoverImage's missing-cover state, because it means
+     the same thing. */
+  .type-mark {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    width: 64px;
+    height: 64px;
+    background: var(--surface-3);
+    color: var(--muted);
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: calc(64px * 0.42);
+    line-height: 1;
+    border-radius: var(--r-2);
+    user-select: none;
+  }
+  .format {
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
     font-weight: 700;
+    letter-spacing: var(--label-ls);
+    /* Same treatment as FormatLabel — the row overline is the same object. */
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .row-card-link .title {
+    font-size: var(--fs-16);
+    line-height: 22px;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    color: var(--ink);
     transition: color var(--t-micro);
   }
-  .card-link:hover .title {
-    color: var(--seal);
+  .row-card-link:hover .title {
+    color: var(--accent-2-ink);
     text-decoration: underline;
     text-underline-offset: 3px;
   }
   .subtitle {
-    grid-area: subtitle;
-    font-size: var(--fs-15);
+    font-size: var(--fs-14);
+    line-height: 20px;
     color: var(--muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .date {
-    grid-area: date;
-    font-size: var(--fs-13);
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    letter-spacing: 0.04em;
+    font-weight: 500;
     color: var(--muted);
+  }
+
+  /* ── card ────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-0);
+    transition: background var(--t-micro), border-color var(--t-micro);
+  }
+  .card:hover {
+    background: var(--surface-2);
+    border-color: var(--line-strong);
+  }
+  .card-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .visual {
+    display: block;
+    border-bottom: 1px solid var(--line);
+  }
+  /* Story card: the headline IS the artwork. Bottom-left set, clipped by
+     the square — a page of type, not a picture of one. */
+  .type-block {
+    display: flex;
+    align-items: flex-end;
+    aspect-ratio: 1 / 1;
+    padding: var(--s-12);
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .type-block-text {
+    font-family: var(--display);
+    font-size: var(--fs-27);
+    line-height: 30px;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  /* Zero gap under the art, full width: the cover and the figure read as one
+     object while not one pixel of the artwork is covered (§4.5). Same
+     grammar as ChartCard's rank plate. */
+  /* `align-items: center` and a line-height of 1, not `baseline` and a 20px
+     line box. A single-line flex row aligned on the BASELINE is placed at
+     the START of the container, so every pixel that min-height adds lands
+     under the figure and the number rides high in its own plate. Centring
+     the box is half the fix; killing the line box's leading is the other
+     half, because a 20px line box around a 15px digit reserves descender
+     room that digits never use and biases the ink upward again. The same
+     two-part correction is applied to ScoreMark and ChartCard's rank plate —
+     the three plates are one object at three sizes. */
+  .card-score {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-height: 28px;
+    padding: var(--s-4) var(--s-8);
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+  .figure {
+    font-family: var(--mono);
+    font-size: var(--fs-15);
+    line-height: 1;
+    font-weight: 800;
+  }
+  .body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-8);
+    padding: var(--s-12);
+  }
+  .card .title {
+    font-family: var(--display);
+    font-size: var(--fs-21);
+    line-height: 26px;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    color: var(--ink);
+    /* Two-line clamp with zero JS; the third line would push the date out of
+       alignment with the neighbouring cards. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    transition: color var(--t-micro);
+  }
+  /* ── Hover: the card answers, and the TITLE answers more ──────────────
+     Two states, and they are deliberately different sizes of response.
+
+     ① Pointer anywhere on the card → the title turns flat lavender, the
+        "way out" accent every hovered title on this site uses.
+     ② Pointer on the TITLE ITSELF → a mint spotlight travels across the
+        glyphs it passes (--title-spot, tokens.css, where the doctrine cost
+        and the measured contrast floor of 7.93:1 are recorded).
+
+     Splitting them on `.title-spot:hover` rather than on `.card-link:hover`
+     is not a style choice, it is what makes the light land in the right
+     place: `closest` in Base.astro returns the INNERMOST tracked box, so the
+     pointer is measured against the title's own box exactly when the title
+     is the thing under it. Hovering the cover would otherwise light the
+     title from cover-relative coordinates, which is a different box in a
+     different place.
+
+     THE RADIUS (--spot-r, 44px) LIVES IN tokens.css, not here. --title-spot
+     is declared on :root and its var()s therefore resolve against :root, so
+     a --spot-r set on this element would be ignored — the note beside the
+     token says why, because it cost a measurement to find out.
+
+     ONLY ONE CARD IS EVER LIT: the spotlight is scoped to :hover, so the
+     eleven other titles in the grid stay in their resting ink. The worry
+     that a grid of independently multicoloured headlines would read as a
+     rendering fault does not apply for exactly that reason.
+
+     THREE GUARDS, all load-bearing, all copied from .head-sheen's pattern:
+     1. `color` is a real token FIRST in both states. background-clip:text
+        needs `color: transparent` to reveal the gradient, and an engine that
+        parses the clip but not the rest would render an INVISIBLE TITLE. The
+        transparent lands only inside @supports, and only under :hover — the
+        resting title never depends on clipping at all.
+     2. The no-pointer path (touch, coarse pointer, reduced motion) is stated
+        rather than left to the token's var() fallback, because a fallback
+        that is only implied is a fallback nobody checks.
+     3. forced-colors puts the system ink back: a gradient is not a colour
+        the user's high-contrast palette can override. */
+  .card-link:hover .title {
+    color: var(--accent-2-ink);
+  }
+  @supports (background-clip: text) or (-webkit-background-clip: text) {
+    .card-link .title-spot:hover {
+      background-image: var(--title-spot);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  }
+  @media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
+    .card-link .title-spot:hover {
+      background-image: none;
+      color: var(--accent-2-ink);
+    }
+  }
+  @media (forced-colors: active) {
+    .card-link .title-spot,
+    .card-link .title-spot:hover {
+      background-image: none;
+      color: CanvasText;
+      forced-color-adjust: none;
+    }
+  }
+  .card .subtitle {
+    max-width: 100%;
+  }
+  /* Two lines of the piece itself. Clamped rather than trimmed to length so
+     the cut lands on a line boundary at whatever width the grid resolves to
+     — the derive layer caps the string at 96 characters, which is roughly
+     two lines in the widest card and more than two in the narrow ones. */
+  .excerpt {
+    font-size: var(--fs-14);
+    line-height: 20px;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  /* ── feature: the section's only card ── */
+  /* Capped and left-aligned for the same reasons ChartCard's feature is —
+     see the note there. A feature card is one article, not a banner, and it
+     should not get emptier as the display gets wider. */
+  .card.feature .card-link {
+    display: grid;
+    grid-template-columns: 440px minmax(0, var(--column));
+    justify-content: start;
+    gap: var(--s-32);
+    align-items: center;
+  }
+  .card.feature .visual {
+    border-bottom: 0;
+  }
+  .card.feature .card-score {
+    min-height: 36px;
+    padding: var(--s-4) var(--s-12);
+  }
+  .card.feature .figure {
+    font-size: var(--fs-21);
+    line-height: 1;
+  }
+  .card.feature .body {
+    padding: var(--s-24) var(--s-24) var(--s-24) 0;
+  }
+  /* A story feature has no cover column, so the text takes the whole frame
+     and gets its left padding back. */
+  /* A story feature has no cover column, so the text takes the frame — but
+     still on the reading measure, centred. */
+  .card.feature.no-visual .card-link {
+    grid-template-columns: minmax(0, var(--column));
+  }
+  .card.feature.no-visual .body {
+    padding: var(--s-32);
+  }
+  .card.feature .title {
+    font-size: var(--fs-44);
+    line-height: 48px;
+    letter-spacing: -0.03em;
+    font-weight: 800;
+  }
+  .card.feature .subtitle {
+    font-size: var(--fs-17);
+    line-height: 24px;
+  }
+  /* The feature card has a whole column of room; three lines of prose next
+     to a 44px headline is still a card, not an article. */
+  .card.feature .excerpt {
+    font-size: var(--fs-16);
+    line-height: 26px;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    max-width: var(--column);
+  }
+  /* ── compact card: the home's 4-up browsing grids ──
+     Every step is one notch down the existing scale — no new sizes. At 248px
+     the 21/26 headline wrapped to three lines on ordinary album titles and
+     pushed the date out of alignment with its neighbours. */
+  .card.compact .body {
+    gap: var(--s-4);
+  }
+  .card.compact .title {
+    font-size: var(--fs-17);
+    line-height: 24px;
+    letter-spacing: -0.015em;
+  }
+  .card.compact .subtitle {
+    font-size: var(--fs-13);
+    line-height: 18px;
+  }
+  /* Still two lines: at 248px that is ~36 Korean characters, which is a
+     readable fragment of a sentence. Below two lines the excerpt stops being
+     prose and becomes a label, and it would be better dropped than kept. */
+  .card.compact .excerpt {
+    font-size: var(--fs-13);
+    line-height: 18px;
+  }
+  /* A browsing section holding ONE card still gets the feature layout — a
+     lone card in a 4-up grid reads as a defect — but a smaller one than
+     Charts gets. This is the case the hierarchy rule was written for: on a
+     site with a single review, Charts and 최신 리뷰 both hold exactly one
+     card, and before this block they rendered as two identical 440px
+     features. 320 vs 440 on the cover, one step down on the headline. */
+  .card.compact.feature .card-link {
+    grid-template-columns: 320px minmax(0, var(--column));
+  }
+  .card.compact.feature .title {
+    font-size: var(--fs-34);
+    line-height: 40px;
+    letter-spacing: -0.025em;
+  }
+  .card.compact.feature .excerpt {
+    font-size: var(--fs-15);
+    line-height: 22px;
+  }
+
+  @media (max-width: 900px) {
+    /* Below the width where a 440px cover still leaves a readable text
+       column, the feature stacks like every other card. */
+    .card.feature .card-link {
+      display: flex;
+      flex-direction: column;
+      /* MUST reset: the desktop rule sets align-items:center for the grid,
+         and a column flex inherits it as "shrink each child to its content
+         and centre it" — the nowrap subtitle then sizes to max-content and
+         pushes the page into horizontal scroll at 360px. */
+      align-items: stretch;
+    }
+    .card.feature .visual {
+      border-bottom: 1px solid var(--line);
+    }
+    .card.feature .body {
+      padding: var(--s-12);
+    }
+    .card.feature .title {
+      font-size: var(--fs-27);
+      line-height: 32px;
+      letter-spacing: -0.02em;
+    }
   }
 </style>

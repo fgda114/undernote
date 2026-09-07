@@ -4,23 +4,44 @@
  *
  * Display size → source mapping targets 2x pixel density:
  *   44/48px → w96 · 64px → w320 (w96 is short at 2x) · 160px → w320 · 320px → w640
+ *   'fill'  → responsive: ships both w320 and w640 and lets `sizes` pick.
+ *             The default `sizes` describes the 3-up article grid (336px on
+ *             desktop); the home's denser chart grid and its full-width
+ *             feature card are different boxes, so they pass `fillSizes`.
+ *             Getting this wrong is not a layout bug — it silently downloads
+ *             the 640 source for a 192px box, or a 320 source for a 440px
+ *             one (visibly soft).
  *
- * null → placeholder: ink background + first letter of the album title in
- * serif paper (SS-14/E-202 — a designed state, not an error). Width/height
- * are always set: zero CLS is a hard rule.
+ * null → placeholder: a --surface-3 square with the album's first letter in
+ * --muted (SS-14/E-202 — a designed state, not an error). The colors are
+ * INVERTED from the pre-reskin version on purpose: an ink square with pale
+ * type was the brightest object on a dark page, so the absent cover shouted
+ * louder than the present ones. What is missing should be quiet.
+ *
+ * Width/height are always set: zero CLS is a hard rule.
+ *
+ * `.cover-frame` on <picture> is the clipping box for the hover zoom defined
+ * in global.css. It lives on the picture rather than on a wrapper so that no
+ * card needed extra markup, and it is deliberately absent from the
+ * placeholder branch — a missing cover has nothing to reveal and stays
+ * still.
  */
 import type { CoverSet } from '../lib/covers.ts';
 import { withBase } from '../lib/paths.ts';
 
 interface Props {
   cover: CoverSet | null;
-  size: 44 | 48 | 64 | 160 | 320;
+  size: 44 | 48 | 64 | 160 | 320 | 'fill';
   /** Album title — placeholder letter + accessible name. */
   albumTitle: string;
   loading?: 'lazy' | 'eager';
+  /** `sizes` for size="fill" only — see the intro. */
+  fillSizes?: string;
 }
 
-const { cover, size, albumTitle, loading = 'lazy' } = Astro.props;
+const FILL_SIZES_DEFAULT = '(min-width: 960px) 336px, (min-width: 641px) 50vw, 100vw';
+
+const { cover, size, albumTitle, loading = 'lazy', fillSizes = FILL_SIZES_DEFAULT } = Astro.props;
 
 const sourceBySize: Record<number, keyof Pick<CoverSet, 'w96' | 'w320' | 'w640'>> = {
   44: 'w96',
@@ -29,19 +50,40 @@ const sourceBySize: Record<number, keyof Pick<CoverSet, 'w96' | 'w320' | 'w640'>
   160: 'w320',
   320: 'w640',
 };
-const src = cover ? cover[sourceBySize[size]] : null;
+const fill = size === 'fill';
+const src = cover ? (fill ? cover.w640 : cover[sourceBySize[size as number]]) : null;
+// The intrinsic attributes a fill image reports: the ratio is what matters
+// (CSS overrides the rendered width), and 640×640 keeps it square.
+const boxWidth = fill ? 640 : (size as number);
 // Array.from = code-point safe first letter (astral chars, e.g. rare CJK).
 const letter = Array.from(albumTitle.trim())[0] ?? '';
 ---
 
 {
   cover && src ? (
-    <picture>
-      <source type="image/webp" srcset={withBase(src)} />
-      <img class="cover" src={withBase(cover.fallback)} alt={cover.alt} width={size} height={size} loading={loading} decoding="async" />
+    <picture class:list={['cover-frame', { fill }]}>
+      <source
+        type="image/webp"
+        srcset={fill ? `${withBase(cover.w320)} 320w, ${withBase(cover.w640)} 640w` : withBase(src)}
+        sizes={fill ? fillSizes : undefined}
+      />
+      <img
+        class:list={['cover', { fill }]}
+        src={withBase(cover.fallback)}
+        alt={cover.alt}
+        width={boxWidth}
+        height={boxWidth}
+        loading={loading}
+        decoding="async"
+      />
     </picture>
   ) : (
-    <span class="cover placeholder" style={`--cover-size:${size}px`} role="img" aria-label={`${albumTitle} 커버`}>
+    <span
+      class:list={['cover', 'placeholder', { fill }]}
+      style={fill ? undefined : `--cover-size:${size}px`}
+      role="img"
+      aria-label={`${albumTitle} 커버`}
+    >
       <span aria-hidden="true">{letter}</span>
     </span>
   )
@@ -49,9 +91,14 @@ const letter = Array.from(albumTitle.trim())[0] ?? '';
 
 <style>
   .cover {
-    border-radius: var(--r-4);
-    background: var(--wash); /* paints while the image streams in */
+    border-radius: var(--r-2);
+    background: var(--surface-2); /* paints while the image streams in */
     object-fit: cover;
+  }
+  .cover.fill {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
   }
   .placeholder {
     width: var(--cover-size);
@@ -59,11 +106,31 @@ const letter = Array.from(albumTitle.trim())[0] ?? '';
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: var(--ink);
-    color: var(--paper);
-    font-family: var(--serif);
-    font-weight: 700;
+    background: var(--surface-3);
+    color: var(--muted);
+    font-family: var(--display);
+    font-weight: 800;
     font-size: calc(var(--cover-size) * 0.42);
     user-select: none;
+  }
+  .placeholder.fill {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    /* The letter is 42% of the edge at every size. A fill box has no fixed
+       edge, so it queries its own inline size instead of hardcoding one. */
+    container-type: inline-size;
+  }
+  .placeholder.fill > span {
+    /* Two declarations on purpose. The fill box has no fixed edge, so the
+       "42% of the side" rule needs a container query unit — but an engine
+       without cqw support drops that line at parse time, and the fallback
+       above it wins. Without the fallback the size would resolve to the
+       inherited body 17px inside a ~336px square, which reads as a bug.
+       56px is the display scale's top step: smaller than designed, still
+       unmistakably a letterform. */
+    font-size: var(--fs-56);
+    font-size: 42cqw;
+    line-height: 1;
   }
 </style>

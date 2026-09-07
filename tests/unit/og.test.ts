@@ -6,7 +6,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { assembleBaseCard, assembleReviewCard } from '../../src/lib/og/assemble';
+import { assembleBaseCard, assembleMarkCard, assembleReviewCard } from '../../src/lib/og/assemble';
 import { cardTree } from '../../src/lib/og/template';
 
 const site = { site_name: 'undernote', og_use_cover: true };
@@ -77,9 +77,35 @@ describe('cardTree', () => {
     expect(json).not.toContain('score');
   });
 
-  it('기본형 카드에 워드마크(사이트명 + seal 마침표)가 있다', () => {
+  // The accent period is the wordmark's only surviving piece of colour, so
+  // it doubles as the check that the card tracks the site palette. The hex
+  // is the CURRENT --accent value; when tokens.css changes, og/template.ts
+  // and this literal move together or the share cards silently keep the old
+  // identity (W5 palette pass, 2026-09-06: lime #D2F53C → mint #63EFC0).
+  it('기본형 카드에 워드마크(사이트명 + 악센트 마침표)가 있다', () => {
     const json = JSON.stringify(cardTree(assembleBaseCard('제목', 'undernote')));
     expect(json).toContain('undernote');
-    expect(json).toContain('#B23A2F');
+    expect(json).toContain('#63EFC0');
+  });
+});
+
+describe('기본 공유 카드 — 워드마크만 (2026-09-07)', () => {
+  it('사이트 이름과 악센트 마침표만 있고 다른 텍스트가 없다', () => {
+    const json = JSON.stringify(cardTree(assembleMarkCard('undernote')));
+    expect(json).toContain('undernote');
+    expect(json).toContain('#63EFC0'); // the accent period survives
+    expect(json).toContain('#080C16'); // the site's own ground
+    // The tagline used to be printed here and is not any more: the card is a
+    // mark, the sentence is the page's meta description.
+    expect(json).not.toContain('차트 밖의 명반');
+    expect(json).not.toContain('음악을 좋아하는');
+  });
+
+  it('D2/E-115 — 입력 타입에 score가 없다 (D2-R2로 뒤집히지 않는 규칙)', () => {
+    const card = assembleMarkCard('undernote');
+    expect(Object.keys(card)).not.toContain('score');
+    // Browsing surfaces show figures now; share cards still never do, and it
+    // is still the TYPE that guarantees it rather than a rendering habit.
+    expect(JSON.stringify(cardTree(card))).not.toContain('score');
   });
 });
