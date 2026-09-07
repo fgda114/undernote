@@ -21,6 +21,7 @@
 import Footer from '../components/Footer.astro';
 import Masthead from '../components/Masthead.astro';
 import { absoluteUrl, getSiteConfig } from '../lib/site.ts';
+import { ogImageUrl } from '../lib/og/version.ts';
 import { withBase } from '../lib/paths.ts';
 import '../styles/global.css';
 
@@ -70,7 +71,12 @@ const fontFaceCss = `
     <link rel="canonical" href={absoluteUrl(path)} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={absoluteUrl(ogImage)} />
+    {/* ?v=… busts the share platforms' image cache when the card DESIGN
+        changes — they key on the URL and will otherwise serve a card scraped
+        months ago. The version is a hash of the OG library's source, so it
+        moves by itself and only when the drawing code moves; the reasoning,
+        and what it deliberately does not catch, is in lib/og/version.ts. */}
+    <meta property="og:image" content={ogImageUrl(absoluteUrl(ogImage))} />
     <meta property="og:type" content={ogType} />
     <meta property="og:url" content={absoluteUrl(path)} />
     <meta property="og:site_name" content={site.site_name} />

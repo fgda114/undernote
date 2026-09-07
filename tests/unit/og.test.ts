@@ -109,3 +109,35 @@ describe('기본 공유 카드 — 워드마크만 (2026-09-07)', () => {
     expect(JSON.stringify(cardTree(card))).not.toContain('score');
   });
 });
+
+describe('OG 캐시 버스팅 — 라이브러리 소스 파생 버전 (2026-09-07)', () => {
+  it('8자리 16진수이고, 같은 소스에서는 매번 같은 값이다 (R-10)', async () => {
+    const { OG_VERSION } = await import('../../src/lib/og/version');
+    expect(OG_VERSION).toMatch(/^[0-9a-f]{8}$/);
+    // Re-importing must not produce a new value: a version that moved per
+    // call would move per build, and the double-build hash gate would fail.
+    const again = await import('../../src/lib/og/version');
+    expect(again.OG_VERSION).toBe(OG_VERSION);
+  });
+
+  it('소스가 바뀌면 값도 바뀐다 — 해시가 실제로 그 파일들을 읽는다', async () => {
+    const { createHash } = await import('node:crypto');
+    const { readFileSync } = await import('node:fs');
+    const { OG_VERSION } = await import('../../src/lib/og/version');
+    // Recomputed here from the same files. The point is not to duplicate the
+    // implementation but to prove the version is DERIVED: a hardcoded string
+    // would pass the shape test above and fail this one.
+    const h = createHash('sha256');
+    for (const f of ['assemble', 'render', 'template', 'types']) {
+      h.update(readFileSync(`src/lib/og/${f}.ts`));
+    }
+    expect(OG_VERSION).toBe(h.digest('hex').slice(0, 8));
+  });
+
+  it('URL 조립 — 절대 URL 뒤에 ?v= 를 붙인다', async () => {
+    const { OG_VERSION, ogImageUrl } = await import('../../src/lib/og/version');
+    expect(ogImageUrl('https://example.test/og/default.png')).toBe(
+      `https://example.test/og/default.png?v=${OG_VERSION}`,
+    );
+  });
+});

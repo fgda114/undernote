@@ -152,6 +152,33 @@ test('US-15/SS-15 — 전 지면 OG 5요소 + twitter:card, 메타에 점수 0 (
   }
 });
 
+/**
+ * OG cache busting (2026-09-07). Share platforms key their image cache on
+ * the URL, so a card whose DESIGN changes keeps serving the version they
+ * scraped months ago — which is exactly what happened to this site's reskin.
+ * The og:image URL now carries a version derived from the OG library's
+ * source (src/lib/og/version.ts).
+ *
+ * Two properties, and the second is the one a careless "fix" would break:
+ * every page must carry the key, and every page must carry the SAME key. A
+ * per-page or per-build value would bust the cache on every deploy, which
+ * turns a cache into a bandwidth bill and makes the previews flicker between
+ * scrapes. Determinism itself is covered by the double-build hash gate — a
+ * clock or a random value would fail that instead.
+ */
+test('OG 캐시 버스팅 — 전 지면 og:image에 동일한 버전 키', () => {
+  const versions = new Set<string>();
+  for (const p of pages) {
+    const html = readPage(dir, p);
+    const m = html.match(/property="og:image" content="([^"]+)"/);
+    expect(m, `${p} og:image 부재`).not.toBeNull();
+    const url = m![1];
+    expect(url, `${p} og:image에 버전 키 없음`).toMatch(/\.png\?v=[0-9a-f]{8}$/);
+    versions.add(url.slice(url.indexOf('?v=')));
+  }
+  expect(versions.size, `버전 키가 지면마다 다름: ${[...versions].join(' ')}`).toBe(1);
+});
+
 test('OG 카드 산출물 — 전 평론 PNG + 리스트 카드 + 기본형', () => {
   for (const a of [...RICH_SET.map((r) => r.slug), 'fixture-artist-fixture-album']) {
     expect(existsSync(join(dir, 'dist', 'og', 'reviews', `${a}.png`)), a).toBe(true);

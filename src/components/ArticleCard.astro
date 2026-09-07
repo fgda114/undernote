@@ -4,14 +4,20 @@
  *
  *   row  — archive listings, artist pages, "다른 글": dense scanning entries,
  *          a 64px cover on the left of the text block (2026-09-07).
- *   card — the home's browsing grids: cover on top, text below. A card can
- *          additionally be the `feature`, which is the layout a section uses
- *          when it holds exactly ONE item: cover in its own column, headline
- *          two steps up. A single card sitting in a three-column grid reads
- *          as a defect; a full-width feature reads as an editorial choice
- *          (layouts.md §2.4 — "빈 껍데기 금지" applied to grids). `compact`
- *          steps the type down for the home's 4-up browsing grids, which sit
- *          below the Charts grid and must not compete with it.
+ *   card — the home's browsing grids: cover on top, text below. One shape,
+ *          one size, however many cards the section holds. `compact` steps
+ *          the type down for those grids, which sit below the Charts grid
+ *          and must not compete with it.
+ *
+ * THE `feature` LAYOUT IS GONE (2026-09-07). A section holding exactly one
+ * item used to render it as a full-width two-column card, on the argument
+ * that a lone card in a four-column grid reads as a defect. The editor chose
+ * the opposite trade — empty cells are acceptable, a card changing size
+ * between page loads is not — so the home's grids became count-independent
+ * and this branch became unreachable. It was deleted rather than left
+ * dormant: a layout nobody can reach is a question the next reader has to
+ * answer before they can safely change anything here. ChartCard keeps its
+ * own `feature`; Charts is a carousel and still switches on count.
  *
  * SIZE IS THE SURFACE'S JOB (2026-09-07). The home shows covers at grid
  * width because the home is for looking; the archive shows them at 64px
@@ -61,12 +67,15 @@
  * year/tag archives and artist pages mix reviews and stories under one
  * heading, and /archive/genre/{id}/ is headed by a genre, not by a format.
  *
- * THE CARD TITLE IS THE SITE'S ONE SPOTLIGHT SURFACE (2026-09-07). Hovering
- * the card turns the title lavender; hovering the title itself runs a mint
- * spotlight across the glyphs under the pointer. The effect spent half a day
- * on the home's section headings before landing here — see the style block
- * for the radius that move required and for the three guards that keep a
- * clipped title from ever rendering invisible.
+ * EVERY TITLE THIS COMPONENT RENDERS IS A SPOTLIGHT HOST (2026-09-07, both
+ * variants). Hovering an entry turns its title lavender; hovering the title
+ * itself runs a mint band across the glyphs under the pointer. That covers
+ * the home's two browsing grids and every list built on the row variant —
+ * /archive/reviews/, /archive/stories/, the year/tag/genre archives, artist
+ * pages and a review's "다른 글". The one article list it is NOT on is
+ * Charts, whose card is a different component and states its own reason.
+ * See the style block for the three guards that keep a clipped title from
+ * ever rendering invisible.
  *
  * The `card` variant carries an EXCERPT (2026-09-07). Title + artist alone
  * made the grid a directory: two cards about wildly different records looked
@@ -84,9 +93,7 @@
  * A story has no album art and never will, so the card variant gives it a
  * typographic block instead of a stock image or a gradient — fabricating
  * imagery to keep a grid tidy is exactly what the no-fabrication rule
- * forbids. The `feature` layout drops that block entirely: the block IS the
- * headline, and next to a 44px headline it is the same words twice at two
- * sizes. A story feature is therefore pure type across the full width.
+ * forbids.
  *
  * At ROW size the same problem has a different answer: a headline set inside
  * a 64px square is not a page of type, it is unreadable. The row gives a
@@ -105,9 +112,7 @@ interface Props {
   variant?: 'row' | 'card';
   /** First grid row loads its covers eagerly; everything below is lazy. */
   eager?: boolean;
-  /** Sole card in its section — see the intro. */
-  feature?: boolean;
-  /** Denser type for the home's 4-up browsing grids — see the intro. */
+  /** Denser type for the home's browsing grids — see the intro. */
   compact?: boolean;
   /** Print the review's score (D2-R2) — opt-in per surface, see the intro. */
   showScore?: boolean;
@@ -116,33 +121,17 @@ interface Props {
   showFormat?: boolean;
 }
 
-const {
-  item,
-  variant = 'row',
-  eager = false,
-  feature = false,
-  compact = false,
-  showScore = false,
-  showFormat = true,
-} = Astro.props;
+const { item, variant = 'row', eager = false, compact = false, showScore = false, showFormat = true } = Astro.props;
 
 // Rendered box: at most 320px in the home's browsing grids (the track cap —
-// see index.astro), 336px in a 3-up one, 440px as the feature card. Getting
-// this wrong silently downloads the 640 source for a 248px box, or the 320
-// source for a 440px one (visibly soft). The compact hint is a single 320px
-// above the page's one shared breakpoint because the track is capped there
-// at every step of the 4 → 3 → 2 ladder, so the widest it can ever be is the
-// same number at all three.
-const FILL_SIZES = feature
-  ? compact
-    ? '(min-width: 900px) 320px, 100vw'
-    : '(min-width: 900px) 440px, 100vw'
-  : compact
-    ? '(min-width: 641px) 320px, 100vw'
-    : '(min-width: 960px) 336px, (min-width: 641px) 50vw, 100vw';
-
-// See the intro: the story type-block is redundant at feature size.
-const showVisual = item.type === 'review' || !feature;
+// see index.astro). Getting this wrong silently downloads the 640 source for
+// a 248px box. The compact hint is a single 320px above the page's one
+// shared breakpoint because the track is capped there at every step of the
+// 4 → 3 → 2 ladder, so the widest it can ever be is the same number at all
+// three.
+const FILL_SIZES = compact
+  ? '(min-width: 641px) 320px, 100vw'
+  : '(min-width: 960px) 336px, (min-width: 641px) 50vw, 100vw';
 
 // Row thumbnails: 64px displayed, which CoverImage maps to the w320 source
 // (w96 is short of 2x at this size). Stories fall through to the letter mark
@@ -158,9 +147,8 @@ const score = showScore ? item.score : undefined;
 
 {
   variant === 'card' ? (
-    <li class:list={['article-card', 'card', { feature, compact, 'no-visual': !showVisual }]}>
+    <li class:list={['article-card', 'card', { compact }]}>
       <a href={withBase(item.url)} class="card-link">
-        {showVisual && (
         <span class="visual">
           {item.type === 'review' ? (
             <CoverImage
@@ -189,7 +177,6 @@ const score = showScore ? item.score : undefined;
             </span>
           )}
         </span>
-        )}
         <span class="body">
           {showFormat && <FormatLabel text={item.formatLabel} variant="chip" />}
           {/* `title-spot` is both the JS tracking hook (Base.astro measures
@@ -229,7 +216,7 @@ const score = showScore ? item.score : undefined;
         </span>
         <span class="text">
           {showFormat && <span class="format">{item.formatLabel}</span>}
-          <span class="title">{item.title}</span>
+          <span class="title title-spot">{item.title}</span>
           {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
         </span>
         <time class="date tnum" datetime={item.date}>
@@ -354,7 +341,6 @@ const score = showScore ? item.score : undefined;
     transition: color var(--t-micro);
   }
   .row-card-link:hover .title {
-    color: var(--accent-2-ink);
     text-decoration: underline;
     text-underline-offset: 3px;
   }
@@ -463,64 +449,88 @@ const score = showScore ? item.score : undefined;
     overflow: hidden;
     transition: color var(--t-micro);
   }
-  /* ── Hover: the card answers, and the TITLE answers more ──────────────
-     Two states, and they are deliberately different sizes of response.
+  /* ── Hover: the row/card answers, and the TITLE answers more ─────────
+     Two states, deliberately different sizes of response, and they apply to
+     BOTH variants — every article-list title on the site is a spotlight host
+     since 2026-09-07.
 
-     ① Pointer anywhere on the card → the title turns flat lavender, the
-        "way out" accent every hovered title on this site uses.
-     ② Pointer on the TITLE ITSELF → a mint spotlight travels across the
-        glyphs it passes (--title-spot, tokens.css, where the doctrine cost
-        and the measured contrast floor of 7.93:1 are recorded).
+     ① Pointer anywhere on the entry → the title turns flat lavender (plus,
+        in the row variant, the underline it has always had).
+     ② Pointer on the TITLE ITSELF → a mint band travels across the glyphs it
+        passes (--title-spot, tokens.css, where the doctrine cost and the
+        measured contrast floors are recorded).
 
-     Splitting them on `.title-spot:hover` rather than on `.card-link:hover`
-     is not a style choice, it is what makes the light land in the right
-     place: `closest` in Base.astro returns the INNERMOST tracked box, so the
+     Splitting them on `.title-spot:hover` rather than on the link's hover is
+     not a style choice, it is what makes the light land in the right place:
+     `closest` in Base.astro returns the INNERMOST tracked box, so the
      pointer is measured against the title's own box exactly when the title
      is the thing under it. Hovering the cover would otherwise light the
-     title from cover-relative coordinates, which is a different box in a
-     different place.
+     title from cover-relative coordinates — a different box in a different
+     place. It also means the effect is opt-in per element: a surface adds
+     `title-spot` to a title and gets both the tracking and the paint.
 
-     THE RADIUS (--spot-r, 44px) LIVES IN tokens.css, not here. --title-spot
-     is declared on :root and its var()s therefore resolve against :root, so
-     a --spot-r set on this element would be ignored — the note beside the
-     token says why, because it cost a measurement to find out.
+     THE BAND'S HALF-WIDTH (--spot-r) LIVES IN tokens.css, not here.
+     --title-spot is declared on :root and its var()s therefore resolve
+     against :root, so a --spot-r set on this element would be ignored — the
+     note beside the token says why, because it cost a measurement to find
+     out.
 
-     ONLY ONE CARD IS EVER LIT: the spotlight is scoped to :hover, so the
-     eleven other titles in the grid stay in their resting ink. The worry
-     that a grid of independently multicoloured headlines would read as a
-     rendering fault does not apply for exactly that reason.
+     ONLY ONE TITLE IS EVER LIT: the paint is scoped to :hover, so every
+     other title in the list stays in its resting ink.
 
      THREE GUARDS, all load-bearing, all copied from .head-sheen's pattern:
      1. `color` is a real token FIRST in both states. background-clip:text
         needs `color: transparent` to reveal the gradient, and an engine that
         parses the clip but not the rest would render an INVISIBLE TITLE. The
-        transparent lands only inside @supports, and only under :hover — the
+        transparent lands only inside @supports, and only under :hover — a
         resting title never depends on clipping at all.
      2. The no-pointer path (touch, coarse pointer, reduced motion) is stated
         rather than left to the token's var() fallback, because a fallback
         that is only implied is a fallback nobody checks.
      3. forced-colors puts the system ink back: a gradient is not a colour
-        the user's high-contrast palette can override. */
-  .card-link:hover .title {
+        the user's high-contrast palette can override.
+
+     THE ROW'S UNDERLINE SURVIVES THE CLIP. Decorations paint in currentColor,
+     which is `transparent` while the text is clipped, so the underline would
+     silently vanish exactly where the colour is doing the most work —
+     leaving the affordance on colour alone (WCAG 1.4.1). It is pinned to a
+     real token instead. */
+  .card-link:hover .title,
+  .row-card-link:hover .title {
     color: var(--accent-2-ink);
   }
+  /* THE LINK'S :hover IS IN THE SELECTOR ON PURPOSE, and it is not
+     redundant. Astro scopes component rules with an attribute selector, so
+     `.card-link:hover .title` above computes as (0,4,0) and a bare
+     `.title-spot:hover` as (0,3,0) — the flat lavender wins, the gradient
+     still paints because nothing else sets background-image, and the result
+     is a clipped background under an opaque colour: no visible effect at
+     all. Measured; that is exactly how the first version of this shipped
+     inside a build. Naming the link's hover as well makes the clipped rule
+     strictly more specific instead of relying on source order to break a
+     tie. */
   @supports (background-clip: text) or (-webkit-background-clip: text) {
-    .card-link .title-spot:hover {
+    .card-link:hover .title-spot:hover,
+    .row-card-link:hover .title-spot:hover {
       background-image: var(--title-spot);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
+      -webkit-text-decoration-color: var(--accent-2-ink);
+      text-decoration-color: var(--accent-2-ink);
     }
   }
   @media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
-    .card-link .title-spot:hover {
+    .card-link:hover .title-spot:hover,
+    .row-card-link:hover .title-spot:hover {
       background-image: none;
       color: var(--accent-2-ink);
     }
   }
   @media (forced-colors: active) {
-    .card-link .title-spot,
-    .card-link .title-spot:hover {
+    .title-spot,
+    .card-link:hover .title-spot:hover,
+    .row-card-link:hover .title-spot:hover {
       background-image: none;
       color: CanvasText;
       forced-color-adjust: none;
@@ -544,61 +554,11 @@ const score = showScore ? item.score : undefined;
     overflow: hidden;
   }
 
-  /* ── feature: the section's only card ── */
-  /* Capped and left-aligned for the same reasons ChartCard's feature is —
-     see the note there. A feature card is one article, not a banner, and it
-     should not get emptier as the display gets wider. */
-  .card.feature .card-link {
-    display: grid;
-    grid-template-columns: 440px minmax(0, var(--column));
-    justify-content: start;
-    gap: var(--s-32);
-    align-items: center;
-  }
-  .card.feature .visual {
-    border-bottom: 0;
-  }
-  .card.feature .card-score {
-    min-height: 36px;
-    padding: var(--s-4) var(--s-12);
-  }
-  .card.feature .figure {
-    font-size: var(--fs-21);
-    line-height: 1;
-  }
-  .card.feature .body {
-    padding: var(--s-24) var(--s-24) var(--s-24) 0;
-  }
-  /* A story feature has no cover column, so the text takes the whole frame
-     and gets its left padding back. */
-  /* A story feature has no cover column, so the text takes the frame — but
-     still on the reading measure, centred. */
-  .card.feature.no-visual .card-link {
-    grid-template-columns: minmax(0, var(--column));
-  }
-  .card.feature.no-visual .body {
-    padding: var(--s-32);
-  }
-  .card.feature .title {
-    font-size: var(--fs-44);
-    line-height: 48px;
-    letter-spacing: -0.03em;
-    font-weight: 800;
-  }
-  .card.feature .subtitle {
-    font-size: var(--fs-17);
-    line-height: 24px;
-  }
-  /* The feature card has a whole column of room; three lines of prose next
-     to a 44px headline is still a card, not an article. */
-  .card.feature .excerpt {
-    font-size: var(--fs-16);
-    line-height: 26px;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    max-width: var(--column);
-  }
   /* ── compact card: the home's 4-up browsing grids ──
+     Every step is one notch down the existing scale — no new sizes. At 248px
+     the 21/26 headline wrapped to three lines on ordinary album titles and
+     pushed the date out of alignment with its neighbours. */
+  /* ── compact card: the home's browsing grids ──
      Every step is one notch down the existing scale — no new sizes. At 248px
      the 21/26 headline wrapped to three lines on ordinary album titles and
      pushed the date out of alignment with its neighbours. */
@@ -621,47 +581,5 @@ const score = showScore ? item.score : undefined;
     font-size: var(--fs-13);
     line-height: 18px;
   }
-  /* A browsing section holding ONE card still gets the feature layout — a
-     lone card in a 4-up grid reads as a defect — but a smaller one than
-     Charts gets. This is the case the hierarchy rule was written for: on a
-     site with a single review, Charts and 최신 리뷰 both hold exactly one
-     card, and before this block they rendered as two identical 440px
-     features. 320 vs 440 on the cover, one step down on the headline. */
-  .card.compact.feature .card-link {
-    grid-template-columns: 320px minmax(0, var(--column));
-  }
-  .card.compact.feature .title {
-    font-size: var(--fs-34);
-    line-height: 40px;
-    letter-spacing: -0.025em;
-  }
-  .card.compact.feature .excerpt {
-    font-size: var(--fs-15);
-    line-height: 22px;
-  }
 
-  @media (max-width: 900px) {
-    /* Below the width where a 440px cover still leaves a readable text
-       column, the feature stacks like every other card. */
-    .card.feature .card-link {
-      display: flex;
-      flex-direction: column;
-      /* MUST reset: the desktop rule sets align-items:center for the grid,
-         and a column flex inherits it as "shrink each child to its content
-         and centre it" — the nowrap subtitle then sizes to max-content and
-         pushes the page into horizontal scroll at 360px. */
-      align-items: stretch;
-    }
-    .card.feature .visual {
-      border-bottom: 1px solid var(--line);
-    }
-    .card.feature .body {
-      padding: var(--s-12);
-    }
-    .card.feature .title {
-      font-size: var(--fs-27);
-      line-height: 32px;
-      letter-spacing: -0.02em;
-    }
-  }
 </style>

@@ -121,7 +121,8 @@
        --bg-sheen      the page wash, carries no meaning
        --head-sheen    the home's Charts head + /list/{year}/'s H1 — the two
                        headings that name the list the scores produced
-       --title-spot    a hovered home CARD title, a travelling spotlight
+       --title-spot    a hovered ARTICLE-LIST title (every list but
+                       Charts), a travelling mint band
 
      The clause that matters never moved: mixing lives in a list of named
      tokens and nowhere else, and each entry states its own cost where it is
@@ -131,60 +132,75 @@
      question. */
   --accent-sheen: linear-gradient(135deg, #8bf7d2 0%, #63efc0 45%, #46d9de 100%);
   --head-sheen: linear-gradient(100deg, #8bf7d2 0%, #63efc0 34%, #b9a5f7 100%);
-  /* --title-spot  TEXT only, and only on a HOVERED home CARD title. The
+  /* --title-spot  TEXT only, and only on a HOVERED article-list title. The
      third — and, by the rule above, last — token allowed to cross from mint
      into lavender.
 
-     WHAT IT IS. A hovered card's title rests in lavender and a mint
-     spotlight travels across the glyphs the pointer passes: a radial
-     gradient positioned by the pointer and clipped to the text. The title is
-     one object under one moving light.
+     WHAT IT IS. A hovered title rests in lavender and a mint band travels
+     across the glyphs the pointer passes: a gradient positioned by the
+     pointer's X and clipped to the text.
 
-     WHERE IT IS NOT. The home's SECTION headings had this for half a day and
-     gave it back (2026-09-07). A section heading is not a link and should
-     not behave like one, and the two headings that are not Charts have no
-     claim to either accent. Charts keeps --head-sheen, fixed, no hover.
+     X ONLY, AND IT IS A LINEAR GRADIENT FOR THAT REASON (2026-09-07). It
+     began as a radial `circle at X Y`, which made the colour wobble when the
+     pointer merely moved up and down a single-line title — motion the reader
+     did not ask for. Dropping the pointer's Y leaves two candidate shapes,
+     and they were measured against each other on a two-line title rather
+     than argued about:
+       · a circle with its centre pinned to 50% no longer follows the pointer
+         vertically, but it still measures distance in Y FROM THE GLYPHS —
+         and on a wrapped title that centre lands in the LEADING GAP between
+         the two lines. At a 16px radius it lit 0.2% / 0.0% of the two lines'
+         ink, i.e. nothing at all; at 34px, 5.7% / 7.2%. The shape has a size
+         below which it silently stops working, and where that floor sits
+         depends on the line-height.
+       · a linear gradient has no Y term anywhere. The same two lines came
+         out at 4.5% / 3.2% and 8.6% / 14.0%: the light is a COLUMN, both
+         lines get it, and no type size can make it disappear.
+     The full table is in 08-impl-notes/frontend.md. The two converge at
+     large radii (r64: 13.9/26.3 vs 14.7/28.9), so this is not a claim that
+     the circle looks wrong everywhere — it is a claim that only one of them
+     is honestly X-only.
 
-     · --px/--py are the pointer's offset from the tracked box's centre,
+     · --px is the pointer's horizontal offset from the tracked box's centre,
        -0.5..0.5, written on :root by the inline module in Base.astro — the
-       same two properties that drive the cover zoom. No listener was added.
-       `calc((var(--px) + 0.5) * 100%)` is the whole conversion from that
-       range to a background position.
-     · THE RADIUS IS --spot-r, AND IT IS DECLARED HERE, NOT BY THE HOST.
-       That is a constraint, not a preference: this token lives on :root, so
+       same property that drives the cover zoom. No listener was added.
+       `calc((var(--px) + 0.5) * 100%)` converts that range to a position.
+       --py is still written and is simply not read here; the cover zoom uses
+       it.
+     · --spot-r IS NOW A HALF-WIDTH, not a radius, and the value changed with
+       the shape: the mint band spans 2 x --spot-r of the title's width. It
+       is DECLARED HERE, NOT BY THE HOST — this token lives on :root, so
        every var() inside it is substituted against :ROOT's values. --px gets
-       away with it because :root is exactly where the script writes it, but
-       a --spot-r set on the card title would be silently ignored and the
-       gradient would keep the fallback — measured, and it is how the first
-       attempt at 44px turned out to be a 96px circle in disguise. If a
-       second host ever needs a different light, move this declaration onto
-       the hosts; do not add a second --spot-r and expect it to win.
-       The value: 96px was right for the 34px section heading this effect
-       started on. On a 17px card title, whose two lines are ~48px tall, a
-       96px circle swallows the whole block and reads as a wash. 44px covers
-       roughly two and a half Korean glyphs — the sweep is in
-       08-impl-notes/frontend.md.
-     · FALLBACK 0/0 centres the circle, but nothing sees it: the gradient
-       applies only under :hover, and every environment without a pointer
-       (touch, prefers-reduced-motion, no script, no background-clip) is
-       pinned to flat lavender by the host.
+       away with that because :root is exactly where the script writes it,
+       but a --spot-r set on a title would be silently ignored and the
+       gradient would keep this value. That is not hypothetical: it happened,
+       and a radius sweep that produced six identical results is what caught
+       it. If a second host ever needs a different light, move this
+       declaration onto the hosts; do not add a second --spot-r and expect it
+       to win.
+     · FALLBACK 0 centres the band, but nothing sees it: the gradient applies
+       only under :hover, and every environment without a pointer (touch,
+       prefers-reduced-motion, no script, no background-clip) is pinned to
+       flat lavender by the host.
      · sRGB interpolation, deliberately NOT `in oklab`: an engine that parses
        background-clip:text but not colour-space interpolation would drop the
        whole gradient while `color: transparent` still applied — an invisible
-       title. The ramp is measured as it actually renders; against the
-       hovered card's ground (--surface-2) the floor is 7.93:1 and the peak
-       11.87:1 — no mid-ramp dip, AAA everywhere (full table in
-       08-impl-notes/frontend.md).
+       title. The ramp is measured as it actually renders; the floor is
+       7.93:1 on the hovered card and 6.58:1 on the worst-case page wash
+       behind an archive row (full table in 08-impl-notes/frontend.md).
      · Doctrine cost, stated: lavender means "the way out" and mint means
-       "what the score made". A card title IS a link, so the lavender end is
-       earned; the mint end is on loan. It is contained the same way
+       "what the score made". An article title IS a link, so the lavender end
+       is earned; the mint end is on loan. It is contained the same way
        --head-sheen is — TYPE, momentary, reader-initiated, never a SURFACE —
-       and the score plates stay mint-only. */
-  --spot-r: 44px;
-  --title-spot: radial-gradient(
-    circle var(--spot-r) at calc((var(--px, 0) + 0.5) * 100%) calc((var(--py, 0) + 0.5) * 100%),
-    var(--accent-ink) 0%,
-    var(--accent-2-ink) 100%
+       and the score plates stay mint-only. The one list this is kept OFF is
+       Charts, where a mint highlight would sit 8px under a mint score plate
+       and stop reading as "the score made this"; see ChartCard. */
+  --spot-r: 34px;
+  --title-spot: linear-gradient(
+    90deg,
+    var(--accent-2-ink) calc((var(--px, 0) + 0.5) * 100% - var(--spot-r)),
+    var(--accent-ink) calc((var(--px, 0) + 0.5) * 100%),
+    var(--accent-2-ink) calc((var(--px, 0) + 0.5) * 100% + var(--spot-r))
   );
 
   /* ── Type: role tokens. Adding faces later is a 4-line change here and a

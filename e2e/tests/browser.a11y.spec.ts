@@ -281,6 +281,62 @@ test('홈 섹션 제목 — Charts만 고정 그라데이션, 셋 다 hover 효�
 });
 
 /**
+ * The spotlight reaches EVERY article list, not just the home's grids
+ * (2026-09-07). The row variant is asserted separately from the card variant
+ * because it has one thing the card does not: a hover underline. Decorations
+ * paint in currentColor, which is `transparent` while the text is clipped,
+ * so the underline is one careless edit away from vanishing exactly where
+ * the colour is doing the most work — and the affordance would then rest on
+ * colour alone (WCAG 1.4.1).
+ */
+test('아카이브 행 제목 hover — 스포트라이트 + 밑줄이 클리핑에서 살아남음', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(u('/archive/reviews/'));
+  const title = page.locator('.row-card-link .title-spot').first();
+  await expect(title).toBeVisible();
+
+  const box = (await title.boundingBox())!;
+  const read = () =>
+    title.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { color: cs.color, image: cs.backgroundImage, deco: cs.textDecorationLine, decoColor: cs.textDecorationColor };
+    });
+
+  await page.mouse.move(box.x + box.width * 0.15, box.y + box.height / 2);
+  await page.waitForTimeout(250);
+  const left = await read();
+  expect(left.color, '클리핑이 적용되지 않음').toBe('rgba(0, 0, 0, 0)');
+  expect(left.image).toContain('gradient');
+  // The underline is still there AND still visible — not currentColor.
+  expect(left.deco).toBe('underline');
+  expect(left.decoColor, '클리핑 때문에 밑줄이 투명해짐').toBe('rgb(185, 165, 247)');
+
+  await page.mouse.move(box.x + box.width * 0.85, box.y + box.height / 2);
+  await page.waitForTimeout(250);
+  expect((await read()).image, '커서를 옮겨도 밴드가 그대로').not.toBe(left.image);
+});
+
+/**
+ * Charts is the ONE article list without the spotlight, and the reason is a
+ * doctrine one: its title sits ~8px under the rank plate, which on the
+ * bucket leader is the site's single filled mint surface. This test is the
+ * cheap version of remembering that.
+ */
+test('홈 차트 카드 제목 — 스포트라이트 대상이 아니다 (악센트 면과 충돌)', async ({ page }) => {
+  await page.goto(u('/'));
+  await expect(page.locator('.chart-card')).not.toHaveCount(0);
+  await expect(page.locator('.chart-card .title-spot')).toHaveCount(0);
+
+  // It still answers the pointer — in lavender, like every other title.
+  const title = page.locator('.chart-card .title').first();
+  await page.locator('.chart-card a.row-link').first().hover();
+  await expect
+    .poll(async () => title.evaluate((el) => getComputedStyle(el).color))
+    .toBe('rgb(185, 165, 247)');
+  expect(await title.evaluate((el) => getComputedStyle(el).backgroundImage)).toBe('none');
+});
+
+/**
  * The list thumbnail's score chip (2026-09-07) is the ONE place this site
  * overlays album art, so the trade it was accepted on is measured: the
  * figure's legibility must not depend on the artwork underneath. The chip is

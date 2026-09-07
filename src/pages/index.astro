@@ -22,20 +22,32 @@
  * heading and shows an empty, wordless area: no apology, and no sentence
  * describing what the section would contain.
  *
- * Card-count layout, per section (layouts.md §2.4, amended): 0 → the section
- * head plus the empty ground, 1 → one full-width feature, 2/3/4 → that many
- * columns. A three-column grid holding one card reads as a defect; a
- * full-width feature reads as an editorial choice. Counts are known at build
- * time, so the switch is a class name — no JS, no measurement.
+ * CARD SIZE NO LONGER DEPENDS ON CARD COUNT (2026-09-07, final form). The
+ * browsing grids are ONE grid — four columns on the desktop, stepping to
+ * 3/2/1 as the frame narrows — and the number of cards in a section changes
+ * nothing about it. One card fills the first cell and leaves three empty;
+ * four fill the row.
  *
- * THE BROWSING GRIDS DECLARE THEIR COLUMNS (2026-09-07). They used to be
- * `auto-fill`, which let the frame decide how many cards a reader saw — four
- * on one screen, three on another. Now the column count IS the card count up
- * to four, and the sections are capped at four upstream
- * (deriveHomeSections), so the desktop home is one full row per section with
- * no empty track hanging off the right. The steps and the widths that
- * trigger them are in the grid rules below; the track cap that keeps the
- * hierarchy invariant true at every one of them is the same 320px as before.
+ * This reverses two earlier passes, and the reversal is the point worth
+ * recording. The grids were first `auto-fill` (the frame decided how many
+ * columns), then count-driven (`n-1`…`n-4`, so three cards got three
+ * columns) because an empty track on the right was read as a missing card.
+ * The editor has since accepted the empty cells, and what that buys is the
+ * property those variants cost: A CARD IS THE SAME SIZE ON EVERY PAGE LOAD.
+ * Under the count-driven rule a section holding one review rendered it as a
+ * 1231px feature and the same review as a 296px card the day a second one
+ * was published — the reader's sense of "how big is a review card here" was
+ * a function of how much had been published that week.
+ *
+ * The `n-*` variants and ArticleCard's whole `feature` layout were DELETED
+ * rather than left dormant: a branch nobody can reach is a question the next
+ * reader has to answer before they can change anything. Charts keeps its own
+ * count classes — it is a carousel, a different object with a different job.
+ *
+ * The steps and the widths that trigger them are in the grid rules below;
+ * the 320px track cap that keeps the hierarchy invariant true at every one
+ * of them is unchanged, and deriveHomeSections still caps a section at four
+ * — which is now exactly one full row rather than a coincidence.
  *
  * DENSITY IS THE HIERARCHY, AND IT IS A RULE, NOT A SETTING (2026-09-07).
  * Charts is what this site is for; the two browsing sections are not. Both
@@ -52,8 +64,10 @@
  * was meant to create — the section that matters got the smaller card. Column
  * COUNT is not size. What fixes it is fixing the chart card's width so its
  * cell cannot shrink as the board fills, and capping every browsing track at
- * 320px so a thin section cannot balloon past a full one. The measured table
- * for every count pair is in 08-impl-notes/frontend.md.
+ * 320px so a thin section cannot balloon past a full one. Now that the
+ * browsing card's width depends only on the viewport, the invariant has one
+ * fewer variable in it — the measured table is in
+ * 08-impl-notes/frontend.md.
  *
  * The two remaining variant faces are unchanged: `empty` (no reviews at all)
  * prints the two-line declaration, and `post-finalize` puts last year's
@@ -92,14 +106,9 @@ const { site, homeSections, homeVariant, data } = getSiteData();
 const { charts, latestReviews, notes } = homeSections;
 
 // Charts: 1 / 2 / 3 are the three layouts, and everything above 3 is the same
-// horizontal scroller, so the class saturates at n-3.
+// horizontal scroller, so the class saturates at n-3. The browsing grids used
+// to have a matching helper and no longer do — see the intro.
 const chartClass = (n: number) => `n-${Math.min(n, 3)}`;
-// Browsing grids: the COLUMN COUNT IS THE CARD COUNT up to four (2026-09-07).
-// A fixed four-track grid holding three cards leaves an empty track on the
-// right, which reads as a missing card rather than as a short section; giving
-// three cards three tracks makes the row end where the cards end. Four is the
-// ceiling because deriveHomeSections caps the sections there.
-const cardsClass = (n: number) => `n-${Math.min(n, 4)}`;
 
 // Exactly one <h1> per document. Now that all three sections always render,
 // Charts is always the first heading on the page — except in the `empty`
@@ -205,7 +214,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
       {
         latestReviews.length > 0 ? (
           <>
-            <ul class:list={['cards', cardsClass(latestReviews.length)]}>
+            <ul class="cards">
               {latestReviews.map((item, i) => (
                 /* showScore — D2-R2: this is one of the two surfaces the
                    editor reversed D2 for. 음악 이야기 below deliberately
@@ -214,15 +223,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
                    says "Latest Reviews", and nothing but a review can appear
                    here, so a REVIEWS chip on every card is the same word
                    twice. The mixed archives keep theirs (see ArticleCard). */
-                <ArticleCard
-                  item={item}
-                  variant="card"
-                  feature={latestReviews.length === 1}
-                  compact
-                  eager={i < 4}
-                  showScore
-                  showFormat={false}
-                />
+                <ArticleCard item={item} variant="card" compact eager={i < 4} showScore showFormat={false} />
               ))}
             </ul>
             {/* No tail link when the section is empty: the archive it points
@@ -242,9 +243,9 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
       {
         notes.length > 0 ? (
           <>
-            <ul class:list={['cards', cardsClass(notes.length)]}>
+            <ul class="cards">
               {notes.map((item) => (
-                <ArticleCard item={item} variant="card" feature={notes.length === 1} compact showFormat={false} />
+                <ArticleCard item={item} variant="card" compact showFormat={false} />
               ))}
             </ul>
             <a class="section-more" href={withBase('/archive/stories/')}>이야기 전체 보기 →</a>
@@ -420,18 +421,22 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
       scroll-behavior: auto;
     }
   }
-  /* ── Browsing grids: a DECLARED column count, stepped at three widths ──
-     (2026-09-07, replacing `repeat(auto-fill, minmax(240px, 320px))`.)
-
-     auto-fill let the number of columns fall out of the frame width, which
-     meant the home showed three, four or five review cards depending on the
-     reader's screen. The count is now stated:
+  /* ── Browsing grids: ONE grid, four columns, stepped at three widths ──
+     (2026-09-07. Replaced `auto-fill`, then the per-count `n-*` variants.)
 
         viewport      columns   browsing card       chart card
         ≥ 1160px         4      241 → 320px         336px
         840 – 1159       3      244 → 320px         336px
         641 – 839        2      292 → 320px         336px
         ≤ 640            1      full width          full width (tie)
+
+     THE CARD COUNT IS NOT IN THAT TABLE, and that is the whole change: a
+     section holding one card renders it in the first cell at the same width
+     a section holding four would. The three empty cells are exactly that —
+     empty. Nothing is drawn for a grid cell with no item in it, and every
+     border, surface and radius on this page belongs to a CARD rather than to
+     the grid, so a short section reads as a short row and never as a broken
+     one.
 
      The breakpoints are where a track would otherwise fall under 240px, the
      narrowest a compact card stays readable at, computed against the gutter
@@ -447,38 +452,31 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
      ≥1680px case where the shell caps the frame at 1440 and four `1fr`
      tracks would resolve to 348px and invert the hierarchy. The `0` minimum
      is what keeps a card's own content (the nowrap subtitle) from blowing
-     the track out at the narrow end. The cost is up to ~110px of unused
-     frame on the right where the cap bites; that is a left-aligned row, not
-     a hole in a grid. */
-  .cards.n-2,
-  .cards.n-3,
-  .cards.n-4 {
+     the track out at the narrow end. */
+  .cards {
     display: grid;
     gap: var(--s-16);
     grid-template-columns: minmax(0, 320px);
   }
   @media (min-width: 641px) {
-    .cards.n-2,
-    .cards.n-3,
-    .cards.n-4 {
+    .cards {
       grid-template-columns: repeat(2, minmax(0, 320px));
     }
   }
   @media (min-width: 840px) {
-    .cards.n-3,
-    .cards.n-4 {
+    .cards {
       grid-template-columns: repeat(3, minmax(0, 320px));
     }
   }
   @media (min-width: 1160px) {
-    .cards.n-4 {
+    .cards {
       grid-template-columns: repeat(4, minmax(0, 320px));
     }
   }
-  /* One card = the section's face; the card itself owns the two-column
-     feature layout (ArticleCard/ChartCard `feature`). */
-  .chart-cards.n-1,
-  .cards.n-1 {
+  /* One chart card = the section's face; ChartCard owns the two-column
+     feature layout. The browsing grids have no such case any more — see the
+     intro. */
+  .chart-cards.n-1 {
     display: block;
   }
 
