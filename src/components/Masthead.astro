@@ -133,8 +133,36 @@ const items = [
     /* The 2px rule is RESERVED SPACE, permanently transparent: the visible
        bar is the ::after below. Keeping the border means the row's height is
        identical in every state, so neither hovering nor landing on a page
-       can shift the masthead by 2px (CLS stays 0). */
-    border-bottom: 2px solid transparent;
+       can shift the masthead by 2px (CLS stays 0).
+
+       THE MATCHING TOP BORDER IS NOT DECORATION — IT IS THE ALIGNMENT
+       (2026-09-08). With box-sizing: border-box, the bottom rule ate 2px out
+       of the bottom of a 44px box, and `align-items: center` then centred the
+       label in the 42px that were left — i.e. 1px ABOVE the element's real
+       middle. Every nav item was 1px high against the wordmark, on every page,
+       at every width.
+
+       MEASURED, at dpr 4, painted ink rather than boxes:
+
+         as shipped                       wordmark 31.625  nav 30.500   1.125px
+         bottom border removed            wordmark 31.625  nav 31.500   0.125px
+         border reserved on BOTH sides    wordmark 31.625  nav 31.500   0.125px
+
+       So the caps-versus-ascenders difference everyone reaches for first is
+       0.125px of it — an eighth of a pixel, below a device pixel at 2x — and
+       the reserved rule was the other 1.0px. It is left at 0.125px rather
+       than nudged to zero: a magic number that small buys nothing a reader
+       can see and breaks the moment the typeface changes.
+
+       WHY THE TOP BORDER AND NOT DELETING THE BOTTOM ONE, which measures the
+       same: ::after is positioned against the PADDING box, and the padding
+       box's bottom edge is where the underline hangs from. Adding a top
+       border takes its 2px off the top and leaves that edge exactly where it
+       was, so the hover rule does not move. Removing the bottom border would
+       have grown the padding box downward and taken the underline 2px with
+       it. Height stays 44px in both cases (border-box), so the touch target
+       is untouched either way. */
+    border-block: 2px solid transparent;
     /* The bar is positioned against the padding box, which the transparent
        border sits just outside of — hence bottom: -2px below. */
     position: relative;

@@ -446,6 +446,93 @@ test('마스트헤드 내비 — 360px부터 다섯 항목이 한 줄 · 세로 
 });
 
 /**
+ * THE WORDMARK AND THE NAV SIT ON ONE OPTICAL LINE (2026-09-08).
+ *
+ * The test above pins the five nav items to each other. It cannot see the
+ * defect this one is for: all five were 1px high AGAINST THE WORDMARK, at
+ * every width, so they agreed with each other perfectly while the masthead
+ * read crooked.
+ *
+ * WHY THE ELEMENT BOXES WERE NO HELP. They were already flush — both centres
+ * landed on 32.00px. The text inside them was not: `.nav-link` reserved 2px
+ * of transparent border-bottom for its underline, box-sizing charged that to
+ * the box, and `align-items: center` then centred the label in the 42px that
+ * remained. A box-level assertion is exactly the assertion that passes while
+ * this is broken, which is why this test measures the GLYPH RUN.
+ *
+ * TOLERANCE, and why it is not zero. Painted ink at dpr 4 puts the residue at
+ * 0.125px: the wordmark is lowercase with ascenders, the nav is caps-only, so
+ * the two ink bands are not the same shape and their centres cannot coincide
+ * exactly without a per-typeface fudge factor. 0.125px is an eighth of a CSS
+ * pixel — below one device pixel even at 2x. 0.25px is the same tolerance the
+ * nav-to-nav check uses, and it is an order of magnitude under the 1.125px
+ * defect, so this fails loudly if the structural bias ever comes back.
+ *
+ * Widths below ~471px are skipped BY MEASUREMENT, not by a hardcoded list:
+ * there the nav wraps onto its own row under the wordmark, and comparing the
+ * vertical centres of two different rows would be meaningless rather than
+ * wrong. The wrap itself is already covered above.
+ */
+test('마스트헤드 — 워드마크와 내비의 글자 중심이 같은 줄에서 일치', async ({ page }) => {
+  await page.goto(u('/'));
+  const problems: string[] = [];
+  const lines: string[] = [];
+  for (const width of [480, 640, 768, 1024, 1440, 1920, 2560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(80);
+    const m = await page.evaluate(() => {
+      const centre = (el: Element) => {
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        const b = r.getBoundingClientRect();
+        return { mid: (b.top + b.bottom) / 2, top: b.top, h: b.height };
+      };
+      const wm = centre(document.querySelector('.wordmark')!);
+      const nav = [...document.querySelectorAll('.nav-link')].map((a) => ({
+        label: (a.textContent ?? '').trim(),
+        ...centre(a),
+      }));
+      return { wm, nav, sameRow: nav.every((n) => Math.abs(n.top - wm.top) < 30) };
+    });
+    if (!m.sameRow) {
+      lines.push(`${width}: 내비가 별도 행 — 비교 대상 아님`);
+      continue;
+    }
+    const worst = Math.max(...m.nav.map((n) => Math.abs(n.mid - m.wm.mid)));
+    lines.push(`${width}: 워드마크 ${m.wm.mid.toFixed(3)} · 내비 ${m.nav.map((n) => n.mid.toFixed(3)).join(' ')} · 최대차 ${worst.toFixed(3)}`);
+    if (worst > 0.25) {
+      problems.push(`${width}px — 워드마크와 내비의 글자 중심이 ${worst.toFixed(3)}px 어긋남 (허용 0.25)`);
+    }
+  }
+  console.log(`마스트헤드 세로 정렬 실측:\n  ${lines.join('\n  ')}`);
+  expect(problems, problems.join('\n')).toEqual([]);
+  // At least one width must actually have been compared — a run where every
+  // width wrapped would otherwise report success having measured nothing.
+  expect(lines.filter((l) => l.includes('최대차')).length, '비교된 폭이 하나도 없음').toBeGreaterThan(4);
+
+  // The fix works by reserving the underline's 2px on BOTH block edges, which
+  // only holds the alignment if it leaves the underline and the touch target
+  // where they were. Both are asserted here so a later "cleanup" of the top
+  // border has to explain itself to a failing test.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const geom = await page.locator('.nav-link').first().evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return {
+      borderTop: cs.borderTopWidth,
+      borderBottom: cs.borderBottomWidth,
+      height: r.height,
+      afterBottom: getComputedStyle(el, '::after').bottom,
+      afterHeight: getComputedStyle(el, '::after').height,
+    };
+  });
+  expect(geom.borderTop, '위쪽 예약 공간이 사라지면 내비가 다시 1px 올라간다').toBe(geom.borderBottom);
+  expect(geom.height, '44px 터치 타깃').toBeGreaterThanOrEqual(44);
+  expect(geom.afterBottom).toBe('-2px');
+  expect(geom.afterHeight).toBe('2px');
+});
+
+/**
  * The list thumbnail's score chip (2026-09-07) is the ONE place this site
  * overlays album art, so the trade it was accepted on is measured: the
  * figure's legibility must not depend on the artwork underneath. The chip is
