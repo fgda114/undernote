@@ -1,0 +1,6 @@
+# Hides the generic "Open a blank issue" button — every issue in this repo
+# is either a review or a story, submitted through one of the two forms
+# below. This also means the workflow (publish.yml) only ever has to guard
+# against non-publish issues opened by mistake via the API, never via the
+# normal "New issue" UI (there is no blank-issue path to it).
+blank_issues_enabled: false

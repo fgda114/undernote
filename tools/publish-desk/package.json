@@ -1,0 +1,16 @@
+{
+  "name": "undernote-publish-desk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "scripts": {
+    "test": "node --test \"scripts/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "sharp": "^0.35.4",
+    "yaml": "^2.9.0"
+  }
+}

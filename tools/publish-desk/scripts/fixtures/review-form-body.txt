@@ -1,0 +1,43 @@
+### 아티스트 이름
+
+피비 브리저스
+
+### (선택) 아티스트 영문 표기
+
+phoebe-bridgers
+
+### 앨범 이름
+
+Lost Weekend
+
+### (선택) 앨범 주소
+
+_No response_
+
+### 발매일
+
+2026
+
+### 장르
+
+Rock
+
+### 점수
+
+8.4
+
+### 최종 확인
+
+- [X] 이 앨범, 안 들으면 손해라고 확신합니다.
+
+### 커버 이미지 (있으면)
+
+![lost-weekend](https://private-user-images.githubusercontent.com/1234567/400000000-aaaa-bbbb-cccc-dddddddddddd.jpg?jwt=eyJhbGciOiJIUzI1NiJ9.example)
+
+### 글
+
+나는 음악을 찾아서 듣는 편이 아니다 매년 셀 수 없을 정도로 만들어지는 다양한 음악을 내 취향에 맞게 또는 목적에 맞게 찾는것이란 상당한 귀찮음이 동반되기 때문이다
+이 앨범도 그렇게 접했다
+피비브리저스 나는 이사람의 이름을 처음 들었지만 분명 나는 이사람의 음악을 들어봤다
+
+boygenius의 the record 라는 앨범이 있는데 [이 곡](https://open.spotify.com/track/example) 이 특히 좋았다

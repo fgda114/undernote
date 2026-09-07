@@ -1,0 +1,118 @@
+name: 새 글 쓰기 — 평론
+description: 앨범 평론을 씁니다. 저장하면 몇 분 안에 사이트에 올라갑니다.
+title: "[평론] "
+labels: ["publish:review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        아래 칸을 채우고 맨 아래 초록색 버튼을 누르면 끝입니다. 코드나 파일 같은 건 몰라도 됩니다.
+
+        - "(선택)"이 붙은 칸은 비워둬도 됩니다.
+        - 뭔가 잘못 적으면 사이트에 올라가지 않고, 무엇이 잘못됐는지 여기 이 화면에 댓글로 알려드립니다.
+          그럼 그 칸만 고쳐서 다시 저장하면 됩니다 — 처음부터 다시 쓸 필요 없습니다.
+        - 문제가 없으면 보통 몇 분 안에 실제 사이트에 올라갑니다.
+
+  - type: input
+    id: artist_name
+    attributes:
+      label: 아티스트 이름
+      placeholder: "예) 피비 브리저스"
+    validations:
+      required: true
+
+  - type: input
+    id: artist_slug_hint
+    attributes:
+      label: "(선택) 아티스트 영문 표기"
+      description: |
+        이 아티스트를 처음 다루는 경우에만 필요할 수 있습니다. 이름이 한글이면 인터넷 주소를 자동으로
+        못 만들어서 다시 여쭤봅니다 — 그때 여기에 로마자로 적어주면 됩니다 (예: phoebe-bridgers).
+        모르겠으면 일단 비워두고 저장해보세요.
+      placeholder: "예) phoebe-bridgers"
+    validations:
+      required: false
+
+  - type: input
+    id: album_title
+    attributes:
+      label: 앨범 이름
+      placeholder: "예) Lost Weekend"
+    validations:
+      required: true
+
+  - type: input
+    id: album_slug_hint
+    attributes:
+      label: "(선택) 앨범 주소"
+      description: 아티스트 영문 표기와 같은 이유로, 필요할 때만 다시 여쭤봅니다. 평소엔 비워두면 됩니다.
+    validations:
+      required: false
+
+  - type: input
+    id: release_date
+    attributes:
+      label: 발매일
+      description: 정확한 날짜를 모르면 연도만 적어도 됩니다.
+      placeholder: "예) 2026 또는 2026-05-03"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: genre
+    attributes:
+      label: 장르
+      description: 어느 쪽에도 안 맞으면 "그 외"를 고르세요 — 발행에는 전혀 문제없습니다.
+      # NOTE (개발자용 — 글 쓰는 분은 몰라도 됩니다): 이 목록은 undernote 저장소의
+      # config/genres.yaml과 손으로 맞춰야 합니다 — Issue Form은 그 파일을
+      # 실시간으로 읽어오지 못합니다. 텍스트가 어긋나도 발행이 잘못되지는
+      # 않습니다: 발행 파이프라인은 이 라벨을 매 실행마다 그 파일에서 다시
+      # 찾고, 못 찾으면 "PD-GENRE-UNKNOWN"으로 멈추고 알려줍니다(자세한 내용은
+      # docs/publishing.md 참고). 2026-09-07 기준 최신 값:
+      options:
+        - "Hip-Hop / R&B"
+        - "Pop"
+        - "Rock"
+        - "그 외"
+    validations:
+      required: true
+
+  - type: input
+    id: score
+    attributes:
+      label: 점수
+      description: "10점 만점, 소수점 첫째 자리까지만 적어주세요 (예: 8.3). 8.35처럼 둘째 자리는 안 됩니다."
+      placeholder: "8.3"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: editorial_check
+    attributes:
+      label: 최종 확인
+      description: 이 체크가 없으면 아무리 글이 완성돼 있어도 발행되지 않습니다.
+      options:
+        - label: 이 앨범, 안 들으면 손해라고 확신합니다.
+          required: true
+
+  - type: textarea
+    id: cover
+    attributes:
+      label: 커버 이미지 (있으면)
+      description: |
+        이 칸을 클릭하고 사진 파일을 끌어다 놓으면(드래그 앤 드롭) 자동으로 올라갑니다.
+        안 넣어도 발행에는 문제없습니다 — 기본 이미지로 나가고, 나중에 넣어도 됩니다.
+    validations:
+      required: false
+
+  - type: textarea
+    id: body
+    attributes:
+      label: 글
+      description: |
+        평론을 씁니다. 마크다운 같은 건 몰라도 됩니다 — 문단을 나눌 때 그냥 Enter를 치면 됩니다.
+        맞춤법이나 띄어쓰기는 고치지 않고 쓰신 그대로 나갑니다.
+        특정 단어에 링크를 걸고 싶으면 [이 곡](https://주소) 처럼 대괄호 다음에 괄호로 주소를 적으면 됩니다.
+      placeholder: 여기에 씁니다…
+    validations:
+      required: true
