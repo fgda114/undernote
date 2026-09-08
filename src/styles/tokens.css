@@ -292,6 +292,14 @@
   --column: 660px; /* running prose ≈ 38 Korean chars */
   --rail: 320px; /* review left rail = cover edge length */
   --masthead-h: 64px;
-  --masthead-h-mobile: 56px;
+  /* 57, not 56 (2026-09-08). Baseline-aligning the wordmark against the nav
+     (Masthead.astro) needs (max ascent above the shared baseline) + (max
+     descent below it), and the nav-link's 44px touch target supplies more
+     descent than a 56px row leaves once the wordmark's own ascent is taken
+     out — measured at 57px exactly, at every width, regardless of which
+     nav item is current or hovered. `min-height` cannot shrink that; a
+     56px row still rendered 57px, just without the token saying so. This
+     makes the declared height match the one that was already shipping. */
+  --masthead-h-mobile: 57px;
 }
 
