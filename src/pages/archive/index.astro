@@ -106,6 +106,23 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
     flex-direction: column;
     gap: var(--s-32);
   }
+  /* TITLE→CONTENT IS THE SITE'S ONE SHARED GAP, --s-24, NOT THIS PAGE'S OWN
+     --s-32 (2026-09-08). `.archive`'s 32px `gap` above spaces every pair of
+     its own sections — presets to Year, Year to Genre, Genre to Tags — and
+     that IS this page's own editorial rhythm, unrelated to the title. But
+     the title itself is the FIRST item in that same flex column, so before
+     this rule it inherited the section-to-section number too, and measured
+     32px from the reviews/notes/artists tabs' 24px even though nothing about
+     "how far a title sits from what follows it" was meant to differ between
+     tabs (see the 24px pages' `.cards`/`.rows` for the shared answer).
+     Margins on a flex item never collapse with the container's `gap`
+     (spec, not a quirk), so they stack: 32px gap + this rule's −8px = 24px,
+     for THIS ONE pair only — every later gap in the column keeps its full
+     32px untouched. Scoped to this page (Astro's per-component style
+     scoping), so global.css's shared `.page-title` rule is not touched. */
+  .page-title {
+    margin-bottom: calc(var(--s-24) - var(--s-32));
+  }
   .presets {
     list-style: none;
     margin: 0;

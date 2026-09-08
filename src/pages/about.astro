@@ -88,6 +88,19 @@ import { SITE_TAGLINE } from '../lib/site.ts';
     flex-direction: column;
     gap: var(--s-32);
   }
+  /* TITLE→CONTENT IS THE SITE'S ONE SHARED GAP, --s-24, NOT THIS PAGE'S OWN
+     --s-32 (2026-09-08). Same fix, same reasoning, as archive/index.astro's
+     identical rule: `.about`'s 32px `gap` is this page's own rhythm between
+     .intro and the .rights colophon below it, which stays untouched; only
+     the title, as the flex column's first item, was borrowing that number
+     for a different question (title-to-content) it was never meant to
+     answer. Margins on a flex item stack with `gap` rather than collapsing
+     into it, so 32px + this rule's −8px lands the ONE pair this page shares
+     with every other tab (title → first content) on the same 24px. Scoped to
+     this page — global.css's shared `.page-title` rule is untouched. */
+  .page-title {
+    margin-bottom: calc(var(--s-24) - var(--s-32));
+  }
   /* Reading size, reading measure, ordinary paragraph rhythm. The previous
      version set these lines at 27px/800 with a left rule, which asserted them
      at the reader; this copy is someone saying hello and is typeset that way.

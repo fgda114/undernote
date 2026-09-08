@@ -1,29 +1,40 @@
 ---
 /**
- * Masthead (components.md §1): wordmark + 5-item nav. No scroll pinning —
+ * Masthead (components.md §1): wordmark + 4-item nav. No scroll pinning —
  * long-form reading owns the viewport. The current page item is marked
  * THREE ways — accent border, ink color, weight 800 — so it never depends on
  * color alone (WCAG 1.4.1).
  *
  * Nav targets: /archive/ presets for Reviews/Notes (ui-spec §6), the active
- * year's list, the artist index, archive and about. Shell pages for these
- * routes are a W5.2 obligation (E-112 readiness).
+ * year's list, archive and about. Shell pages for these routes are a W5.2
+ * obligation (E-112 readiness).
  *
- * ORDER (revised 2026-09-07): Charts · Reviews · Notes · Artists · Archive.
- * The row now reads in the SAME order the home stacks its sections — Charts,
- * then Latest Reviews, then Notes — so a reader who scrolls the front page
- * and a reader who scans the nav are given the publication in one order
- * rather than two. Charts leads because the annual list is what this site is
- * for; the two formats follow; Artists is the people it writes about; and
- * Archive closes the row as the tool for finding any of them again.
+ * ORDER (revised 2026-09-07): Charts · Reviews · Notes · Archive. The row
+ * reads in the SAME order the home stacks its sections — Charts, then
+ * Latest Reviews, then Notes — so a reader who scrolls the front page and a
+ * reader who scans the nav are given the publication in one order rather
+ * than two. Charts leads because the annual list is what this site is for;
+ * the two formats follow; Archive closes the row as the tool for finding
+ * any of them again.
  *
  * ABOUT IS NOT HERE. It moved to the footer: it is the colophon, not a
  * corner to read, and the masthead reads better as a list of things to read.
- * Artists WAS briefly cut on the argument that the archive reaches it — that
- * was reverted, because the archive reaches Reviews and Notes too, and
- * "reachable from the archive" would empty the masthead entirely. The
- * archive is where you look something up again; the masthead is the list of
- * corners.
+ *
+ * ARTISTS WAS CUT (2026-09-08), REVERSING THE 2026-09-07 PARAGRAPH THIS ONE
+ * REPLACES. That paragraph argued Artists had to stay because "reachable
+ * from the archive" applies just as much to Reviews and Notes, and cutting
+ * on that argument would have emptied the masthead entirely — true then,
+ * and still true of Reviews/Notes today, which is exactly why they stay.
+ * What changed is /archive/ itself: it is on a path to become the site's
+ * SEARCH surface, with Artists as one axis inside it rather than a
+ * standalone destination competing with the reading tabs for a masthead
+ * slot. A search axis belongs behind the tool that searches, not beside it
+ * — the archive is still where you look something up again, Artists is now
+ * one of the things you look up, and Reviews/Notes are not axes of the
+ * archive but the two things this site actually publishes, which is the
+ * distinction this decision draws that the reverted one did not have
+ * available yet. /artists/ itself is UNCHANGED — see its own file — this
+ * only removes its masthead slot.
  */
 import { getSiteConfig } from '../lib/site.ts';
 import { withBase } from '../lib/paths.ts';
@@ -41,7 +52,6 @@ const items = [
   { key: 'list', label: 'Charts', href: withBase(`/list/${site.active_year}/`) },
   { key: 'reviews', label: 'Reviews', href: withBase('/archive/reviews/') },
   { key: 'stories', label: 'Notes', href: withBase('/archive/stories/') },
-  { key: 'artists', label: 'Artists', href: withBase('/artists/') },
   { key: 'archive', label: 'Archive', href: withBase('/archive/') },
 ] as const;
 ---
@@ -266,23 +276,34 @@ const items = [
     .masthead-inner {
       min-height: var(--masthead-h-mobile);
     }
-    /* FIVE ITEMS, ONE LINE, DOWN TO 360px (2026-09-07). The row used to wrap:
-       ARCHIVE dropped to a second line at 360 and ARTISTS joined it below
-       ~345, which turned the site's whole navigation into a two-storey block
-       above every mobile page.
-       WHAT WAS TRADED, MEASURED at 360px (content 320px, nav on its own row
-       under the wordmark). The row is 393.2px wide at the desktop values:
+    /* FOUR ITEMS, ONE LINE, DOWN TO 360px. The trade below was measured and
+       written for FIVE items (2026-09-07); with Artists cut from the nav
+       (2026-09-08 — see the intro) the row is one item and one gap narrower
+       at every width than the 312.6px this trade was sized for, so the
+       margin this paragraph quotes (7.4px to spare, at 360px) only grows —
+       every number recorded here is still a valid, now-conservative, upper
+       bound on how tight the row is. It was measured for the old five-item
+       row rather than re-measured for four because the fix this pass shipped
+       (browser.a11y.spec.ts's mobile masthead test) does that measurement on
+       every run; a comment cannot go stale the way a once-off number can. The
+       trade is left in place rather than relaxed — loosening tracking/gap
+       back toward the desktop values now that there is slack was not asked
+       for and is a separate, and reversible, decision.
+       ORIGINAL TRADE, MEASURED at 360px with five items (content 320px, nav
+       on its own row under the wordmark). The row was 393.2px wide at the
+       desktop values:
          · tracking 0.08em → 0.04em  −16.6px   (0.04em is the value .date and
            the footer's © already use, so no new number entered the system)
          · gap 24px → 8px            −64px
-         = 312.6px, which fits with 7.4px to spare.
+         = 312.6px, which fit with 7.4px to spare.
        WHAT WAS NOT TRADED. The type SIZE is untouched — a nav item is the
        same object here as at 1440, and shrinking it would have been the
-       cheapest 20px and the most visible loss. Touch targets stay whole: the
-       narrowest item (NOTES) measures 45.4 x 44, so every item clears 44px in
-       BOTH axes, not just the padded height.
-       `flex-wrap: wrap` stays on the list above and is the point: below
-       ~345px the row wraps again rather than overflowing, so the 360px
+       cheapest 20px and the most visible loss. Touch targets stayed whole:
+       the narrowest item (NOTES) measured 45.4 x 44, so every item cleared
+       44px in BOTH axes, not just the padded height — re-verified for the
+       four-item row by the same e2e test.
+       `flex-wrap: wrap` stays on the list above and is the point: below the
+       wrap floor the row wraps again rather than overflowing, so the 360px
        horizontal-scroll contract holds by construction and a font that
        renders wider than the subset degrades into a second line instead of a
        scrollbar. */
