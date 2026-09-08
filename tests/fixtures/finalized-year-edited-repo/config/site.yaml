@@ -1,0 +1,7 @@
+# Fixture for E-119 (a finalized year's genres.yaml block edited after
+# freeze — R-8 rewrite, 2026-09-08). active_year is past 2026 on purpose: the
+# repo's story is "2026 was finalized, then someone edited its config block".
+site_name: "undernote"
+base_url: "https://fgda114.github.io/undernote"
+active_year: 2027
+og_use_cover: true

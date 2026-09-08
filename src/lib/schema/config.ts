@@ -24,9 +24,27 @@ export const genresConfigSchema = z
       .array(
         z
           .object({
-            year: z.int().min(2026, {
-              error: (iss) => `연도 ${String(iss.input)}은(는) 2026 이전입니다. 연도 블록은 2026부터 시작합니다.`,
-            }),
+            // Freeze is keyed on FINALIZATION (a snapshot file existing), not
+            // on the calendar — see R-8 (2026-09-08 rewrite). A year block can
+            // be created or edited freely as long as it has not been
+            // finalized yet, however far in the past its year number is (the
+            // retroactive-chart use case: building a pre-launch year's list
+            // the same way an active year is built, then finalizing it once
+            // it is complete). So there is no "site launched in 2026" floor
+            // any more — only a wide sanity range that exists purely to catch
+            // fat-finger typos (a missing digit like "202" or an extra one
+            // like "20260"), not to express a real calendar constraint. The
+            // bound is a FIXED constant, never `new Date()`-derived: a
+            // clock-relative ceiling would make the same commit's validity
+            // depend on when it happens to be built, which R-10 forbids.
+            year: z
+              .int()
+              .min(2000, {
+                error: (iss) => `연도 ${String(iss.input)}은(는) 너무 이릅니다. 오타(예: "202")가 아닌지 확인하세요.`,
+              })
+              .max(2100, {
+                error: (iss) => `연도 ${String(iss.input)}은(는) 너무 늦습니다. 오타(예: 자릿수 초과)가 아닌지 확인하세요.`,
+              }),
             buckets: z.array(genreBucketSchema).min(1, {
               error: () => '연도 블록의 buckets가 비어 있습니다. 최소 1개 버킷이 필요합니다.',
             }),
