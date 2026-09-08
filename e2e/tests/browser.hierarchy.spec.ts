@@ -30,12 +30,18 @@
  *   · Browsing card width no longer depends on card count at all (the `n-*`
  *     variants were deleted on 2026-09-07), so that axis has one value.
  *
- * A tie is NOT a violation. At ≤640px every grid on the page is one column
- * and both cards are the frame width; the invariant says "never narrower",
- * and the hierarchy is carried by order, the gradient heading and the score
- * plate there. The assertion is `>=` for that reason, with a 0.5px tolerance
- * for sub-pixel track rounding.
- */
+ * A tie is NOT a violation. The assertion is `>=`, with a 0.5px tolerance for
+ * sub-pixel track rounding, because Charts and the browsing grids are not
+ * guaranteed to differ at every width — only never to invert.
+ *
+ * BELOW 641px THE TWO GRIDS ARE DIFFERENT COLUMN COUNTS, NOT A TIE
+ * (2026-09-08). Charts stays one column (a full-width chart card) but the
+ * browsing grids became two (four latest reviews as "1 2 / 3 4" on a phone —
+ * editor request), so a browsing card is now roughly HALF the chart card's
+ * width in that band rather than equal to it. The invariant only ever
+ * required "never narrower", so this is a wider margin, not a regression —
+ * recorded here so the next reader does not go looking for the tie this
+ * comment used to promise below 640px and conclude something broke. */
 import { expect, test } from '@playwright/test';
 import { join } from 'node:path';
 import { SANDBOX_ROOT, basePathOf } from '../lib/sandbox.mjs';
@@ -155,7 +161,8 @@ test('위계 불변식 — 탐색 트랙 상한 320px · 차트 카드 고정 33
 });
 
 /**
- * THE OTHER DIRECTION: A CARD THAT IS TOO NARROW (2026-09-07).
+ * THE OTHER DIRECTION: A CARD THAT IS TOO NARROW (2026-09-07, property moved
+ * to two tracks 2026-09-08).
  *
  * Every measurement in this file and in browser.responsive.spec.ts asks
  * whether something OVERFLOWS. Nothing asked whether something falls SHORT,
@@ -165,12 +172,22 @@ test('위계 불변식 — 탐색 트랙 상한 320px · 차트 카드 고정 33
  * chart card, the headings and the footer all ran to the full frame — measured
  * at 600px: grid 20→580, card 20→340.
  *
- * The invariant is structural rather than numeric, so it does not need
- * updating when the gutter curve moves: IN A SINGLE-COLUMN LAYOUT THE CARD
- * FILLS ITS GRID. Left edges and right edges both, because a card that is
- * centred in an over-wide track would match on width and be wrong.
+ * BAND IS NOW TWO COLUMNS, NOT ONE (2026-09-08). index.astro's `.cards` moved
+ * from a single `1fr` track to `repeat(2, 1fr)` below 641px so the home shows
+ * four latest-review cards as "1 2 / 3 4" on a phone screen instead of one
+ * card per screen (editor request). That changes what "fills its grid" means
+ * — there are now two tracks and a gap to account for, not one — but the
+ * DEFECT this test exists to catch is unchanged in shape: a track sized
+ * short of the space actually available, leaving the row's right edge
+ * short of the grid's. So the invariant moves rather than disappears: THE
+ * TWO CARDS' COMBINED SPAN (both widths plus the gap between them) FILLS THE
+ * GRID — left edge of the first card to the grid's left edge, right edge of
+ * the second to the grid's right edge. A card that is undersized but centred
+ * in its track would still match on left+right here, which is why this
+ * checks the OUTER two edges of the row rather than either card's own width:
+ * the row can only span the full grid if neither track fell short of it.
  */
-test('단일 컬럼 구간 — 탐색 카드가 격자를 가득 채운다 (361~640px)', async ({ page }) => {
+test('2열 구간 — 탐색 카드 두 트랙이 격자를 가득 채운다 (361~640px)', async ({ page }) => {
   await page.goto(`${B}/`);
   const rows: string[] = [];
   const short: string[] = [];
@@ -178,19 +195,25 @@ test('단일 컬럼 구간 — 탐색 카드가 격자를 가득 채운다 (361~
     await page.setViewportSize({ width, height: 900 });
     const m = await page.evaluate(() => {
       const grid = document.querySelector('section[aria-label="최신 리뷰"] .cards') as HTMLElement;
-      const card = grid.querySelector('.article-card') as HTMLElement;
+      const cards = [...grid.querySelectorAll('.article-card')] as HTMLElement[];
       const g = grid.getBoundingClientRect();
-      const c = card.getBoundingClientRect();
+      // First row: every card whose top matches the first card's top.
+      const firstTop = cards[0].getBoundingClientRect().top;
+      const row = cards.filter((el) => Math.abs(el.getBoundingClientRect().top - firstTop) < 1);
+      const first = row[0].getBoundingClientRect();
+      const last = row[row.length - 1].getBoundingClientRect();
       return {
         tracks: getComputedStyle(grid).gridTemplateColumns.split(/\s+/).length,
-        gLeft: g.left, gRight: g.right, cLeft: c.left, cRight: c.right,
+        rowLen: row.length,
+        gLeft: g.left, gRight: g.right, cLeft: first.left, cRight: last.right,
       };
     });
-    rows.push(`${width}: tracks ${m.tracks} · 격자 ${m.gLeft.toFixed(1)}→${m.gRight.toFixed(1)} · 카드 ${m.cLeft.toFixed(1)}→${m.cRight.toFixed(1)}`);
-    if (m.tracks !== 1) short.push(`${width}px — 단일 컬럼이 아님 (트랙 ${m.tracks}개)`);
-    if (Math.abs(m.cLeft - m.gLeft) > EPS) short.push(`${width}px — 카드 좌측 ${m.cLeft.toFixed(1)} ≠ 격자 ${m.gLeft.toFixed(1)}`);
-    if (Math.abs(m.cRight - m.gRight) > EPS) short.push(`${width}px — 카드 우측 ${m.cRight.toFixed(1)} ≠ 격자 ${m.gRight.toFixed(1)} (카드가 짧음)`);
+    rows.push(`${width}: tracks ${m.tracks} · 첫행카드수 ${m.rowLen} · 격자 ${m.gLeft.toFixed(1)}→${m.gRight.toFixed(1)} · 행 ${m.cLeft.toFixed(1)}→${m.cRight.toFixed(1)}`);
+    if (m.tracks !== 2) short.push(`${width}px — 2열이 아님 (트랙 ${m.tracks}개)`);
+    if (m.rowLen !== 2) short.push(`${width}px — 첫 행 카드 수가 2가 아님 (${m.rowLen}) — 데이터가 4건 미만이거나 줄바꿈이 어긋남`);
+    if (Math.abs(m.cLeft - m.gLeft) > EPS) short.push(`${width}px — 행 좌측 ${m.cLeft.toFixed(1)} ≠ 격자 ${m.gLeft.toFixed(1)}`);
+    if (Math.abs(m.cRight - m.gRight) > EPS) short.push(`${width}px — 행 우측 ${m.cRight.toFixed(1)} ≠ 격자 ${m.gRight.toFixed(1)} (트랙이 짧음)`);
   }
-  console.log(`단일 컬럼 실측:\n  ${rows.join('\n  ')}`);
+  console.log(`2열 구간 실측:\n  ${rows.join('\n  ')}`);
   expect(short, short.join('\n')).toEqual([]);
 });
