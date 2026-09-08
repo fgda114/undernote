@@ -66,7 +66,7 @@ test('③ bucket — 태그 교집합 0 + 같은 버킷 참조로 폴백 (전용
     `title: 버킷 이웃
 artists: [fixture-artist]
 release_date: "2026-02-01"
-bucket: pop
+buckets: [pop]
 `,
     'utf8',
   );

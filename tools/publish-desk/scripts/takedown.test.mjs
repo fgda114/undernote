@@ -9,9 +9,14 @@ function writeArtist(root, slug, name) {
   writeFileSync(join(root, 'content', 'artists', `${slug}.md`), `---\nname: "${name}"\n---\n`, 'utf8');
 }
 function writeAlbum(root, slug, { title, artists, bucket = 'rock' }) {
+  // `bucket` here is just this test's own shorthand for "one bucket id" —
+  // written as the real (MULTI-GENRE, 2026-09-08) `buckets: [...]` array
+  // field so this fixture matches the actual album.yaml shape. takedown.mjs
+  // never reads this field at all (genre plays no part in reachability), so
+  // this is fixture realism only, not a behavior this test exercises.
   writeFileSync(
     join(root, 'content', 'albums', `${slug}.yaml`),
-    `title: "${title}"\nartists: [${artists.join(', ')}]\nrelease_date: "2026"\nbucket: ${bucket}\ncover: covers/${slug}.jpg\n`,
+    `title: "${title}"\nartists: [${artists.join(', ')}]\nrelease_date: "2026"\nbuckets: [${bucket}]\ncover: covers/${slug}.jpg\n`,
     'utf8',
   );
 }

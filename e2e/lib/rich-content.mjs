@@ -78,7 +78,7 @@ async function writeBaseFixture(dir) {
       'title: 픽스처 앨범',
       'artists: [fixture-artist]',
       'release_date: "2026-05-01"',
-      'bucket: pop',
+      'buckets: [pop]',
       `cover: covers/${BASE_SLUG}.jpg`,
       'cover_source: "fixture (generated placeholder art)"',
       'tags: [city-pop]',
@@ -143,7 +143,7 @@ export async function writeRichContent(dir) {
       `title: ${a.title}`,
       `artists: [${a.artists.join(', ')}]`,
       `release_date: "${a.release}"`,
-      `bucket: ${a.bucket}`,
+      `buckets: [${a.bucket}]`,
     ];
     if (a.tags.length > 0) lines.push(`tags: [${a.tags.join(', ')}]`);
     if (a.cover) {
@@ -177,7 +177,7 @@ export function writeScaleContent(dir, { albums = 100, artists = 50, stories = 5
         `title: 스케일 앨범 ${i}`,
         `artists: [scale-artist-${i % artists}]`,
         `release_date: "2026-${month}-${day}"`,
-        `bucket: ${buckets[i % buckets.length]}`,
+        `buckets: [${buckets[i % buckets.length]}]`,
       ].join('\n') + '\n',
       'utf8',
     );

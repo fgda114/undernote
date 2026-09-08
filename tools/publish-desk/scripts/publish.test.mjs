@@ -364,6 +364,73 @@ test('updateReview: an unresolvable genre label still fails with PD-GENRE-UNKNOW
   );
 });
 
+// MULTI-GENRE (2026-09-08): the identity check on `buckets` compares SETS,
+// not arrays — the resolved order at edit time is not guaranteed to match
+// whatever order the ORIGINAL publish happened to record (config/genres.yaml
+// or the Issue Form's own checkbox order could both have changed in the
+// meantime). This is exercised against a hand-built git history (not
+// `makePublishedFixtureRepo`, which always writes buckets in today's
+// resolution order) so the mismatch is real, not incidental.
+test('updateReview: original buckets recorded in a DIFFERENT order than today\'s resolution — same set, NOT rejected', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  gitRun('git init -q -b main', root);
+  gitRun('git config user.email "actions@users.noreply.github.com"', root);
+  gitRun('git config user.name "undernote publish desk"', root);
+
+  // review-form-body.txt checks "Hip-Hop / R&B" then "Rock", in that
+  // template order — resolveGenreBuckets would resolve today's submission to
+  // [hiphop-rnb, rock]. The ORIGINAL publish is hand-written here with the
+  // OPPOSITE order to prove the comparison ignores it.
+  writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: "피비 브리저스"\n---\n', 'utf8');
+  writeFileSync(
+    join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'),
+    'title: "Lost Weekend"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock, hiphop-rnb]\n',
+    'utf8',
+  );
+  writeFileSync(
+    join(root, 'content', 'reviews', 'phoebe-bridgers-lost-weekend.md'),
+    '---\nalbum: phoebe-bridgers-lost-weekend\nscore: "8.4"\ndate: 2026-09-06\neditorial_check: true\n---\n\n원래 본문\n',
+    'utf8',
+  );
+  gitRun('git add -A && git commit -q -m "발행: title (issue #7)"', root);
+
+  const outcome = await updateReview({ issueBody: fixtureBody('review-form-body.txt'), issueNumber: 7, publicRepoDir: root, fetchImpl: stubFetch });
+  assert.equal(outcome.ok, true, 'the same genre SET in a different stored order must never be treated as an identity change');
+});
+
+test('updateReview: dropping a previously-selected genre is REJECTED, and the message names it as removed (제외됨)', async (t) => {
+  const { root } = await makePublishedFixtureRepo({ issueNumber: 7 });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  // review-form-body.txt originally checks both "Hip-Hop / R&B" and "Rock" —
+  // unchecking Rock alone must be reported as a REMOVAL, not a generic diff.
+  const editedBody = fixtureBody('review-form-body.txt').replace('- [X] Rock', '- [ ] Rock');
+  await assert.rejects(
+    () => updateReview({ issueBody: editedBody, issueNumber: 7, publicRepoDir: root, fetchImpl: stubFetch }),
+    (err) => {
+      assert.equal(err.code, 'PD-IDENTITY-LOCKED');
+      assert.match(err.message, /제외됨: rock/);
+      assert.doesNotMatch(err.message, /추가됨/, 'nothing was added, so that half of the message must not appear');
+      return true;
+    },
+  );
+});
+
+test('updateReview: checking an ADDITIONAL genre is REJECTED, and the message names it as added (추가됨)', async (t) => {
+  const { root } = await makePublishedFixtureRepo({ issueNumber: 7 });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const editedBody = fixtureBody('review-form-body.txt').replace('- [ ] Pop', '- [X] Pop');
+  await assert.rejects(
+    () => updateReview({ issueBody: editedBody, issueNumber: 7, publicRepoDir: root, fetchImpl: stubFetch }),
+    (err) => {
+      assert.equal(err.code, 'PD-IDENTITY-LOCKED');
+      assert.match(err.message, /추가됨: pop/);
+      assert.doesNotMatch(err.message, /제외됨/, 'nothing was removed, so that half of the message must not appear');
+      return true;
+    },
+  );
+});
+
 test('updateStory: body changes; title change is REJECTED', async (t) => {
   const { root, result } = await makePublishedFixtureRepo({ issueNumber: 12, kind: 'story', issueBody: fixtureBody('story-form-body.txt') });
   t.after(() => rmSync(root, { recursive: true, force: true }));

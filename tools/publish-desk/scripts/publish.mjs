@@ -432,14 +432,35 @@ async function updateReview({ issueBody, issueNumber, publicRepoDir, fetchImpl =
   if (form.releaseDate.trim() !== original.releaseDate) {
     changed.push(`발매일 "${original.releaseDate}" → "${form.releaseDate.trim()}"`);
   }
-  const bucket = resolveGenreBucket(form.genreLabel, publicRepoDir);
-  if (bucket.status !== 'found') {
+  // MULTI-GENRE (2026-09-08): `form.genreLabels` is zero or more checked
+  // labels (was a single dropdown value); resolve the whole set the same way
+  // publishReview does. `buckets.label` below is whichever label failed to
+  // resolve — resolveGenreBuckets stops and reports the first one, mirroring
+  // publishReview's own PD-GENRE-UNKNOWN (config drift is config drift,
+  // whether hit while creating or editing).
+  const buckets = resolveGenreBuckets(form.genreLabels, publicRepoDir);
+  if (buckets.status !== 'found') {
     pdFail(
       'PD-GENRE-UNKNOWN',
-      `장르 "${form.genreLabel}"을(를) 사이트 설정(config/genres.yaml)에서 찾지 못했습니다. 이슈 폼의 장르 목록이 사이트 설정과 어긋난 것 같습니다 — User(개발 담당)에게 알려주세요.`,
+      `장르 "${buckets.label}"을(를) 사이트 설정(config/genres.yaml)에서 찾지 못했습니다. 이슈 폼의 장르 목록이 사이트 설정과 어긋난 것 같습니다 — User(개발 담당)에게 알려주세요.`,
     );
-  } else if (bucket.id !== original.bucketId) {
-    changed.push(`장르 (기존 "${original.bucketId}"과(와) 다른 값)`);
+  } else {
+    // A SET comparison, not an array-order comparison: `original.bucketIds`
+    // came from whatever order the ORIGINAL publish happened to write (which
+    // may not match `buckets.ids`' current resolution order — e.g. if
+    // config/genres.yaml's bucket order, or the Issue Form's checkbox order,
+    // changed since). [rock, folk] and [folk, rock] are the same identity;
+    // only an actual addition or removal may lock the edit.
+    const before = new Set(original.bucketIds);
+    const after = new Set(buckets.ids);
+    const added = buckets.ids.filter((id) => !before.has(id));
+    const removed = original.bucketIds.filter((id) => !after.has(id));
+    if (added.length > 0 || removed.length > 0) {
+      const parts = [];
+      if (added.length > 0) parts.push(`추가됨: ${added.join(', ')}`);
+      if (removed.length > 0) parts.push(`제외됨: ${removed.join(', ')}`);
+      changed.push(`장르 (${parts.join(', ')})`);
+    }
   }
 
   if (changed.length > 0) {
