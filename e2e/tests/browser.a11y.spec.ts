@@ -558,6 +558,75 @@ test('마스트헤드 — 워드마크와 내비가 같은 줄에서 기준선�
 });
 
 /**
+ * THE MASTHEAD'S INK IS VERTICALLY CENTRED IN THE MASTHEAD (2026-09-08).
+ *
+ * Baseline alignment fixed the wordmark against the nav and, on its own,
+ * broke something the test above cannot see: the nav-link's 44px touch
+ * target hung entirely BELOW the shared baseline, so the flex line was
+ * bottom-heavy and centring it left the visible row 10.5px under the top
+ * edge with 31.5px of nothing beneath. Every baseline assertion passed
+ * throughout — they measure the two runs against EACH OTHER, and both were
+ * high together, which is the same blind spot the item-to-item nav test had
+ * before baselines were introduced. One level up each time.
+ *
+ * This measures the ink against the MASTHEAD'S OWN EDGES, so it needs no
+ * second element to compare with and cannot be satisfied by two things
+ * being wrong in the same direction.
+ *
+ * WHAT IS PINNED IS THE SYMMETRY, NOT THE PADDING. `.nav-link`'s 17px/7px
+ * split is derived from measurement and a typeface change can invalidate
+ * it; a test that pinned "17px" would keep passing while the row drifted
+ * off centre. 2px of tolerance is under one CSS pixel of asymmetry per edge
+ * and an order of magnitude below the 21px defect this replaced.
+ *
+ * Wrapped widths are excluded BY MEASUREMENT: below ~471px the nav takes
+ * its own row, and "the ink" is then two rows with a gap rather than one
+ * band to centre.
+ */
+test('마스트헤드 — 잉크가 마스트헤드 안에서 세로 중앙 (위·아래 여백 대칭)', async ({ page }) => {
+  await page.goto(u('/'));
+  const problems: string[] = [];
+  const lines: string[] = [];
+  for (const width of [480, 640, 768, 1024, 1440, 1920, 2560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(80);
+    const m = await page.evaluate(() => {
+      const ink = (el: Element) => {
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        const b = r.getBoundingClientRect();
+        return { top: b.top, bot: b.bottom };
+      };
+      const bar = document.querySelector('.masthead')!.getBoundingClientRect();
+      const wm = ink(document.querySelector('.wordmark')!);
+      const nav = [...document.querySelectorAll('.nav-link')].map(ink);
+      // The painted band is the union of both runs — the nav sets the top on
+      // no width today, but reading the union means the assertion survives a
+      // type-scale change that reverses which one does.
+      const top = Math.min(wm.top, ...nav.map((n) => n.top));
+      const bottom = Math.max(wm.bot, ...nav.map((n) => n.bot));
+      return {
+        above: top - bar.top,
+        below: bar.bottom - bottom,
+        wrapped: Math.min(...nav.map((n) => n.top)) > wm.bot,
+      };
+    });
+    if (m.wrapped) {
+      lines.push(`${width}: 내비가 별도 행 — 비교 대상 아님`);
+      continue;
+    }
+    const skew = Math.abs(m.above - m.below);
+    lines.push(`${width}: 위 ${m.above.toFixed(1)} · 아래 ${m.below.toFixed(1)} · 차 ${skew.toFixed(1)}`);
+    if (skew > 2) {
+      problems.push(`${width}px — 마스트헤드 잉크가 위 ${m.above.toFixed(1)} / 아래 ${m.below.toFixed(1)}로 ${skew.toFixed(1)}px 치우침 (허용 2)`);
+    }
+  }
+  console.log(`마스트헤드 세로 여백 실측:\n  ${lines.join('\n  ')}`);
+  expect(problems, problems.join('\n')).toEqual([]);
+  expect(lines.filter((l) => l.includes('· 차 ')).length, '비교된 폭이 하나도 없음').toBeGreaterThan(4);
+});
+
+/**
  * The list thumbnail's score chip (2026-09-07) is the ONE place this site
  * overlays album art, so the trade it was accepted on is measured: the
  * figure's legibility must not depend on the artwork underneath. The chip is

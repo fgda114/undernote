@@ -153,6 +153,35 @@ const items = [
     display: inline-flex;
     align-items: baseline;
     min-height: 44px;
+    /* WHERE THE LABEL SITS INSIDE ITS 44px TOUCH TARGET (2026-09-08).
+       Without this the label sat at the TOP of the box and all 24px of
+       touch-target slack hung BELOW the shared baseline. Under baseline
+       alignment that slack is part of the flex line's descent, so centring
+       the line put the visible text 10.5px from the masthead's top edge and
+       left 31.5px of nothing under it — the row read as glued to the top,
+       which is the regression this fixes.
+
+       17 + 7, not 12 + 12. Splitting the slack evenly is the tempting
+       font-independent answer and it measures 16.5 / 25.5: better, still
+       visibly top-heavy, because the WORDMARK's own box leaves more room
+       under its ink than over it. 17 / 7 is where the masthead's ink comes
+       out symmetric, measured across every single-row width:
+
+         현재     10.5 / 31.5      12 + 12    16.5 / 25.5
+         17 + 7   21.0 / 21.0      (480px: 17.5 / 17.5)
+
+       The pair is derived from measurement, so a typeface change can
+       invalidate it. That is why browser.a11y.spec.ts asserts the SYMMETRY
+       rather than these two numbers: if a new face moves the balance, the
+       test fails and says by how much, instead of preserving a constant
+       that has quietly stopped meaning anything.
+
+       Sum is fixed at 24 by the 44px target (2 + 17 + 16 + 7 + 2), so
+       changing one number means changing the other. Nothing else moves:
+       height stays 44, the ::after underline stays on the padding box's
+       bottom edge, and the wordmark-to-nav baseline difference stays 0. */
+    padding-top: 17px;
+    padding-bottom: 7px;
     /* The 2px rule is RESERVED SPACE, permanently transparent: the visible
        bar is the ::after below. Keeping the border means the row's height is
        identical in every state, so neither hovering nor landing on a page
