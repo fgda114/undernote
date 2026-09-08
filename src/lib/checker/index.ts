@@ -61,6 +61,11 @@ export function writeBuildReport(root: string, result: CheckResult, boardState?:
   };
   section('실패', result.failures, '없음 — 배포 가능한 상태입니다.');
   section('경고', result.warnings, '없음.');
-  section('원에게 전하는 알림', result.notices, '없음.');
+  // Addressed to whoever is writing, by role rather than by name (2026-09-08).
+  // This heading is no longer read only by the person who runs the build: the
+  // publish desk relays this whole report into a GitHub issue comment, so it
+  // is now the writer's error message. A name here reached someone it was not
+  // written for.
+  section('알림', result.notices, '없음.');
   writeFileSync(join(reportsDir, 'build-report.md'), md.join('\n'), 'utf8');
 }
