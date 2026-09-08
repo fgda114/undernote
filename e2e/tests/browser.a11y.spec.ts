@@ -446,34 +446,47 @@ test('마스트헤드 내비 — 360px부터 다섯 항목이 한 줄 · 세로 
 });
 
 /**
- * THE WORDMARK AND THE NAV SIT ON ONE OPTICAL LINE (2026-09-08).
+ * THE WORDMARK AND THE NAV SIT ON ONE SHARED BASELINE (2026-09-08, revised).
  *
- * The test above pins the five nav items to each other. It cannot see the
- * defect this one is for: all five were 1px high AGAINST THE WORDMARK, at
- * every width, so they agreed with each other perfectly while the masthead
- * read crooked.
+ * This test used to assert that the two groups' GLYPH-RUN CENTRES coincide.
+ * That was itself a repair of an earlier bug (box centres agreeing while the
+ * text inside disagreed by 1px), but centring the ink bands turned out to be
+ * the wrong invariant, not just an imprecise one: a reader lines up two
+ * pieces of text on a shared row by their BASELINES, not by the midpoint of
+ * their ink. "undernote." is lowercase with ascenders and no descenders;
+ * "CHARTS · REVIEWS · …" is all-caps with no ascenders past cap-height and no
+ * descenders. Those are differently-shaped bands — centring them was
+ * measured to land the wordmark's baseline ~7px below the nav's, which reads
+ * as the wordmark sagging even while every centre-based assertion here was
+ * green. This is exactly the "gate passes, defect ships" shape the rest of
+ * this suite exists to catch, just self-inflicted by an earlier version of
+ * this same test.
  *
- * WHY THE ELEMENT BOXES WERE NO HELP. They were already flush — both centres
- * landed on 32.00px. The text inside them was not: `.nav-link` reserved 2px
- * of transparent border-bottom for its underline, box-sizing charged that to
- * the box, and `align-items: center` then centred the label in the 42px that
- * remained. A box-level assertion is exactly the assertion that passes while
- * this is broken, which is why this test measures the GLYPH RUN.
+ * HOW THE BASELINE IS MEASURED, and why not `getBoundingClientRect`. Neither
+ * a box edge nor a Range's rect is the baseline — both are ink extents, which
+ * is exactly what centring measured and got wrong above. A zero-size
+ * `inline-block` appended as the last child of the run, at default
+ * `vertical-align: baseline`, is laid out so its OWN bottom margin edge sits
+ * ON the surrounding text's baseline; reading that edge's
+ * `getBoundingClientRect().bottom` is the baseline position itself, not a
+ * derived approximation of it. The probe is added and removed inside one
+ * `page.evaluate`, so it never paints.
  *
- * TOLERANCE, and why it is not zero. Painted ink at dpr 4 puts the residue at
- * 0.125px: the wordmark is lowercase with ascenders, the nav is caps-only, so
- * the two ink bands are not the same shape and their centres cannot coincide
- * exactly without a per-typeface fudge factor. 0.125px is an eighth of a CSS
- * pixel — below one device pixel even at 2x. 0.25px is the same tolerance the
- * nav-to-nav check uses, and it is an order of magnitude under the 1.125px
- * defect, so this fails loudly if the structural bias ever comes back.
+ * TOLERANCE. Unlike the old centre check, this is not comparing two
+ * different-shaped ink bands — it is comparing where the browser's own layout
+ * engine placed a baseline it computed once (via CSS `align-items: baseline`
+ * propagated through .masthead-inner > .nav-list > li > .nav-link, see
+ * Masthead.astro for why every level needs the property set). There is no
+ * per-typeface geometry left to disagree about, so the 0.25px tolerance below
+ * is headroom against float rounding, not a fudge factor — measured 0.000px
+ * at every compared width on the shipped build.
  *
  * Widths below ~471px are skipped BY MEASUREMENT, not by a hardcoded list:
- * there the nav wraps onto its own row under the wordmark, and comparing the
- * vertical centres of two different rows would be meaningless rather than
- * wrong. The wrap itself is already covered above.
+ * there the nav wraps onto its own row under the wordmark, and comparing
+ * baselines of two different rows would be meaningless rather than wrong.
+ * The wrap itself is already covered above.
  */
-test('마스트헤드 — 워드마크와 내비의 글자 중심이 같은 줄에서 일치', async ({ page }) => {
+test('마스트헤드 — 워드마크와 내비가 같은 줄에서 기준선을 공유', async ({ page }) => {
   await page.goto(u('/'));
   const problems: string[] = [];
   const lines: string[] = [];
@@ -481,39 +494,51 @@ test('마스트헤드 — 워드마크와 내비의 글자 중심이 같은 줄�
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(80);
     const m = await page.evaluate(() => {
-      const centre = (el: Element) => {
-        const r = document.createRange();
-        r.selectNodeContents(el);
-        const b = r.getBoundingClientRect();
-        return { mid: (b.top + b.bottom) / 2, top: b.top, h: b.height };
+      // Zero-height inline-block, default vertical-align: baseline — its own
+      // bottom margin edge lands exactly on the run's baseline. Appended and
+      // read inside one evaluate call, then removed, so it never paints.
+      const baselineOf = (el: Element) => {
+        const probe = document.createElement('span');
+        probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+        el.appendChild(probe);
+        const b = probe.getBoundingClientRect().bottom;
+        probe.remove();
+        return b;
       };
-      const wm = centre(document.querySelector('.wordmark')!);
+      const wmEl = document.querySelector('.wordmark')!;
+      const wmTop = wmEl.getBoundingClientRect().top;
+      const wm = baselineOf(wmEl);
       const nav = [...document.querySelectorAll('.nav-link')].map((a) => ({
         label: (a.textContent ?? '').trim(),
-        ...centre(a),
+        baseline: baselineOf(a),
+        top: a.getBoundingClientRect().top,
       }));
-      return { wm, nav, sameRow: nav.every((n) => Math.abs(n.top - wm.top) < 30) };
+      // Row membership is judged by TOP proximity, not baseline proximity —
+      // baseline is exactly the quantity under test, so using it here would
+      // make the skip condition circular.
+      return { wm, nav, sameRow: nav.every((n) => Math.abs(n.top - wmTop) < 30) };
     });
     if (!m.sameRow) {
       lines.push(`${width}: 내비가 별도 행 — 비교 대상 아님`);
       continue;
     }
-    const worst = Math.max(...m.nav.map((n) => Math.abs(n.mid - m.wm.mid)));
-    lines.push(`${width}: 워드마크 ${m.wm.mid.toFixed(3)} · 내비 ${m.nav.map((n) => n.mid.toFixed(3)).join(' ')} · 최대차 ${worst.toFixed(3)}`);
+    const worst = Math.max(...m.nav.map((n) => Math.abs(n.baseline - m.wm)));
+    lines.push(`${width}: 워드마크 기준선 ${m.wm.toFixed(3)} · 내비 ${m.nav.map((n) => n.baseline.toFixed(3)).join(' ')} · 최대차 ${worst.toFixed(3)}`);
     if (worst > 0.25) {
-      problems.push(`${width}px — 워드마크와 내비의 글자 중심이 ${worst.toFixed(3)}px 어긋남 (허용 0.25)`);
+      problems.push(`${width}px — 워드마크와 내비의 기준선이 ${worst.toFixed(3)}px 어긋남 (허용 0.25)`);
     }
   }
-  console.log(`마스트헤드 세로 정렬 실측:\n  ${lines.join('\n  ')}`);
+  console.log(`마스트헤드 기준선 정렬 실측:\n  ${lines.join('\n  ')}`);
   expect(problems, problems.join('\n')).toEqual([]);
   // At least one width must actually have been compared — a run where every
   // width wrapped would otherwise report success having measured nothing.
   expect(lines.filter((l) => l.includes('최대차')).length, '비교된 폭이 하나도 없음').toBeGreaterThan(4);
 
-  // The fix works by reserving the underline's 2px on BOTH block edges, which
-  // only holds the alignment if it leaves the underline and the touch target
-  // where they were. Both are asserted here so a later "cleanup" of the top
-  // border has to explain itself to a failing test.
+  // The underline's 2px is reserved on BOTH block edges so the border-box
+  // (and therefore the row height the baseline maths above run against) is
+  // identical whether or not the bar is painted — that symmetry, the
+  // underline position, and the touch target are asserted here so a later
+  // "cleanup" of the top border has to explain itself to a failing test.
   await page.setViewportSize({ width: 1440, height: 900 });
   const geom = await page.locator('.nav-link').first().evaluate((el) => {
     const cs = getComputedStyle(el);
@@ -526,10 +551,79 @@ test('마스트헤드 — 워드마크와 내비의 글자 중심이 같은 줄�
       afterHeight: getComputedStyle(el, '::after').height,
     };
   });
-  expect(geom.borderTop, '위쪽 예약 공간이 사라지면 내비가 다시 1px 올라간다').toBe(geom.borderBottom);
+  expect(geom.borderTop, '테두리가 비대칭이면 44px 박스 안에서 CLS 없이 상태가 바뀐다는 전제가 깨진다').toBe(geom.borderBottom);
   expect(geom.height, '44px 터치 타깃').toBeGreaterThanOrEqual(44);
   expect(geom.afterBottom).toBe('-2px');
   expect(geom.afterHeight).toBe('2px');
+});
+
+/**
+ * THE MASTHEAD'S INK IS VERTICALLY CENTRED IN THE MASTHEAD (2026-09-08).
+ *
+ * Baseline alignment fixed the wordmark against the nav and, on its own,
+ * broke something the test above cannot see: the nav-link's 44px touch
+ * target hung entirely BELOW the shared baseline, so the flex line was
+ * bottom-heavy and centring it left the visible row 10.5px under the top
+ * edge with 31.5px of nothing beneath. Every baseline assertion passed
+ * throughout — they measure the two runs against EACH OTHER, and both were
+ * high together, which is the same blind spot the item-to-item nav test had
+ * before baselines were introduced. One level up each time.
+ *
+ * This measures the ink against the MASTHEAD'S OWN EDGES, so it needs no
+ * second element to compare with and cannot be satisfied by two things
+ * being wrong in the same direction.
+ *
+ * WHAT IS PINNED IS THE SYMMETRY, NOT THE PADDING. `.nav-link`'s 17px/7px
+ * split is derived from measurement and a typeface change can invalidate
+ * it; a test that pinned "17px" would keep passing while the row drifted
+ * off centre. 2px of tolerance is under one CSS pixel of asymmetry per edge
+ * and an order of magnitude below the 21px defect this replaced.
+ *
+ * Wrapped widths are excluded BY MEASUREMENT: below ~471px the nav takes
+ * its own row, and "the ink" is then two rows with a gap rather than one
+ * band to centre.
+ */
+test('마스트헤드 — 잉크가 마스트헤드 안에서 세로 중앙 (위·아래 여백 대칭)', async ({ page }) => {
+  await page.goto(u('/'));
+  const problems: string[] = [];
+  const lines: string[] = [];
+  for (const width of [480, 640, 768, 1024, 1440, 1920, 2560]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(80);
+    const m = await page.evaluate(() => {
+      const ink = (el: Element) => {
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        const b = r.getBoundingClientRect();
+        return { top: b.top, bot: b.bottom };
+      };
+      const bar = document.querySelector('.masthead')!.getBoundingClientRect();
+      const wm = ink(document.querySelector('.wordmark')!);
+      const nav = [...document.querySelectorAll('.nav-link')].map(ink);
+      // The painted band is the union of both runs — the nav sets the top on
+      // no width today, but reading the union means the assertion survives a
+      // type-scale change that reverses which one does.
+      const top = Math.min(wm.top, ...nav.map((n) => n.top));
+      const bottom = Math.max(wm.bot, ...nav.map((n) => n.bot));
+      return {
+        above: top - bar.top,
+        below: bar.bottom - bottom,
+        wrapped: Math.min(...nav.map((n) => n.top)) > wm.bot,
+      };
+    });
+    if (m.wrapped) {
+      lines.push(`${width}: 내비가 별도 행 — 비교 대상 아님`);
+      continue;
+    }
+    const skew = Math.abs(m.above - m.below);
+    lines.push(`${width}: 위 ${m.above.toFixed(1)} · 아래 ${m.below.toFixed(1)} · 차 ${skew.toFixed(1)}`);
+    if (skew > 2) {
+      problems.push(`${width}px — 마스트헤드 잉크가 위 ${m.above.toFixed(1)} / 아래 ${m.below.toFixed(1)}로 ${skew.toFixed(1)}px 치우침 (허용 2)`);
+    }
+  }
+  console.log(`마스트헤드 세로 여백 실측:\n  ${lines.join('\n  ')}`);
+  expect(problems, problems.join('\n')).toEqual([]);
+  expect(lines.filter((l) => l.includes('· 차 ')).length, '비교된 폭이 하나도 없음').toBeGreaterThan(4);
 });
 
 /**

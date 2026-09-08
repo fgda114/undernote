@@ -52,4 +52,17 @@ const reviews = allArticles.filter((item) => item.type === 'review');
     margin: var(--s-24) 0 0;
     padding: 0;
   }
+  /* MISSING ON THIS PAGE UNTIL NOW (2026-09-08) — every other .page-title
+     page (about, /archive/, /artists/, list/{year}/, the review and story
+     heroes) drops its top padding from --s-48 to --s-32 below 640px; this
+     page and its four .listing siblings (stories/[year]/genre/tag) did not,
+     so the title sat 16px lower here than on the pages a reader compares it
+     against directly from the masthead. Same token, same breakpoint as the
+     rest of the title system — see global.css's .page-title rules for the
+     size half of that system, which this page already inherited correctly. */
+  @media (max-width: 640px) {
+    .listing {
+      padding-top: var(--s-32);
+    }
+  }
 </style>

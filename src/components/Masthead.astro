@@ -75,7 +75,17 @@ const items = [
     min-height: var(--masthead-h);
     padding: 0;
     display: flex;
-    align-items: center;
+    align-items: baseline;
+    /* `align-content: center` is NOT decorative here. `align-items: baseline`
+       below computes a required row height (max ascent + max descent) that
+       is TALLER than `min-height`'s floor once flex-wrap makes this a
+       "multi-line-capable" container — left at the default (stretch), the
+       single line is stretched flush to the container's cross-start (top)
+       instead of centred, which reproduces the exact upward bias this pass
+       exists to remove, just one level higher. Verified by removing it:
+       the wordmark's box top went to 0 at every width, glued to the top
+       rule of .masthead regardless of --masthead-h. */
+    align-content: center;
     justify-content: space-between;
     gap: var(--s-16);
     flex-wrap: wrap; /* ~640px: two-row wrap allowed, no horizontal scroll */
@@ -93,31 +103,44 @@ const items = [
   .wordmark-dot {
     color: var(--accent-ink);
   }
-  /* ONE ROW, AND EVERY ITEM ON ONE LINE (2026-09-07).
-     `align-items: center` and the flex <li> below are not cosmetic. Left to
-     the defaults, each <li> is a block whose anchor is an INLINE-flex box, so
-     the anchor's vertical position is resolved against the <li>'s text
-     baseline — a number that comes from the font's metrics. That makes the
-     row's alignment depend on which face actually rendered, which is exactly
-     the kind of thing that differs between a machine where the subset webfont
-     loaded and one where it did not. Measured on the shipped build the five
-     items are identical to within 0.25px of painted ink at 1x, 2x and 4x, so
-     this is not a repair of a visible defect; it removes the mechanism that
-     could produce one. `display: flex` on the <li> deletes the line box, and
-     `align-items: center` centres each item in the row's height instead of
-     hanging it from a shared baseline. browser.a11y.spec.ts asserts the
-     result across the audited widths. */
+  /* THE WORDMARK AND THE NAV SHARE A BASELINE, NOT A BOX CENTRE (2026-09-08).
+     A 2026-09-07 pass centred the two groups' BOXES (`align-items: center`
+     here and on .masthead-inner) and measured them flush to within 0.25px.
+     That was the wrong invariant: a reader lines up two pieces of text on a
+     shared row by their BASELINES, and "undernote." (lowercase, ascenders,
+     no descenders) and "CHARTS · REVIEWS · …" (all caps, no ascenders past
+     cap-height, no descenders) are different-shaped ink bands whose centres
+     do not sit at the same fraction of their own height. Centring the boxes
+     therefore left the wordmark's baseline ~7px below the nav's, which reads
+     as the wordmark sagging even though every box was geometrically aligned.
+     `align-items: baseline` is the fix, but it only works if the *actual
+     glyph* baseline of ".nav-link" reaches ".masthead-inner" — and three
+     levels of flex sit between them (.nav-list, the <li>, then .nav-link
+     itself is `inline-flex`). Per the flex baseline-propagation algorithm, a
+     nested flex container exposes its FIRST CHILD's baseline upward only if
+     that child is itself baseline-aligned; anywhere in that chain still set
+     to the previous `align-items: center` breaks the chain and the outer
+     alignment silently falls back to a synthesized (box-edge) baseline —
+     exactly the kind of change that measures as "fine" without being real.
+     So `align-items: baseline` is set at EVERY level: here, on the <li>, and
+     on .nav-link below. Verified empirically (not just reasoned about) by
+     probing the painted glyph baseline — a zero-height inline-block dropped
+     at the end of each text run, whose `getBoundingClientRect().bottom` IS
+     the baseline — at 6 widths from 480px to 1440px: 0.000px difference at
+     all of them (see the a11y spec below, which replaced the box-centre
+     assertion this comment used to justify). */
   .nav-list {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
-    align-items: center;
+    align-items: baseline;
     flex-wrap: wrap;
     gap: var(--s-24);
   }
   .nav-list li {
     display: flex;
+    align-items: baseline;
   }
   .nav-link {
     font-family: var(--mono);
@@ -128,31 +151,55 @@ const items = [
     text-transform: uppercase;
     color: var(--muted);
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
     min-height: 44px;
+    /* WHERE THE LABEL SITS INSIDE ITS 44px TOUCH TARGET (2026-09-08).
+       Without this the label sat at the TOP of the box and all 24px of
+       touch-target slack hung BELOW the shared baseline. Under baseline
+       alignment that slack is part of the flex line's descent, so centring
+       the line put the visible text 10.5px from the masthead's top edge and
+       left 31.5px of nothing under it — the row read as glued to the top,
+       which is the regression this fixes.
+
+       17 + 7, not 12 + 12. Splitting the slack evenly is the tempting
+       font-independent answer and it measures 16.5 / 25.5: better, still
+       visibly top-heavy, because the WORDMARK's own box leaves more room
+       under its ink than over it. 17 / 7 is where the masthead's ink comes
+       out symmetric, measured across every single-row width:
+
+         현재     10.5 / 31.5      12 + 12    16.5 / 25.5
+         17 + 7   21.0 / 21.0      (480px: 17.5 / 17.5)
+
+       The pair is derived from measurement, so a typeface change can
+       invalidate it. That is why browser.a11y.spec.ts asserts the SYMMETRY
+       rather than these two numbers: if a new face moves the balance, the
+       test fails and says by how much, instead of preserving a constant
+       that has quietly stopped meaning anything.
+
+       Sum is fixed at 24 by the 44px target (2 + 17 + 16 + 7 + 2), so
+       changing one number means changing the other. Nothing else moves:
+       height stays 44, the ::after underline stays on the padding box's
+       bottom edge, and the wordmark-to-nav baseline difference stays 0. */
+    padding-top: 17px;
+    padding-bottom: 7px;
     /* The 2px rule is RESERVED SPACE, permanently transparent: the visible
        bar is the ::after below. Keeping the border means the row's height is
        identical in every state, so neither hovering nor landing on a page
        can shift the masthead by 2px (CLS stays 0).
 
-       THE MATCHING TOP BORDER IS NOT DECORATION — IT IS THE ALIGNMENT
-       (2026-09-08). With box-sizing: border-box, the bottom rule ate 2px out
-       of the bottom of a 44px box, and `align-items: center` then centred the
-       label in the 42px that were left — i.e. 1px ABOVE the element's real
-       middle. Every nav item was 1px high against the wordmark, on every page,
-       at every width.
-
-       MEASURED, at dpr 4, painted ink rather than boxes:
-
-         as shipped                       wordmark 31.625  nav 30.500   1.125px
-         bottom border removed            wordmark 31.625  nav 31.500   0.125px
-         border reserved on BOTH sides    wordmark 31.625  nav 31.500   0.125px
-
-       So the caps-versus-ascenders difference everyone reaches for first is
-       0.125px of it — an eighth of a pixel, below a device pixel at 2x — and
-       the reserved rule was the other 1.0px. It is left at 0.125px rather
-       than nudged to zero: a magic number that small buys nothing a reader
-       can see and breaks the moment the typeface changes.
+       THE MATCHING TOP BORDER PREDATES BASELINE ALIGNMENT AND STILL EARNS
+       ITS KEEP (2026-09-08 re-check). It was added when this rule read
+       `align-items: center`, to stop the bottom border's 2px from being
+       taken out of one side only and biasing the centred label 1px up. That
+       specific bug cannot recur now that the cross-axis position comes from
+       `align-items: baseline` above (baseline placement does not consult
+       `min-height`'s slack the way centring did), so the border's role
+       today is narrower but still real: it is what makes `.nav-link`'s
+       border-box — hence the row height flex-baseline maths against — the
+       same 44px whether or not the pseudo-element bar is visible, which is
+       the CLS guarantee re-verified below. Removing it would not un-align
+       the text, but it would let hover/current states change the element's
+       geometry, which is the thing this rule exists to forbid.
 
        WHY THE TOP BORDER AND NOT DELETING THE BOTTOM ONE, which measures the
        same: ::after is positioned against the PADDING box, and the padding

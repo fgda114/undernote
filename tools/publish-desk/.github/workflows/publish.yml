@@ -1,0 +1,204 @@
+# undernote publish desk — turns a writer's Issue Form submission into a
+# commit on the PUBLIC undernote repo. Validation is never duplicated here:
+# step "Build public repo" runs that repo's own `npm run build` (the exact
+# gate every other piece of content goes through, E-1xx), and a failure's
+# message is relayed to the issue close to verbatim (docs/publishing.md).
+#
+# Two tokens, two privilege levels (least privilege — mirrors the public
+# repo's own ci.yml "unlisted scopes default to none" convention):
+#   GITHUB_TOKEN (default, THIS repo only, issues:write) — comment on,
+#     close, and label the issue that triggered the run.
+#   secrets.PUBLISH_PAT (fine-grained, scoped to ONLY the public repo,
+#     Contents: Read and write) — the one thing that ever touches the
+#     public repo: checking it out and pushing the new commit.
+# See docs/publishing.md for exactly which PAT scopes to enable and why
+# neither token needs more than this.
+name: Publish
+
+on:
+  issues:
+    types: [opened, edited]
+
+env:
+  # R-10 in the public repo: all date attribution is Asia/Seoul. This
+  # workflow computes `date:`/review dates itself (scripts/publish.mjs
+  # #todayKst), which is pure arithmetic and TZ-independent — this line is
+  # set anyway so any future step that DOES read the system clock inherits
+  # the same convention, not UTC.
+  TZ: Asia/Seoul
+  GH_TOKEN: ${{ github.token }}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # A job-level `if` is the only place that can skip the ENTIRE run before
+    # it spends any Actions minutes (private repos are billed per minute —
+    # docs/publishing.md §비용). Three independent gates:
+    #   1. never re-process an issue that already published (an edit made
+    #      after the "발행됨" label was added must not try to publish again)
+    #   2. only a collaborator's issue may trigger a push to the public repo
+    #      (defence in depth: a private repo is already collaborator-only,
+    #      but author_association costs nothing to also check)
+    #   3. only our own two templates carry a publish:* label at all — a
+    #      blank issue can't reach this workflow (blank_issues_enabled:
+    #      false in ISSUE_TEMPLATE/config.yml), this is the second layer
+    if: |
+      !contains(github.event.issue.labels.*.name, 'published') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association) &&
+      (contains(github.event.issue.labels.*.name, 'publish:review') || contains(github.event.issue.labels.*.name, 'publish:story'))
+    steps:
+      # SHAs below are the exact pins the PUBLIC repo's own .github/workflows/ci.yml
+      # already uses for the same actions (checked 2026-09-08) — reused rather
+      # than re-picked, so there is exactly one place in this whole project that
+      # has actually verified these tags resolve to these commits.
+      - name: Checkout publish-desk (this repo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Checkout public repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: fgda114/undernote
+          token: ${{ secrets.PUBLISH_PAT }}
+          path: public
+
+      # Unlike an Issue Form's own `labels:` field (which auto-creates a
+      # missing label the first time it's used), `gh issue edit --add-label`
+      # does NOT — it errors on a label that doesn't exist yet. Idempotent:
+      # `|| true` only covers the one expected failure ("already exists").
+      - name: Ensure the "published" label exists
+        run: gh label create published --color 0e8a16 --description "발행 완료" 2>/dev/null || true
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            public/package-lock.json
+
+      - name: Install publish-desk dependencies
+        run: npm ci
+
+      # Lockfile-pinned, same as the public repo's own CI rule — never `npm
+      # install` here either.
+      - name: Install public repo dependencies
+        working-directory: public
+        run: npm ci
+
+      - name: Determine issue kind
+        id: kind
+        run: |
+          if [ "${{ contains(github.event.issue.labels.*.name, 'publish:story') }}" = "true" ]; then
+            echo "kind=story" >> "$GITHUB_OUTPUT"
+          else
+            echo "kind=review" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The issue body is untrusted, writer-controlled text — it is bound
+      # here through `env:`, never interpolated into a `run:` script body,
+      # so it can never be read as shell syntax (GitHub Actions script-
+      # injection hardening guidance). publish.mjs reads it back out of
+      # process.env.ISSUE_BODY. Writes files under public/ only; never runs
+      # the build and never touches git (see publish.mjs's own doc comment).
+      - name: Resolve + write content
+        id: publish
+        continue-on-error: true
+        env:
+          PUBLIC_REPO_DIR: ${{ github.workspace }}/public
+          ISSUE_KIND: ${{ steps.kind.outputs.kind }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          PUBLISH_RESULT_PATH: ${{ github.workspace }}/publish-result.json
+        run: node scripts/publish.mjs
+
+      - name: Read publish result
+        id: result
+        env:
+          PUBLISH_RESULT_PATH: ${{ github.workspace }}/publish-result.json
+        run: node scripts/emit-result-outputs.mjs
+
+      # ── Branch A: a PD-* pre-check failure (docs/publishing.md) — a slug
+      # collision, an unresolvable genre label, a cover that wouldn't
+      # download, etc. The writer can fix this by editing the issue. ──
+      - name: Comment PD-* failure
+        if: steps.result.outputs.ok == 'false' && startsWith(steps.result.outputs.code, 'PD-')
+        env:
+          CODE: ${{ steps.result.outputs.code }}
+          MESSAGE: ${{ steps.result.outputs.message }}
+        run: |
+          node scripts/write-comment.mjs pd-error comment.txt
+          gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt
+
+      # ── Branch B: publish.mjs crashed without writing a result at all —
+      # a bug here or an unexpected fault, not something the writer caused
+      # or can fix. Only the developer sees the run link. ──
+      - name: Comment infrastructure failure
+        if: steps.result.outputs.ok == 'false' && !startsWith(steps.result.outputs.code, 'PD-')
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/write-comment.mjs infra-error comment.txt
+          gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt
+
+      # ── The real gate: the SAME build every other piece of content goes
+      # through (E-1xx). Nothing above this line validated field shapes or
+      # cross-file rules on purpose — this is where that happens. ──
+      - name: Build public repo
+        id: build
+        if: steps.result.outputs.ok == 'true'
+        continue-on-error: true
+        working-directory: public
+        run: npm run build
+
+      - name: Comment build failure
+        if: steps.result.outputs.ok == 'true' && steps.build.outcome == 'failure'
+        env:
+          REPORT_PATH: ${{ github.workspace }}/public/reports/build-report.md
+        run: |
+          node scripts/write-comment.mjs build-failure comment.txt
+          gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt
+
+      # ── Success: commit exactly the files publish.mjs wrote, push, close
+      # the loop. A fresh checkout with nothing else modified means `git
+      # add` here can only ever pick up new content — there is nothing else
+      # in the tree to accidentally stage. ──
+      - name: Commit and push
+        id: commit
+        if: steps.result.outputs.ok == 'true' && steps.build.outcome == 'success'
+        working-directory: public
+        # ISSUE_TITLE is writer-controlled text — bound through `env:` (see
+        # "Resolve + write content" above for why) and read back with printf
+        # "%s", never interpolated into the script body itself, so nothing
+        # in a mischievous title can be read as shell syntax.
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git config user.name "undernote publish desk"
+          git config user.email "actions@users.noreply.github.com"
+          git add content public/covers
+          git commit -m "$(printf '발행: %s (issue #%s)' "$ISSUE_TITLE" "$ISSUE_NUMBER")"
+          git push origin HEAD:main
+
+      - name: Comment success and close the issue
+        if: steps.commit.outcome == 'success'
+        env:
+          KIND: ${{ steps.result.outputs.kind }}
+          URL: ${{ steps.result.outputs.url }}
+        run: |
+          node scripts/write-comment.mjs success comment.txt
+          gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt
+          gh issue edit "${{ github.event.issue.number }}" --add-label published
+          gh issue close "${{ github.event.issue.number }}"
+
+      # A red X here is for the DEVELOPER (Actions tab) — the writer only
+      # ever learns the outcome from the issue comment/close above.
+      - name: Fail the run unless it actually published
+        if: always()
+        run: |
+          if [ "${{ steps.result.outputs.ok }}" != "true" ] || [ "${{ steps.commit.outcome }}" != "success" ]; then
+            exit 1
+          fi

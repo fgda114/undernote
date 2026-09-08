@@ -47,4 +47,11 @@ const stories = allArticles.filter((item) => item.type === 'story');
     margin: var(--s-24) 0 0;
     padding: 0;
   }
+  /* MISSING ON THIS PAGE UNTIL NOW (2026-09-08) — see the identical note in
+     archive/reviews.astro, this page's mirror preset. */
+  @media (max-width: 640px) {
+    .listing {
+      padding-top: var(--s-32);
+    }
+  }
 </style>

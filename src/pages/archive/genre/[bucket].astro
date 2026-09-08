@@ -48,4 +48,11 @@ const label = bucket === 'etc' ? ETC_BUCKET_LABEL : (labels.get(bucket!) ?? buck
     margin: var(--s-24) 0 0;
     padding: 0;
   }
+  /* MISSING ON THIS PAGE UNTIL NOW (2026-09-08) — see the identical note in
+     archive/[year].astro, this page's axis-value sibling. */
+  @media (max-width: 640px) {
+    .listing {
+      padding-top: var(--s-32);
+    }
+  }
 </style>

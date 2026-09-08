@@ -456,21 +456,42 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
      hierarchy. The `0` minimum is what keeps a card's own content (the nowrap
      subtitle) from blowing the track out at the narrow end.
 
-     THE SINGLE COLUMN IS `1fr` AND MUST BE (fixed 2026-09-07). The cap was
-     on the base rule too, which made it bite the one range where it has
-     nothing to hold back: between 361 and 640px there is one track, so
+     BELOW 641px THE GRID IS TWO COLUMNS, NOT ONE (2026-09-08). It was a
+     single `1fr` track — see the superseded paragraph below for why that was
+     the right call in 2026-09-07 — until the brief changed: the reader wants
+     four cards readable without scrolling past them one at a time ("최신리뷰
+     카드 4개 보였으면좋겠어 1 2 / 아래로 3 4"). Two 152px-ish tracks is
+     narrower than the row variant's dense archive listing but wider than it
+     sounds — see ArticleCard's card-variant type scale, already the smallest
+     step on the site, chosen for exactly this box. The hierarchy invariant
+     (chart card ≥ browsing card) is UNCHANGED here: Charts stays a single
+     full-width card below 640px (`.chart-cards.n-2` forces `1fr` in the same
+     media block below, `.chart-cards.n-3` forces `flex-basis: 100%`), so two
+     half-width browsing tracks only widen the margin the invariant already
+     held at 1fr. browser.hierarchy.spec.ts's 361–640px case is rewritten to
+     match — see that spec for the property it now checks instead of "one
+     card fills the row".
+
+     THE SUPERSEDED PARAGRAPH, kept because the reasoning inside it (why a
+     capped track breaks a genuinely single-column row) still applies the
+     moment this becomes one column again at any future width: the cap was on
+     the base rule too, which made it bite the one range where it has nothing
+     to hold back: between 361 and 640px there was one track, so
      min(320, available) simply clipped the card and left the rest of the row
-     empty. Measured at 600px before the fix — grid 20→580, card 20→340,
-     while the chart card, the headings and the footer all ran to 580. The
-     table above and the `sizes` hint in ArticleCard (`100vw` below 641) both
-     already said "full width" there; the cap was the outlier, not them.
-     There is nothing to invert in a single column: the chart card is full
-     width at these widths too, so the invariant holds as a TIE, which is
-     what browser.hierarchy.spec.ts asserts (>=, not >). */
+     empty. Measured at 600px before that fix — grid 20→580, card 20→340,
+     while the chart card, the headings and the footer all ran to 580.
+
+     TWO TRACKS, NOT `minmax(0, 320px)` — the cap exists to stop a track from
+     out-growing the chart card at wide multi-column widths (see the ladder
+     above); at 152px a track is nowhere near that ceiling, and `1fr` reaches
+     it with one rule instead of a redundant `min()`. Gap and gutter are both
+     fixed pixel values below 641px (`--gutter` clamps to its 20px floor for
+     every viewport under ~673px — see tokens.css), so ArticleCard's `sizes`
+     hint below can compute the exact rendered width instead of guessing. */
   .cards {
     display: grid;
     gap: var(--s-16);
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   @media (min-width: 641px) {
     .cards {

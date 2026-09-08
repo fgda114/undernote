@@ -1,0 +1,47 @@
+name: 새 글 쓰기 — 음악 이야기
+description: 평론이 아닌 자유로운 글을 씁니다. 저장하면 몇 분 안에 사이트에 올라갑니다.
+title: "[이야기] "
+labels: ["publish:story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        아래 칸을 채우고 맨 아래 초록색 버튼을 누르면 끝입니다.
+
+        - "(있으면)"이 붙은 칸은 없으면 비워둬도 됩니다.
+        - 뭔가 잘못 적으면 사이트에 올라가지 않고, 무엇이 잘못됐는지 여기 이 화면에 댓글로 알려드립니다.
+        - 문제가 없으면 보통 몇 분 안에 실제 사이트에 올라갑니다.
+
+  - type: input
+    id: title
+    attributes:
+      label: 제목
+      placeholder: "예) 93년 여름의 플레이리스트"
+    validations:
+      required: true
+
+  - type: textarea
+    id: albums
+    attributes:
+      label: 언급한 앨범들 (있으면)
+      description: |
+        이 글에서 다룬 앨범을 한 줄에 하나씩 적어주세요. 형식: 앨범 이름 (아티스트 이름)
+        이미 평론이 있는 앨범은 자동으로 링크가 걸립니다. 아직 평론이 없어도 괜찮습니다 —
+        일단 글자로만 나오고, 나중에 그 앨범 평론이 올라오면 다시 손댈 필요 없이 자동으로 링크가 생깁니다.
+      placeholder: |
+        Lost Weekend (피비 브리저스)
+        아직 평론 없는 어떤 앨범 (어떤 아티스트)
+    validations:
+      required: false
+
+  - type: textarea
+    id: body
+    attributes:
+      label: 글
+      description: |
+        마크다운 같은 건 몰라도 됩니다 — 문단을 나눌 때 그냥 Enter를 치면 됩니다.
+        맞춤법이나 띄어쓰기는 고치지 않고 쓰신 그대로 나갑니다.
+        특정 단어에 링크를 걸고 싶으면 [이 곡](https://주소) 처럼 대괄호 다음에 괄호로 주소를 적으면 됩니다.
+      placeholder: 여기에 씁니다…
+    validations:
+      required: true

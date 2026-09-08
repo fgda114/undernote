@@ -120,13 +120,18 @@ interface Props {
 
 const { item, variant = 'row', eager = false, showScore = false, showFormat = true } = Astro.props;
 
-// Rendered box: at most 320px in the home's browsing grids (the track cap —
-// see index.astro). Getting this wrong silently downloads the 640 source for
-// a 248px box. A single 320px hint above the page's one shared breakpoint
-// covers all of it because the track is capped there at every step of the
-// 4 → 3 → 2 ladder, so the widest it can ever be is the same number at all
-// three — the card variant has no other caller with a different cap.
-const FILL_SIZES = '(min-width: 641px) 320px, 100vw';
+// Rendered box: at most 320px from 641px up (the track cap — see
+// index.astro's ladder; 4 → 3 → 2 columns all cap at 320px, so one number
+// covers every multi-column step). Below 641px the grid is now TWO columns,
+// not one (2026-09-08), so the box is a HALF track, not the viewport:
+// `calc(50vw - 28px)` is exact, not an approximation — the browsing grid's
+// gutter is pinned at its 20px floor for every viewport under ~673px, and
+// its gap is a fixed var(--s-16) = 16px, so the arithmetic
+// (100vw − 2×20 − 16) ÷ 2 = 50vw − 28 never drifts from the real track
+// width the way a rounded guess would. Getting this wrong is not a layout
+// bug — it silently downloads the 640 source for a 152px box, roughly 4x
+// the bytes the box can ever show.
+const FILL_SIZES = '(min-width: 641px) 320px, calc(50vw - 28px)';
 
 // Row thumbnails: 64px displayed, which CoverImage maps to the w320 source
 // (w96 is short of 2x at this size). Stories fall through to the letter mark
