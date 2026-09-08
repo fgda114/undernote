@@ -8,18 +8,73 @@
  * them; rephrasing risks silently dropping information from a message
  * someone else designed carefully. We only add one framing sentence so the
  * writer knows what they are looking at and what to do next.
+ *
+ * One narrow, documented exception (2026-09-08): `formatBuildFailureComment`
+ * drops a DERIVED E-113 finding — one caused, in the very same run, by a
+ * sibling failure this pipeline itself introduced — rather than showing a
+ * writer an orphan-artist error about a page they only just created because
+ * ITS review failed for an unrelated reason. See `suppressDerivedOrphan`'s
+ * own comment for exactly what is and is not removed.
  */
 
 const EDIT_TO_RETRY = '이 이슈를 그대로 수정해서 저장하면(다시 "Submit new issue"를 누를 필요 없이) 자동으로 다시 시도합니다.';
 
-/** A content-validation failure — `reportMarkdown` is reports/build-report.md
+/**
+ * Drop the E-113 bullet for `artistSlug` from the "실패" section of a
+ * build-report.md, but ONLY when that section ALSO contains at least one
+ * OTHER failure. Why that guard matters: this is called only when
+ * `artistSlug` is the artist THIS SAME publish run just created
+ * (createdArtistSlug on the success result — never guessed from the report
+ * itself), so an E-113 for it can only mean one of two things — (a) some
+ * OTHER failure in this same report (a bad score, a bad genre, …) made the
+ * checker reject the sibling review file, which is the only thing that made
+ * this artist reachable, so the "orphan" is a downstream ECHO of that other
+ * failure, not new information the writer needs to act on separately; or
+ * (b) — if there is no other failure — something has gone wrong in a way
+ * this filter does not understand, and hiding it would be a real orphan
+ * disappearing from view. Case (b) is why the "at least one other failure"
+ * guard exists, and why the filter is scoped to a slug the caller can PROVE
+ * this run created: it can never touch an E-113 for any OTHER artist, so a
+ * genuine pre-existing orphan is never at risk of being hidden by it.
+ *
+ * A pure text transform (not a JSON round trip) on purpose: build-report.md
+ * has no per-section item COUNT to keep in sync (writeBuildReport,
+ * src/lib/checker/index.ts, just emits `## 실패` + one bullet per line), so
+ * removing exactly one bullet line — nothing else — cannot desynchronize
+ * anything else on the page.
+ */
+function suppressDerivedOrphan(reportMarkdown, artistSlug) {
+  if (!artistSlug) return reportMarkdown;
+  const marker = `E-113: 아티스트 "${artistSlug}"`;
+  return reportMarkdown
+    .split(/(?=^## )/m)
+    .map((section) => {
+      if (!section.startsWith('## 실패')) return section;
+      const lines = section.split('\n');
+      const failureLineIdx = lines.reduce((acc, l, i) => (l.startsWith('- `') ? [...acc, i] : acc), []);
+      const derivedIdx = failureLineIdx.find((i) => lines[i].includes(marker));
+      if (derivedIdx === undefined || failureLineIdx.length <= 1) return section;
+      lines.splice(derivedIdx, 1);
+      return lines.join('\n');
+    })
+    .join('');
+}
+
+/**
+ * A content-validation failure — `reportMarkdown` is reports/build-report.md
  * from the public repo checkout, produced by the SAME gate that guards
- * every other publish (src/lib/checker/index.ts#formatReport). */
-export function formatBuildFailureComment(reportMarkdown) {
+ * every other publish (src/lib/checker/index.ts#formatReport). Relayed close
+ * to verbatim on purpose (see this module's own header) — the one exception
+ * is `createdArtistSlug` (see suppressDerivedOrphan above): a DERIVED E-113
+ * this exact run caused, on an artist file this exact run just wrote, is
+ * removed from what the writer sees, because it names a problem they cannot
+ * fix separately from the real failure already in the same report.
+ */
+export function formatBuildFailureComment(reportMarkdown, { createdArtistSlug } = {}) {
   return [
     '이 글은 아직 발행되지 않았습니다 — 아래 문제 때문에 사이트 빌드가 실패했습니다.',
     '',
-    reportMarkdown.trim(),
+    suppressDerivedOrphan(reportMarkdown, createdArtistSlug).trim(),
     '',
     EDIT_TO_RETRY,
   ].join('\n');
@@ -51,7 +106,19 @@ export function formatInfraErrorComment(runUrl) {
     .join('\n');
 }
 
-export function formatSuccessComment({ kind, url }) {
+/**
+ * Success comment for all three actions. `action` defaults to 'publish' so
+ * every call site from before the update/take-down pipelines existed still
+ * behaves exactly as before (backward-compatible signature).
+ */
+export function formatSuccessComment({ action = 'publish', kind, url, notes = [] }) {
   const label = kind === 'story' ? '이야기' : '평론';
-  return [`발행됐습니다. ${label} 주소: ${url}`, '', '보통 몇 분 안에 실제 사이트에도 반영됩니다.'].join('\n');
+  if (action === 'takedown') {
+    return [`이 ${label}을(를) 사이트에서 내렸습니다.`, ...(notes.length > 0 ? ['', ...notes] : [])].join('\n');
+  }
+  const verb = action === 'update' ? '수정' : '발행';
+  const lines = [`${verb}됐습니다. ${label} 주소: ${url}`, ''];
+  if (notes.length > 0) lines.push(...notes, '');
+  lines.push('보통 몇 분 안에 실제 사이트에도 반영됩니다.');
+  return lines.join('\n');
 }

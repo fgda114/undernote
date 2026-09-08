@@ -44,6 +44,40 @@ export function albumFile({ title, artistSlugs, releaseDate, bucket, tags = [], 
   return lines.join('\n') + '\n';
 }
 
+/**
+ * Surgically set (or replace) the `cover:` and `cover_source:` lines of an
+ * EXISTING album YAML file's raw text — used by the publish desk's "수정"
+ * (update) path, where a writer adds/replaces a cover on an album that was
+ * already published, possibly long ago.
+ *
+ * Why a line-level edit instead of the parse-then-`albumFile()` round trip
+ * every other writer in this file uses? `albumFile()` only knows the fields
+ * THIS package ever writes (title/artists/release_date/bucket/tags/cover/
+ * cover_source) — a developer may since have hand-added `mbid`, `label`, or
+ * `listen_links` (album-add.ts writes all three). Regenerating the whole
+ * file from a plain object would silently DROP those — a correct-looking
+ * cover update that quietly destroys unrelated data is exactly the kind of
+ * failure this project does not accept (no swallowed data loss). Touching
+ * only the two lines this operation actually owns has no such risk and is
+ * directly testable against a real hand-shaped album.yaml fixture.
+ */
+export function updateAlbumCover(rawYaml, { cover, coverSource }) {
+  const lines = rawYaml.replace(/\n$/, '').split('\n');
+  const coverLine = `cover: ${cover}`;
+  const sourceLine = `cover_source: ${yamlString(coverSource)}`;
+  const coverIdx = lines.findIndex((l) => /^cover:\s/.test(l));
+  const sourceIdx = lines.findIndex((l) => /^cover_source:\s/.test(l));
+  if (coverIdx === -1) {
+    // No prior cover at all (an E-202 placeholder album) — append both.
+    lines.push(coverLine, sourceLine);
+  } else {
+    lines[coverIdx] = coverLine;
+    if (sourceIdx === -1) lines.splice(coverIdx + 1, 0, sourceLine);
+    else lines[sourceIdx] = sourceLine;
+  }
+  return lines.join('\n') + '\n';
+}
+
 /** content/artists/<slug>.md — empty body is a designed state (US-14); the
  * publish-desk pipeline never has intro-text to offer, so it always writes
  * an empty body, exactly like album-add.ts's artistMarkdown(). */

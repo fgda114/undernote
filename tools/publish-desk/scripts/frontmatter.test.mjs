@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reviewFile, albumFile, artistFile, storyFile } from './frontmatter.mjs';
+import { reviewFile, albumFile, artistFile, storyFile, updateAlbumCover } from './frontmatter.mjs';
 
 test('reviewFile: score is ALWAYS a quoted string, date unquoted (matches published examples)', () => {
   const out = reviewFile({ albumSlug: 'phoebe-bridgers-lost-weekend', score: '8.4', date: '2026-09-06', body: '본문.' });
@@ -63,4 +63,45 @@ test('storyFile: mixes ref and text album entries', () => {
 test('storyFile: no album mentions writes an explicit empty list, not an omitted key', () => {
   const out = storyFile({ title: 'T', date: '2026-01-01', body: 'b', albums: [] });
   assert.match(out, /\nalbums: \[\]\n/);
+});
+
+test('updateAlbumCover: no prior cover (E-202 placeholder) — appends both lines, leaves everything else untouched', () => {
+  const raw = 'title: "Lost Weekend"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbucket: rock\n';
+  const out = updateAlbumCover(raw, { cover: 'covers/phoebe-bridgers-lost-weekend.jpg', coverSource: '독자 제공 (발행 데스크, 수정 — 축소본)' });
+  assert.equal(
+    out,
+    'title: "Lost Weekend"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbucket: rock\n' +
+      'cover: covers/phoebe-bridgers-lost-weekend.jpg\ncover_source: "독자 제공 (발행 데스크, 수정 — 축소본)"\n',
+  );
+});
+
+test('updateAlbumCover: an existing cover is replaced in place — line order and every OTHER field untouched', () => {
+  const raw = [
+    'title: "Lost Weekend"',
+    'artists: [phoebe-bridgers]',
+    'release_date: "2026"',
+    'bucket: rock',
+    'cover: covers/old.jpg',
+    'cover_source: "예전 커버"',
+    'mbid: abc-123',
+    'label: "Dead Oceans"',
+    '',
+  ].join('\n');
+  const out = updateAlbumCover(raw, { cover: 'covers/new.jpg', coverSource: '새 커버' });
+  assert.match(out, /\ncover: covers\/new\.jpg\n/);
+  assert.match(out, /\ncover_source: "새 커버"\n/);
+  assert.doesNotMatch(out, /old\.jpg/);
+  // Fields this package never models (mbid, label — album-add.ts's own) must
+  // survive byte-for-byte: this is the whole reason for a line edit instead
+  // of a parse+regenerate round trip (see the function's own doc comment).
+  assert.match(out, /\nmbid: abc-123\n/);
+  assert.match(out, /\nlabel: "Dead Oceans"\n/);
+});
+
+test('updateAlbumCover: a cover line with no cover_source line gets one inserted right after it', () => {
+  const raw = 'title: "T"\nartists: [a]\nrelease_date: "2026"\nbucket: pop\ncover: covers/old.jpg\n';
+  const out = updateAlbumCover(raw, { cover: 'covers/new.jpg', coverSource: '새 커버' });
+  const lines = out.trim().split('\n');
+  const coverIdx = lines.findIndex((l) => l.startsWith('cover:'));
+  assert.equal(lines[coverIdx + 1], 'cover_source: "새 커버"');
 });

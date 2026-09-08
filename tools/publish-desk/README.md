@@ -38,6 +38,13 @@ npm test        # node --test — 네트워크 없이 도는 순수 함수 테�
 텍스트는 GitHub 공식 문서에 기술된 렌더링 형식을 손으로 재현한 것입니다. 저장소를 만들고 첫 이슈를
 한 번 올려서 실제로 맞는지 확인하는 절차가 `docs/publishing.md`에 있습니다.
 
+**수정·삭제(2026-09-08 추가)**: 이슈 번호 → slug 복원(`resolve-published.mjs`)은 이 세션이
+직접 만든 진짜 `git init` 저장소를 상대로, 삭제 대상 판정(`takedown.mjs`)과 오케스트레이션
+(`publish.mjs`의 `updateReview`/`updateStory`/`takedownReview`/`takedownStory`)은 실제
+파일 시스템(임시 디렉터리) 상대로 end-to-end 검증했습니다. **실제 GitHub 이슈를 수정
+저장하거나 라벨을 붙여본 적은 없습니다** — `docs/publishing.md` §3.4에 무엇을 검증했고 무엇을
+못 했는지 자세히 적어 뒀습니다.
+
 ## 소유권 경계 (BATHOS_OWNED_PATHS)
 
 이 디렉터리와 `docs/publishing.md`만 이 작업에서 다뤘습니다. `src/**` · `content/**` ·

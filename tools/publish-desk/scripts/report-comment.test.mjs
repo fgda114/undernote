@@ -31,3 +31,60 @@ test('formatSuccessComment names the kind and includes the URL', () => {
   assert.match(formatSuccessComment({ kind: 'review', url: 'https://x/reviews/y/' }), /평론 주소: https:\/\/x\/reviews\/y\//);
   assert.match(formatSuccessComment({ kind: 'story', url: 'https://x/stories/y/' }), /이야기 주소: https:\/\/x\/stories\/y\//);
 });
+
+test('formatSuccessComment: action="update" says "수정됐습니다", not "발행됐습니다"', () => {
+  const out = formatSuccessComment({ action: 'update', kind: 'review', url: 'https://x/reviews/y/' });
+  assert.match(out, /수정됐습니다/);
+  assert.doesNotMatch(out, /발행됐습니다/);
+});
+
+test('formatSuccessComment: action="takedown" has no URL, mentions the notes (e.g. artist also removed)', () => {
+  const out = formatSuccessComment({ action: 'takedown', kind: 'review', notes: ['아티스트 페이지도 함께 내렸습니다: phoebe-bridgers.'] });
+  assert.match(out, /내렸습니다/);
+  assert.match(out, /phoebe-bridgers/);
+  assert.doesNotMatch(out, /https:\/\//);
+});
+
+test('formatBuildFailureComment: WITHOUT createdArtistSlug, relays every failure verbatim (unchanged behavior)', () => {
+  const report = ['## 실패', '', '- `content/reviews/x.md` — E-105: score...', '- `content/artists/x.md` — E-113: 아티스트 "x"...', ''].join('\n');
+  const out = formatBuildFailureComment(report);
+  assert.match(out, /E-105/);
+  assert.match(out, /E-113/);
+});
+
+test('formatBuildFailureComment: a DERIVED E-113 (same slug this run created) is dropped WHEN another failure exists', () => {
+  const report = [
+    '## 실패',
+    '',
+    '- `content/reviews/pipeline-check.md` — E-105: score "8.35"은(는) 소수 1자리 형식이 아닙니다.',
+    '- `content/artists/pipeline-check.md` — E-113: 아티스트 "pipeline-check"을(를) 참조하는 글이 없습니다.',
+    '',
+    '## 경고',
+    '',
+    '없음.',
+    '',
+  ].join('\n');
+  const out = formatBuildFailureComment(report, { createdArtistSlug: 'pipeline-check' });
+  assert.match(out, /E-105/);
+  assert.doesNotMatch(out, /E-113/, 'derivative orphan for the artist THIS run created must be filtered out');
+});
+
+test('formatBuildFailureComment: an E-113 is NEVER filtered when it is the ONLY failure (no other failure to derive from)', () => {
+  const report = ['## 실패', '', '- `content/artists/pipeline-check.md` — E-113: 아티스트 "pipeline-check"을(를) 참조하는 글이 없습니다.', ''].join(
+    '\n',
+  );
+  const out = formatBuildFailureComment(report, { createdArtistSlug: 'pipeline-check' });
+  assert.match(out, /E-113/, 'a sole E-113 might be a REAL orphan bug — never hide it');
+});
+
+test('formatBuildFailureComment: an E-113 for a DIFFERENT artist is never touched by the filter', () => {
+  const report = [
+    '## 실패',
+    '',
+    '- `content/reviews/pipeline-check.md` — E-105: score "8.35"은(는) 소수 1자리 형식이 아닙니다.',
+    '- `content/artists/some-other-artist.md` — E-113: 아티스트 "some-other-artist"을(를) 참조하는 글이 없습니다.',
+    '',
+  ].join('\n');
+  const out = formatBuildFailureComment(report, { createdArtistSlug: 'pipeline-check' });
+  assert.match(out, /some-other-artist/, 'only the slug THIS run created may ever be suppressed — never a pre-existing orphan');
+});
