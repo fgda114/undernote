@@ -34,7 +34,8 @@ function entry<T>(slug: string, data: T): Entry<T> {
 }
 
 const albums: [string, string, string][] = [
-  // slug, release_date, bucket
+  // slug, release_date, bucket (single-element buckets array below — this
+  // golden fixture is not exercising MULTI-genre, just the rename)
   ['tie-same-day-a', '2026-01-10', 'pop'],
   ['tie-same-day-z', '2026-01-11', 'pop'],
   ['tie-diff-day', '2026-02-01', 'pop'],
@@ -56,7 +57,7 @@ const reviews: [string, string, string][] = [
 
 const repo: RepoData = {
   albums: albums.map(([slug, release_date, bucket]) =>
-    entry<Album>(slug, { title: `앨범 ${slug}`, artists: ['artist-a'], release_date, bucket, tags: [] }),
+    entry<Album>(slug, { title: `앨범 ${slug}`, artists: ['artist-a'], release_date, buckets: [bucket], tags: [] }),
   ),
   reviews: reviews.map(([slug, score, date]) =>
     entry<ReviewFrontmatter>(slug, { album: slug, score, date, editorial_check: true }),

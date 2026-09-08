@@ -90,6 +90,9 @@ test('publishReview: brand new artist + album + cover — writes all files, cove
   assert.ok(existsSync(join(root, 'content', 'artists', 'phoebe-bridgers.md')), 'new artist file must be created');
   const albumYaml = readFileSync(join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'), 'utf8');
   assert.match(albumYaml, /cover: covers\/phoebe-bridgers-lost-weekend\.jpg/);
+  // MULTI-GENRE: the fixture checks BOTH "Hip-Hop / R&B" and "Rock" — both
+  // ids land in `buckets`, in the order the form listed them.
+  assert.match(albumYaml, /\nbuckets: \[hiphop-rnb, rock\]\n/);
   const reviewMd = readFileSync(join(root, 'content', 'reviews', 'phoebe-bridgers-lost-weekend.md'), 'utf8');
   assert.match(reviewMd, /album: phoebe-bridgers-lost-weekend/);
   assert.match(reviewMd, /score: "8\.4"/);
@@ -100,15 +103,33 @@ test('publishReview: brand new artist + album + cover — writes all files, cove
   assert.equal(meta.width, 640, 'the 900px source must be capped to 640px (ADR-0008 §2)');
 });
 
-test('publishReview: no artist-slug hint AND an all-Korean name fails with PD-SLUG-EMPTY (not a silent guess)', async (t) => {
+test('publishReview: no artist-slug hint AND an all-Korean name — auto-generates a deterministic slug and NOTES it (2026-09-08, no more PD-SLUG-EMPTY)', async (t) => {
   const root = makeFixtureRepo();
   t.after(() => rmSync(root, { recursive: true, force: true }));
+  // Regex, not a literal string: a checkout with CRLF line endings (e.g.
+  // Windows, core.autocrlf=true) would otherwise silently fail to match and
+  // leave the hint in place, testing nothing.
   const body = fixtureBody('review-form-body.txt').replace(
-    '### (선택) 아티스트 영문 표기\n\nphoebe-bridgers',
+    /### \(선택\) 아티스트 영문 표기\r?\n\r?\nphoebe-bridgers/,
     '### (선택) 아티스트 영문 표기\n\n_No response_',
   );
 
-  await rejectsWithCode(() => publishReview({ issueBody: body, publicRepoDir: root, fetchImpl: stubFetch }), 'PD-SLUG-EMPTY');
+  const result = await publishReview({ issueBody: body, publicRepoDir: root, fetchImpl: stubFetch });
+  assert.equal(result.ok, true);
+  // fallbackSlug('artist', '피비 브리저스') — no ASCII survives, so it is
+  // "artist-" + the deterministic content hash (see slugify.test.mjs).
+  assert.match(result.slug, /^artist-[a-f0-9]{6}-lost-weekend$/);
+  assert.ok(existsSync(join(root, 'content', 'artists', `${result.slug.replace(/-lost-weekend$/, '')}.md`)));
+  // The writer never typed this URL segment — the success `notes` must say so.
+  assert.equal(result.notes.length, 1);
+  assert.match(result.notes[0], /아티스트 "피비 브리저스"의 인터넷 주소를 자동으로/);
+  assert.match(result.notes[0], /User\(개발 담당\)에게 알려/);
+
+  // Re-submitting the SAME issue (a writer's retry) must NOT create a second
+  // artist file — the fallback slug is deterministic, so findArtistByName
+  // still resolves it as an update to the same artist next time.
+  const artists = readFileSync(join(root, 'content', 'artists', `${result.slug.replace(/-lost-weekend$/, '')}.md`), 'utf8');
+  assert.match(artists, /name: "피비 브리저스"/);
 });
 
 test('publishReview: reuses an existing artist by exact name match — no second artist file', async (t) => {
@@ -128,7 +149,7 @@ test('publishReview: reuses an existing album, leaves its file untouched, and no
   writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: 피비 브리저스\n---\n', 'utf8');
   writeFileSync(
     join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'),
-    'title: Lost Weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbucket: rock\ncover: covers/phoebe-bridgers-lost-weekend.jpg\ncover_source: "curated by hand"\n',
+    'title: Lost Weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\ncover: covers/phoebe-bridgers-lost-weekend.jpg\ncover_source: "curated by hand"\n',
     'utf8',
   );
 
@@ -147,7 +168,7 @@ test('publishReview: refuses to overwrite when a review already exists for the a
   writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: 피비 브리저스\n---\n', 'utf8');
   writeFileSync(
     join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'),
-    'title: Lost Weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbucket: rock\n',
+    'title: Lost Weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\n',
     'utf8',
   );
   writeFileSync(
@@ -173,14 +194,14 @@ test('publishReview: an unresolvable genre label (config drift) fails with PD-GE
   assert.equal(existsSync(join(root, 'content', 'artists', 'phoebe-bridgers.md')), false);
 });
 
-test('publishReview: "그 외" writes bucket: etc for a brand new album', async (t) => {
+test('publishReview: "그 외" writes buckets: [etc] for a brand new album', async (t) => {
   const root = makeFixtureRepo();
   t.after(() => rmSync(root, { recursive: true, force: true }));
 
   const result = await publishReview({ issueBody: fixtureBody('review-form-body-minimal.txt'), publicRepoDir: root, fetchImpl: stubFetch });
   assert.equal(result.ok, true);
   const albumYaml = readFileSync(join(root, 'content', 'albums', `${result.slug}.yaml`), 'utf8');
-  assert.match(albumYaml, /bucket: etc/);
+  assert.match(albumYaml, /buckets: \[etc\]/);
   const reviewMd = readFileSync(join(root, 'content', 'reviews', `${result.slug}.md`), 'utf8');
   assert.match(reviewMd, /score: "8\.35"/); // malformed on purpose — left to the real build to catch (E-105)
 });
@@ -211,7 +232,7 @@ test('publishStory: writes a story with a resolved ref and an unresolved text me
   writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: 피비 브리저스\n---\n', 'utf8');
   writeFileSync(
     join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'),
-    'title: Lost Weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbucket: rock\n',
+    'title: Lost Weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\n',
     'utf8',
   );
 

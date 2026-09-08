@@ -31,14 +31,22 @@ export interface JoinedReview {
   releaseYear: number;
 }
 
-/** api-contracts §4 ListEntry — what list pages render verbatim. */
+/** api-contracts §4 ListEntry — what list pages render verbatim.
+ *
+ * `buckets` (2026-09-08, MULTI-GENRE — was singular `bucket`): the full,
+ * context-free list of every genre this album belongs to, straight from
+ * Album#buckets. It is NOT "which bucket panel is this entry sitting in
+ * right now" — deriveBoard already tells the caller that (the panel itself
+ * carries `id`/`label`), so re-deriving a single "the" bucket here would
+ * either be redundant inside a board panel or simply undefined for top10 and
+ * monthly recaps, which have no single bucket context at all. */
 export interface ListEntry {
   album: string;
   title: string;
   artists_label: string;
   score: string; // stored string, displayed verbatim
   review_url: string;
-  bucket: string;
+  buckets: string[];
   cover: CoverSet | null;
 }
 
@@ -99,7 +107,7 @@ export function toListEntry(j: JoinedReview): ListEntry {
     artists_label: j.artistsLabel,
     score: j.review.score,
     review_url: `/reviews/${j.slug}/`,
-    bucket: j.album.bucket,
+    buckets: j.album.buckets,
     cover: coverSetFor({ slug: j.slug, title: j.album.title, artistsLabel: j.artistsLabel, cover: j.album.cover }),
   };
 }
@@ -115,7 +123,14 @@ export function currentYearMonthSeoul(nowMs: number = Date.now()): string {
 // ── Derivations ────────────────────────────────────────────────────────
 
 /** Genre board (SS-4): activeYear releases only, etc EXCLUDED, buckets in
- * config order, top 5 per bucket. */
+ * config order, top 5 per bucket.
+ *
+ * MULTI-GENRE (2026-09-08): an album whose `buckets` names more than one
+ * configured id is filtered into EVERY one of those panels independently
+ * (`.includes()`, not equality) — the same album can legitimately occupy a
+ * top-5 slot in two different bucket panels at once. This is the decided
+ * behaviour, not an oversight: a chart is "which albums qualify for THIS
+ * genre", and an album genuinely spanning two genres qualifies for both. */
 export function deriveBoard(joined: JoinedReview[], genres: GenresConfig, activeYear: number): Board {
   const block = genres.years.find((y) => y.year === activeYear);
   const buckets = [...(block?.buckets ?? [])].sort((a, b) => a.order - b.order);
@@ -126,7 +141,7 @@ export function deriveBoard(joined: JoinedReview[], genres: GenresConfig, active
       id: bucket.id,
       label: bucket.label,
       entries: eligible
-        .filter((j) => j.album.bucket === bucket.id)
+        .filter((j) => j.album.buckets.includes(bucket.id))
         .sort(compareR1)
         .slice(0, 5)
         .map(toListEntry),
@@ -164,7 +179,21 @@ export function deriveMonthlyRecaps(joined: JoinedReview[], nowYm: string): Mont
 }
 
 /** Badge reverse map (P8): album slug → current board position. etc albums
- * never appear (not board material — by definition, R-7). */
+ * never appear (not board material — by definition, R-7).
+ *
+ * MULTI-GENRE (2026-09-08) — SINGLE-VALUE, DELIBERATELY, WITH A KNOWN GAP.
+ * An album can now sit on more than one bucket's board at once, so more than
+ * one BadgeInfo can be true for the same slug. This map still returns AT
+ * MOST ONE per slug — review-page.ts's NominateBadge slot is a single line
+ * ("지금 {버킷} 노미네이트 {n}위") and widening this to `BadgeInfo[]` is a
+ * page-level change (src/pages/reviews/[slug].astro, NominateBadge.astro)
+ * outside this layer's owned paths; see 08-impl-notes/backend.md for what
+ * that widening would need. Until then, the BEST (lowest-number) rank wins,
+ * and a same-rank tie is broken by bucket id ascending (code-point compare —
+ * never board iteration order, so the pick cannot depend on genres.yaml's
+ * own bucket ordering, R-1's determinism discipline applied here too). This
+ * means a multi-genre album's badge can go quiet about a SECOND genre it
+ * also charts in — an accepted, documented loss, not a silent one. */
 export interface BadgeInfo {
   bucketId: string;
   bucketLabel: string;
@@ -176,7 +205,11 @@ export function deriveBadgeMap(board: Board): Map<string, BadgeInfo> {
   const map = new Map<string, BadgeInfo>();
   for (const bucket of board.buckets) {
     bucket.entries.forEach((entry, i) => {
-      map.set(entry.album, { bucketId: bucket.id, bucketLabel: bucket.label, rank: i + 1, year: board.year });
+      const candidate: BadgeInfo = { bucketId: bucket.id, bucketLabel: bucket.label, rank: i + 1, year: board.year };
+      const existing = map.get(entry.album);
+      if (!existing || candidate.rank < existing.rank || (candidate.rank === existing.rank && candidate.bucketId < existing.bucketId)) {
+        map.set(entry.album, candidate);
+      }
     });
   }
   return map;
@@ -425,7 +458,7 @@ export function detectBoundaryTies(joined: JoinedReview[], genres: GenresConfig,
   };
 
   for (const bucket of block?.buckets ?? []) {
-    const sorted = eligible.filter((j) => j.album.bucket === bucket.id).sort(compareR1);
+    const sorted = eligible.filter((j) => j.album.buckets.includes(bucket.id)).sort(compareR1);
     tieAt(sorted, 1, `${bucket.label} 버킷 1↔2위`);
     tieAt(sorted, 5, `${bucket.label} 보드 5↔6위`);
   }

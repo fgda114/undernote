@@ -1,14 +1,18 @@
 /**
  * Cross-file integrity checks (checker pre-pass, after shape validation):
  *   E-101 empty body · E-102 review→album · E-103 album→artists ·
- *   E-104 bucket vs release-year config · E-108 file name = album field ·
- *   E-114 duplicate-year snapshot
+ *   E-104 buckets vs release-year config (checked per element — MULTI-GENRE,
+ *   2026-09-08) · E-108 file name = album field · E-114 duplicate-year
+ *   snapshot
  *   E-201 unregistered tags · E-203 story without refs · E-204 dead story ref ·
  *   E-205 no listen links
  *
  * Notes on scope: E-109 (reserved "etc") lives in the genres schema itself;
- * E-105/106/107 field shapes live in the content schemas — this module only
- * checks relations that no single file can know about.
+ * E-105/106/107 field shapes live in the content schemas; E-118 (a
+ * `buckets` array's own self-contradiction — duplicate id, or "etc" mixed
+ * with a real bucket) lives in the album schema itself, same reasoning as
+ * E-109 — this module only checks relations that no single file can know
+ * about.
  *
  * Empty artist body is NOT E-101: an aggregation-only artist page is a
  * designed state (api-contracts §3.4, US-14/R-4) — E-101 applies to reviews
@@ -83,18 +87,24 @@ export function resolveRepo(data: RepoData): CheckResult {
     // Old albums whose release year has no block (구반) validate against the
     // UNION of every year block — archive grouping only, never list material
     // (R-8: a missing year block is normal for back-catalog).
-    if (album.data.bucket !== 'etc' && data.genres) {
+    //
+    // MULTI-GENRE (2026-09-08): `buckets` is now an array, so each element is
+    // checked independently and a bad element produces its OWN E-104 — the
+    // author must be able to tell WHICH of possibly several buckets is wrong
+    // (team-lead requirement), not just that "something in the list" is.
+    if (data.genres) {
       const year = releaseYear(album.data.release_date);
       const block = genreYears.get(year);
       const ids = block
         ? block.buckets.map((b) => b.id)
         : [...new Set(data.genres.years.flatMap((y) => y.buckets.map((b) => b.id)))];
-      if (!ids.includes(album.data.bucket)) {
+      for (const bucket of album.data.buckets) {
+        if (bucket === 'etc' || ids.includes(bucket)) continue;
         failures.push({
           code: 'E-104',
           message: block
-            ? `E-104: bucket "${album.data.bucket}"은(는) 발매 연도 ${year}의 버킷 설정에 없습니다. 사용 가능: ${ids.join(', ')} 또는 "etc". config/genres.yaml을 확인하세요.`
-            : `E-104: bucket "${album.data.bucket}"은(는) 어떤 연도 블록에도 없습니다 (발매 연도 ${year}은 블록 없음 — 전 연도 합집합으로 검증). 사용 가능: ${ids.join(', ')} 또는 "etc".`,
+            ? `E-104: bucket "${bucket}"은(는) 발매 연도 ${year}의 버킷 설정에 없습니다. 사용 가능: ${ids.join(', ')} 또는 "etc". config/genres.yaml을 확인하세요.`
+            : `E-104: bucket "${bucket}"은(는) 어떤 연도 블록에도 없습니다 (발매 연도 ${year}은 블록 없음 — 전 연도 합집합으로 검증). 사용 가능: ${ids.join(', ')} 또는 "etc".`,
           file: album.file,
         });
       }

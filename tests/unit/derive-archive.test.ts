@@ -19,14 +19,14 @@ const repo: RepoData = {
       title: '듀오 앨범',
       artists: ['artist-a', 'artist-b'],
       release_date: '2025-04-01', // released 2025…
-      bucket: 'etc',
+      buckets: ['etc'],
       tags: ['city-pop'],
     }),
     entry<Album>('solo-album', {
       title: '솔로 앨범',
       artists: ['artist-a'],
       release_date: '2026-01-01',
-      bucket: 'pop',
+      buckets: ['pop'],
       tags: [],
     }),
   ],

@@ -28,7 +28,10 @@ export interface AlbumScaffoldInput {
   title: string;
   artistSlugs: string[];
   releaseDate: string;
-  bucket: string;
+  /** Genre bucket ids (MULTI-GENRE, 2026-09-08) — one or more configured ids,
+   * or exactly `['etc']`. See src/lib/schema/album.ts for the full contract
+   * (order not a ranking; etc cannot mix with a real bucket — E-118). */
+  buckets: string[];
   mbid?: string;
   cover?: string;
   coverSource?: string;
@@ -42,7 +45,7 @@ export function albumYaml(input: AlbumScaffoldInput): string {
     title: input.title,
     artists: input.artistSlugs,
     release_date: input.releaseDate,
-    bucket: input.bucket,
+    buckets: input.buckets,
   };
   if (input.cover) doc.cover = input.cover;
   if (input.coverSource) doc.cover_source = input.coverSource;

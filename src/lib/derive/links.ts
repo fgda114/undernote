@@ -56,12 +56,17 @@ export function storyRefIndex(stories: StoryLite[]): Map<string, StoryLite[]> {
   return index;
 }
 
-/** Backlinks for one album (the review page's "이 앨범이 등장하는 이야기"). */
+/** Backlinks for one album (the review page's "이 앨범이 등장하는 이야기").
+ *
+ * MULTI-GENRE (2026-09-08): `bucket`/`albumBuckets` are now arrays. Stage ③
+ * qualifies a story when ANY of its referenced albums shares AT LEAST ONE
+ * bucket with X — a set-intersection test, not equality — so an album that
+ * spans two genres draws on ladder material from either. */
 export function deriveBacklinks(
-  album: { slug: string; tags: string[]; bucket: string },
+  album: { slug: string; tags: string[]; buckets: string[] },
   stories: StoryLite[],
   refIndex: Map<string, StoryLite[]>,
-  albumBuckets: Map<string, string>,
+  albumBuckets: Map<string, string[]>,
 ): Backlinks {
   // ① direct — everything, publication desc.
   const direct = refIndex.get(album.slug) ?? [];
@@ -75,10 +80,14 @@ export function deriveBacklinks(
   }
 
   // ③ same bucket — a story qualifies when any of its referenced albums
-  // shares X's bucket. Max 2.
+  // shares AT LEAST ONE of X's buckets (set intersection, not equality).
+  // Max 2.
+  const targetBuckets = new Set(album.buckets);
   const byBucket = stories
     .filter((s) =>
-      s.data.albums.some((ref) => 'ref' in ref && ref.ref !== album.slug && albumBuckets.get(ref.ref) === album.bucket),
+      s.data.albums.some(
+        (ref) => 'ref' in ref && ref.ref !== album.slug && (albumBuckets.get(ref.ref) ?? []).some((b) => targetBuckets.has(b)),
+      ),
     )
     .sort(byDateDescSlugAsc);
   if (byBucket.length > 0) return { mode: 'bucket', stories: byBucket.slice(0, 2).map(toBacklink) };
@@ -90,7 +99,7 @@ export function deriveBacklinks(
 export function prepareLadder(data: RepoData, excerpt: (body: string) => string) {
   const stories: StoryLite[] = data.stories.map((s) => ({ slug: s.slug, data: s.data, excerpt: excerpt(s.body) }));
   const refIndex = storyRefIndex(stories);
-  const albumBuckets = new Map(data.albums.map((a) => [a.slug, a.data.bucket]));
+  const albumBuckets = new Map(data.albums.map((a) => [a.slug, a.data.buckets]));
   return { stories, refIndex, albumBuckets };
 }
 

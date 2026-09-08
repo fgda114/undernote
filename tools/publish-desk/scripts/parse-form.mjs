@@ -71,6 +71,20 @@ export function extractCheckbox(body, label, optionLabel) {
 }
 
 /**
+ * Every CHECKED option's label text under a checkboxes-type field, in
+ * template order — for a checkboxes group used as a MULTI-SELECT (the genre
+ * field, 2026-09-08), where the caller wants the whole set that was ticked,
+ * not one specific option's state (that is extractCheckbox above).
+ */
+export function extractCheckedOptions(body, label) {
+  const section = extractField(body, label);
+  const re = /^-\s*\[(x|X)\]\s*(.+)$/gm;
+  const checked = [];
+  for (const match of section.matchAll(re)) checked.push(match[2].trim());
+  return checked;
+}
+
+/**
  * Normalize the CRLF GitHub's web editor may hand back into the plain \n
  * every regex above assumes.
  */
@@ -84,7 +98,11 @@ export const REVIEW_LABELS = {
   albumTitle: '앨범 이름',
   albumSlugHint: '(선택) 앨범 주소',
   releaseDate: '발매일',
-  genre: '장르',
+  // MULTI-GENRE (2026-09-08): the field became a checkboxes group (see
+  // review.yml) so the label carries the "여러 개" hint the field itself
+  // now needs — parseReviewForm below reads it with extractCheckedOptions,
+  // not extractField.
+  genre: '장르 (여러 개 선택 가능)',
   score: '점수',
   editorialCheck: '최종 확인',
   cover: '커버 이미지 (있으면)',
@@ -103,7 +121,9 @@ export function parseReviewForm(rawBody) {
     albumTitle: extractField(body, REVIEW_LABELS.albumTitle),
     albumSlugHint: extractField(body, REVIEW_LABELS.albumSlugHint),
     releaseDate: extractField(body, REVIEW_LABELS.releaseDate),
-    genreLabel: extractField(body, REVIEW_LABELS.genre),
+    // MULTI-GENRE (2026-09-08): zero or more checked labels, template order,
+    // never deduplicated/validated here (see resolveGenreBuckets for why).
+    genreLabels: extractCheckedOptions(body, REVIEW_LABELS.genre),
     score: extractField(body, REVIEW_LABELS.score),
     editorialCheck: extractCheckbox(body, REVIEW_LABELS.editorialCheck, REVIEW_EDITORIAL_OPTION),
     coverField: extractField(body, REVIEW_LABELS.cover),

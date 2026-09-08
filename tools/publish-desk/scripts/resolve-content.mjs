@@ -8,11 +8,12 @@
  *   2. Does an album by this artist with this title already exist? (reuse
  *      it — this is the normal path for a review that follows an
  *      album-add.ts run, per that script's own "다음 단계" message.)
- *   3. Which config/genres.yaml bucket id does the dropdown's selected
- *      LABEL correspond to? (the Issue Form can only offer static text —
+ *   3. Which config/genres.yaml bucket id(s) do the genre field's selected
+ *      LABEL(s) correspond to? (the Issue Form can only offer static text —
  *      see docs/publishing.md for why this is resolved against the LIVE
  *      config at run time instead of a hardcoded label→id table that could
- *      drift out of sync with it.)
+ *      drift out of sync with it. MULTI-GENRE, 2026-09-08: the field is now
+ *      a checkboxes group — zero or more labels come back, not exactly one.)
  *
  * Every function here takes an explicit `root` path (the public repo
  * checkout) rather than assuming `process.cwd()`, so tests can point it at
@@ -188,4 +189,33 @@ export function resolveGenreBucket(label, root) {
   if (ids.size === 0) return { status: 'none' };
   if (ids.size > 1) return { status: 'ambiguous', ids: [...ids] };
   return { status: 'found', id: [...ids][0] };
+}
+
+/**
+ * Resolve every CHECKED genre label from the form (MULTI-GENRE, 2026-09-08)
+ * to its bucket id, by composing `resolveGenreBucket` per label — one
+ * mapping rule, reused, rather than a second one. Stops at the first label
+ * that does not resolve and reports WHICH one, so the caller's PD-* message
+ * can name it rather than saying "something in the list".
+ *
+ * Deliberately does NOT check the array-level invariants (no duplicate
+ * bucket, "etc" not mixed with a real bucket) — those are E-118 in the
+ * public repo's album schema, and re-checking them here would duplicate a
+ * rule this package has a standing policy against duplicating
+ * (docs/publishing.md §"검증을 중복 구현하지 않았다"): a bad combination
+ * still gets written, and the public repo's own `npm run build` (the real
+ * gate, always run before anything is committed) reports it in the same
+ * voice as every other content problem.
+ *
+ * @returns {{status: 'found', ids: string[]} | {status: 'none', label: string} | {status: 'ambiguous', label: string, ids: string[]}}
+ */
+export function resolveGenreBuckets(labels, root) {
+  const ids = [];
+  for (const label of labels) {
+    const resolved = resolveGenreBucket(label, root);
+    if (resolved.status === 'none') return { status: 'none', label };
+    if (resolved.status === 'ambiguous') return { status: 'ambiguous', label, ids: resolved.ids };
+    ids.push(resolved.id);
+  }
+  return { status: 'found', ids };
 }

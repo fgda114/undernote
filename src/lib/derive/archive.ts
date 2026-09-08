@@ -8,6 +8,9 @@
  *  - The year axis keys on PUBLICATION year (R-3) — deliberately different
  *    from the annual lists' release-year key. Do not "unify" them.
  *  - Bucket axis groups etc under the reserved id "etc" (label "그 외").
+ *    MULTI-GENRE (2026-09-08): an album with more than one bucket is pushed
+ *    into EVERY one of its buckets' lists — same "복수 전원" rule the artist
+ *    axis already used below, extended to genre.
  *  - Tag axis uses canonical slugs only (registry normalization is E-201's
  *    job upstream — unregistered tags still index under their literal slug).
  *  - Artist intros are NOT emitted as ArchiveItems: the contract requires a
@@ -60,7 +63,7 @@ export function deriveArchiveIndex(data: RepoData): ArchiveIndex {
       date: review.data.date,
     };
     push(index.by_year, review.data.date.slice(0, 4), item); // publication year (R-3)
-    push(index.by_bucket, album.bucket, item); // etc stays "etc" — rendered as "그 외"
+    for (const bucket of album.buckets) push(index.by_bucket, bucket, item); // 복수 전원 (multi-genre) — etc stays "etc" ("그 외")
     for (const tag of album.tags) push(index.by_tag, tag, item);
     for (const artist of album.artists) push(index.by_artist, artist, item); // 복수 전원 (SS-12)
   }

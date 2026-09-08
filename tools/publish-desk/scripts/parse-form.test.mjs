@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { extractField, extractCheckbox, parseReviewForm, parseStoryForm } from './parse-form.mjs';
+import { extractField, extractCheckbox, extractCheckedOptions, parseReviewForm, parseStoryForm } from './parse-form.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(join(here, 'fixtures', name), 'utf8');
@@ -33,6 +33,16 @@ test('extractCheckbox reads an unticked box as false', () => {
   assert.equal(extractCheckbox(body, '확인', '동의합니다.'), false);
 });
 
+test('extractCheckedOptions returns every ticked label, in order, skipping unticked ones', () => {
+  const body = '### 장르\n\n- [X] Rock\n- [ ] Pop\n- [x] Hip-Hop / R&B\n';
+  assert.deepEqual(extractCheckedOptions(body, '장르'), ['Rock', 'Hip-Hop / R&B']);
+});
+
+test('extractCheckedOptions returns [] when nothing is ticked', () => {
+  const body = '### 장르\n\n- [ ] Rock\n- [ ] Pop\n';
+  assert.deepEqual(extractCheckedOptions(body, '장르'), []);
+});
+
 test('parseReviewForm extracts every field from a full real-shaped fixture', () => {
   const parsed = parseReviewForm(fixture('review-form-body.txt'));
   assert.equal(parsed.artistName, '피비 브리저스');
@@ -40,7 +50,7 @@ test('parseReviewForm extracts every field from a full real-shaped fixture', () 
   assert.equal(parsed.albumTitle, 'Lost Weekend');
   assert.equal(parsed.albumSlugHint, '');
   assert.equal(parsed.releaseDate, '2026');
-  assert.equal(parsed.genreLabel, 'Rock');
+  assert.deepEqual(parsed.genreLabels, ['Hip-Hop / R&B', 'Rock']); // MULTI-GENRE fixture
   assert.equal(parsed.score, '8.4');
   assert.equal(parsed.editorialCheck, true);
   assert.match(parsed.coverField, /^!\[lost-weekend\]\(https:\/\/private-user-images/);
@@ -51,7 +61,7 @@ test('parseReviewForm extracts every field from a full real-shaped fixture', () 
 test('parseReviewForm handles the minimal/optional-fields-empty fixture', () => {
   const parsed = parseReviewForm(fixture('review-form-body-minimal.txt'));
   assert.equal(parsed.releaseDate, '2026-05-03');
-  assert.equal(parsed.genreLabel, '그 외');
+  assert.deepEqual(parsed.genreLabels, ['그 외']);
   assert.equal(parsed.score, '8.35'); // deliberately malformed — validated later, not here
   assert.equal(parsed.coverField, '');
   assert.equal(parsed.editorialCheck, true);

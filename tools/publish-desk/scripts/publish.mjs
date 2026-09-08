@@ -37,7 +37,7 @@ import sharp from 'sharp';
 
 import { parseReviewForm, parseStoryForm } from './parse-form.mjs';
 import { toMarkdownBody } from './body-to-markdown.mjs';
-import { slugify, isValidSlug, combinedSlug, firstAvailableSlug } from './slugify.mjs';
+import { slugify, isValidSlug, combinedSlug, firstAvailableSlug, fallbackSlug } from './slugify.mjs';
 import {
   listArtists,
   listAlbums,
@@ -45,7 +45,7 @@ import {
   normalizeName,
   findArtistByName,
   findAlbumByTitleArtist,
-  resolveGenreBucket,
+  resolveGenreBuckets,
 } from './resolve-content.mjs';
 import { extractImageUrl, downloadImage, resizeCoverBuffer } from './cover.mjs';
 import { reviewFile, albumFile, artistFile, storyFile, updateAlbumCover } from './frontmatter.mjs';
@@ -76,10 +76,22 @@ function readSiteConfig(publicRepoDir) {
   return parseYaml(readFileSync(join(publicRepoDir, 'config', 'site.yaml'), 'utf8'));
 }
 
-/** Resolve an existing artist or decide the slug for a new one. Never
- * silently invents a slug for an all-non-ASCII name — that would make the
- * URL depend on transliteration this script has no authority to guess. */
-function resolveArtist({ name, slugHint }, publicRepoDir) {
+/**
+ * Resolve an existing artist or decide the slug for a new one.
+ *
+ * NO LONGER ASKS BACK for a romanization (lead directive, 2026-09-08 —
+ * reverses the previous "PD-SLUG-EMPTY, please supply one" behaviour): an
+ * all-Korean name with no hint now gets a DETERMINISTIC fallback slug
+ * (fallbackSlug — content-hash-based, see slugify.mjs) instead of stalling
+ * the submission. `notes` collects a line explaining what was substituted
+ * and why, which publishReview relays in the success comment — the writer
+ * never picked this URL segment themselves, so they need to be told what it
+ * is. A HINT the writer DID type, or a name that romanizes on its own, is
+ * still validated/collision-checked exactly as before: those are values a
+ * human is responsible for, so a conflict there is still worth stopping and
+ * asking about (PD-SLUG-INVALID / PD-SLUG-COLLISION, unchanged).
+ */
+function resolveArtist({ name, slugHint }, publicRepoDir, notes) {
   const artists = listArtists(publicRepoDir);
   const match = findArtistByName(name, artists);
   if (match.status === 'ambiguous') {
@@ -91,23 +103,24 @@ function resolveArtist({ name, slugHint }, publicRepoDir) {
   if (match.status === 'found') return { slug: match.slug, isNew: false };
 
   const existing = existingSlugSet(publicRepoDir, 'artists', '.md');
-  const candidate = slugHint.trim() || slugify(name);
-  if (candidate === '') {
-    pdFail(
-      'PD-SLUG-EMPTY',
-      `새 아티스트 "${name}"의 영문 표기가 필요합니다 — 이름이 한글이라 인터넷 주소를 자동으로 만들 수 없습니다. 이슈의 "(선택) 아티스트 영문 표기" 칸에 로마자 표기(예: phoebe-bridgers)를 적어주세요.`,
-    );
-  }
+  const typed = slugHint.trim() || slugify(name);
+  const usedFallback = typed === '';
+  const candidate = usedFallback ? firstAvailableSlug(fallbackSlug('artist', name), existing) : typed;
   if (!isValidSlug(candidate)) {
     pdFail(
       'PD-SLUG-INVALID',
       `아티스트 영문 표기 "${candidate}"을(를) 인터넷 주소로 쓸 수 없습니다. 소문자 영문·숫자·하이픈만 사용해 주세요 (예: phoebe-bridgers).`,
     );
   }
-  if (existing.has(candidate)) {
+  if (!usedFallback && existing.has(candidate)) {
     pdFail(
       'PD-SLUG-COLLISION',
       `아티스트 주소 "${candidate}"은(는) 이미 다른 아티스트가 쓰고 있습니다 (그리고 이름이 정확히 일치하지 않아 같은 사람으로 보지 않았습니다). "(선택) 아티스트 영문 표기" 칸에 다른 표기를 적어주세요.`,
+    );
+  }
+  if (usedFallback) {
+    notes.push(
+      `아티스트 "${name}"의 인터넷 주소를 자동으로 "${candidate}"(으)로 정했습니다 — 이름이 한글이라 자동 변환이 안 돼서 임시로 붙인 주소입니다. 원하는 영문 표기가 있으면 User(개발 담당)에게 알려 바꿀 수 있습니다(다시 발행할 필요 없음).`,
     );
   }
   return { slug: candidate, isNew: true };
@@ -118,14 +131,23 @@ function resolveArtist({ name, slugHint }, publicRepoDir) {
  * is written, so a second review issue for the same album fails cleanly
  * instead of silently colliding with the review filename at build time.
  *
- * The fallback slug is built from the resolved artist SLUG, not the raw
- * artist name the writer typed: by the time this runs, resolveArtist()
- * already guaranteed `artistSlug` is a plain-ASCII kebab id (either reused
- * or supplied as a hint), whereas the display name can still be Korean.
- * Using the name here would let slugify() silently drop it and fall back to
- * the title alone (album-add.ts's own convention — "${artist-slug} ${title}"
- * — is the one being mirrored). */
-function resolveAlbum({ title, slugHint, artistSlug }, publicRepoDir) {
+ * The primary slug attempt is built from the resolved artist SLUG, not the
+ * raw artist name the writer typed: by the time this runs, resolveArtist()
+ * already guaranteed `artistSlug` is a plain-ASCII kebab id (either reused,
+ * a supplied hint, or itself a fallback), whereas the display name can still
+ * be Korean. Using the name here would let slugify() silently drop it and
+ * fall back to the title alone (album-add.ts's own convention —
+ * "${artist-slug} ${title}" — is the one being mirrored). In practice
+ * `combinedSlug([artistSlug, title])` is therefore never empty (artistSlug
+ * alone always survives), so the fallback path below is defence in depth
+ * for this call, not a path real submissions exercise today — kept for
+ * parity with resolveArtist and in case a future caller passes an
+ * unresolved artistSlug.
+ *
+ * NO LONGER ASKS BACK (same 2026-09-08 directive as resolveArtist): an
+ * unresolvable title gets fallbackSlug('album', …, releaseDate) — release
+ * year-month plus whatever romanized — instead of PD-SLUG-EMPTY. */
+function resolveAlbum({ title, slugHint, artistSlug, releaseDate }, publicRepoDir, notes) {
   const albums = listAlbums(publicRepoDir);
   const match = findAlbumByTitleArtist(title, artistSlug, albums);
   if (match.status === 'ambiguous') {
@@ -142,20 +164,21 @@ function resolveAlbum({ title, slugHint, artistSlug }, publicRepoDir) {
     isNew = false;
   } else {
     const existing = existingSlugSet(publicRepoDir, 'albums', '.yaml');
-    const candidate = slugHint.trim() || combinedSlug([artistSlug, title]);
-    if (candidate === '') {
-      pdFail(
-        'PD-SLUG-EMPTY',
-        `앨범 "${title}"의 인터넷 주소를 자동으로 만들 수 없습니다 (아티스트 이름과 앨범 이름 모두 한글이라 그렇습니다). "(선택) 앨범 주소" 칸에 영문으로 적어주세요 (예: some-artist-some-album).`,
-      );
-    }
+    const typed = slugHint.trim() || combinedSlug([artistSlug, title]);
+    const usedFallback = typed === '';
+    const candidate = usedFallback ? firstAvailableSlug(fallbackSlug('album', `${artistSlug} ${title}`, releaseDate), existing) : typed;
     if (!isValidSlug(candidate)) {
       pdFail('PD-SLUG-INVALID', `앨범 주소 "${candidate}"을(를) 인터넷 주소로 쓸 수 없습니다. 소문자 영문·숫자·하이픈만 사용해 주세요.`);
     }
-    if (existing.has(candidate)) {
+    if (!usedFallback && existing.has(candidate)) {
       pdFail(
         'PD-SLUG-COLLISION',
         `앨범 주소 "${candidate}"은(는) 이미 다른 앨범이 쓰고 있습니다 (그리고 제목이 정확히 일치하지 않아 같은 앨범으로 보지 않았습니다). "(선택) 앨범 주소" 칸에 다른 표기를 적어주세요.`,
+      );
+    }
+    if (usedFallback) {
+      notes.push(
+        `앨범 "${title}"의 인터넷 주소를 자동으로 "${candidate}"(으)로 정했습니다 — 제목이 한글이라 자동 변환이 안 돼서 발매 연월을 바탕으로 붙인 주소입니다. 원하는 영문 표기가 있으면 User(개발 담당)에게 알려 바꿀 수 있습니다(다시 발행할 필요 없음).`,
       );
     }
     slug = candidate;
@@ -247,19 +270,32 @@ async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
   // that won't download) must never leave an orphan artist or album file
   // behind for the next run to trip over — E-113 would turn "genre typo"
   // into "orphan page blocks ALL publishing" on the very next build.
-  const artist = resolveArtist({ name: form.artistName, slugHint: form.artistSlugHint }, publicRepoDir);
-  const album = resolveAlbum({ title: form.albumTitle, slugHint: form.albumSlugHint, artistSlug: artist.slug }, publicRepoDir);
+  const artist = resolveArtist({ name: form.artistName, slugHint: form.artistSlugHint }, publicRepoDir, notes);
+  const album = resolveAlbum(
+    { title: form.albumTitle, slugHint: form.albumSlugHint, artistSlug: artist.slug, releaseDate: form.releaseDate.trim() },
+    publicRepoDir,
+    notes,
+  );
 
   const bodyMd = toMarkdownBody(form.bodyText);
   if (bodyMd.trim() === '') {
     pdFail('PD-MISSING-BODY', '평론 본문이 비어 있습니다. "글" 칸을 채워 주세요.');
   }
 
-  const bucket = album.isNew ? resolveGenreBucket(form.genreLabel, publicRepoDir) : null;
-  if (album.isNew && bucket.status !== 'found') {
+  // MULTI-GENRE (2026-09-08): a checkboxes field cannot enforce "at least one
+  // of these boxes" the way a required dropdown enforced "exactly one" — the
+  // Issue Form only guarantees each INDIVIDUAL option's own required flag,
+  // and none of the genre options carry one (docs/publishing.md — completing
+  // a gap the form itself cannot close, same class as PD-MISSING-BODY, not a
+  // re-check of anything the eventual build already validates).
+  if (album.isNew && form.genreLabels.length === 0) {
+    pdFail('PD-GENRE-EMPTY', '장르가 하나도 선택되지 않았습니다. "장르" 항목에서 최소 1개를 선택해 주세요 (여러 개 선택 가능합니다).');
+  }
+  const buckets = album.isNew ? resolveGenreBuckets(form.genreLabels, publicRepoDir) : null;
+  if (album.isNew && buckets.status !== 'found') {
     pdFail(
       'PD-GENRE-UNKNOWN',
-      `장르 "${form.genreLabel}"을(를) 사이트 설정(config/genres.yaml)에서 찾지 못했습니다. 이슈 폼의 장르 목록이 사이트 설정과 어긋난 것 같습니다 — User(개발 담당)에게 알려주세요.`,
+      `장르 "${buckets.label}"을(를) 사이트 설정(config/genres.yaml)에서 찾지 못했습니다. 이슈 폼의 장르 목록이 사이트 설정과 어긋난 것 같습니다 — User(개발 담당)에게 알려주세요.`,
     );
   }
 
@@ -280,7 +316,7 @@ async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
         title: form.albumTitle,
         artistSlugs: [artist.slug],
         releaseDate: form.releaseDate.trim(),
-        bucket: bucket.id,
+        buckets: buckets.ids,
         cover: coverPath,
         coverSource: coverPath ? '독자 제공 (발행 데스크, 축소본)' : undefined,
       }),

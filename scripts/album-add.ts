@@ -169,11 +169,30 @@ async function main() {
       ? `\n${year}년 버킷: ${ids.join(', ')} 또는 etc (명시 필수 — 침묵 기본값 없음)`
       : `\n${year}년 버킷 설정 블록이 없습니다 — "etc"만 가능합니다 (config/genres.yaml에 연도 블록을 추가하면 버킷 지정 가능).`,
   );
-  const bucket = await askValid(
-    '버킷: ',
-    (v) => v === 'etc' || ids.includes(v),
-    `사용 가능한 값: ${ids.length > 0 ? ids.join(', ') + ', ' : ''}etc`,
+  // MULTI-GENRE (2026-09-08): an album may belong to more than one bucket —
+  // comma-separated input, parsed once the whole line validates. The three
+  // rules below mirror the album schema's own (E-104/E-118) so a bad answer
+  // is caught here rather than after a failed build — but the schema is
+  // still the real gate (docs/publishing.md's "검증을 중복 구현하지 않는다"
+  // principle applies to editing tools too, not just publish-desk).
+  const parseBuckets = (v: string) =>
+    v
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  const bucketsInput = await askValid(
+    '버킷 (쉼표로 여러 개 가능, 예: rock,pop): ',
+    (v) => {
+      const parts = parseBuckets(v);
+      if (parts.length === 0) return false;
+      if (!parts.every((p) => p === 'etc' || ids.includes(p))) return false;
+      if (new Set(parts).size !== parts.length) return false; // no duplicates
+      if (parts.includes('etc') && parts.length > 1) return false; // etc is exclusive
+      return true;
+    },
+    `사용 가능한 값: ${ids.length > 0 ? ids.join(', ') + ', ' : ''}etc — 쉼표로 여러 개 지정 가능 (etc는 다른 값과 함께 쓸 수 없고, 중복도 안 됩니다).`,
   );
+  const buckets = [...new Set(parseBuckets(bucketsInput))];
 
   const defaultSlug = slugArg ?? slugify(`${names[0]} ${title}`);
   const slugAnswer = await ask(`앨범 slug [${defaultSlug}] (발행 후 불변 — R-9): `, defaultSlug);
@@ -241,7 +260,7 @@ async function main() {
     }
     writeFileSync(
       albumPath,
-      albumYaml({ title, artistSlugs, releaseDate, bucket, mbid: picked?.id, cover, coverSource }),
+      albumYaml({ title, artistSlugs, releaseDate, buckets, mbid: picked?.id, cover, coverSource }),
       'utf8',
     );
     created.push(albumPath);
