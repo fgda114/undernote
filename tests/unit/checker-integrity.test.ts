@@ -72,6 +72,21 @@ describe('E-104 — 구반(연도 블록 없음)은 전 연도 합집합으로 �
   });
 });
 
+describe('E-119 — 확정된 해의 config 블록이 스냅샷과 어긋남 (R-8 재정의, 2026-09-08)', () => {
+  it('확정 후 genres.yaml의 라벨·버킷이 바뀌면 실패한다', () => {
+    const { result } = runPrePass(fixtureRoot('finalized-year-edited-repo'));
+    const e119 = result.failures.filter((f) => f.code === 'E-119');
+    expect(e119).toHaveLength(1);
+    expect(e119[0].message).toContain('2026');
+    expect(e119[0].file).toBe('config/genres.yaml');
+  });
+
+  it('확정 후 genres.yaml이 손대지 않은 상태면 통과한다', () => {
+    const { result } = runPrePass(fixtureRoot('finalized-year-matched-repo'));
+    expect(result.failures.map((f) => f.code)).not.toContain('E-119');
+  });
+});
+
 describe('알림 패스 — E-301·E-302가 notices로 산출 (Matthias N-4)', () => {
   it('경계 동점 + 해 넘김 픽스처가 각각 그 코드로 나온다', () => {
     const { data } = runPrePass(fixtureRoot('notice-repo'));

@@ -6,32 +6,41 @@
  */
 import type { APIRoute, GetStaticPaths } from 'astro';
 import { renderCard } from '../../../lib/og/render.ts';
+import { deriveTop10 } from '../../../lib/derive/lists.ts';
 import { getSiteData } from '../../../lib/derive/site-data.ts';
 import type { ListCardInput } from '../../../lib/og/types.ts';
 
 export const getStaticPaths = (async () => {
-  const { site, top10, recaps, data } = getSiteData();
+  const { site, recaps, data, joined, listYears } = getSiteData();
   const paths: { params: { key: string }; props: { card: ListCardInput } }[] = [];
 
   const entriesOf = (list: { title: string; artists_label: string }[]) =>
     list.slice(0, 3).map((e, i) => ({ rank: i + 1, title: e.title, artistsLabel: e.artists_label }));
 
-  // Progressive annual card (active year).
-  paths.push({
-    params: { key: String(site.active_year) },
-    props: {
-      card: {
-        kind: 'list',
-        pageTitle: `${site.active_year} 올해의 앨범 — 현재 노미네이트`,
-        entries: entriesOf(top10.entries),
-        siteName: site.site_name,
+  const snapshotYears = new Set(data.snapshots.map((s) => s.data.year));
+
+  // Progressive annual cards — every listYears entry WITHOUT a snapshot yet
+  // (2026-09-08: was active_year only; a retroactively-built past year now
+  // also gets a real /list/{year}/ page — see list/[year]/index.astro — and
+  // that page's `ogImage` prop expects a card to exist here for E-111/E-112
+  // to pass, so this loop has to track that page's own year set exactly).
+  for (const year of listYears) {
+    if (snapshotYears.has(year)) continue;
+    paths.push({
+      params: { key: String(year) },
+      props: {
+        card: {
+          kind: 'list',
+          pageTitle: `${year} 올해의 앨범 — 현재 노미네이트`,
+          entries: entriesOf(deriveTop10(joined, year).entries),
+          siteName: site.site_name,
+        },
       },
-    },
-  });
+    });
+  }
 
   // Finalized years — frozen snapshot strings.
   for (const snap of data.snapshots) {
-    if (snap.data.year === site.active_year) continue;
     paths.push({
       params: { key: String(snap.data.year) },
       props: {
