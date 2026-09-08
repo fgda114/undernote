@@ -223,6 +223,29 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
     align-items: center;
     gap: var(--s-8);
   }
+  /* TITLE→CONTENT IS THE SITE'S ONE SHARED GAP, --s-24, NOT THIS PAGE'S OWN
+     --s-48 (2026-09-08). `.list-page`'s 48px `gap` above spaces its LATER
+     content sections apart (preface → top10 rows → bucket boards → the
+     prior-year link) — that is this page's own rhythm and stays untouched.
+     `.head` (the title block, plus the frozen-year chip and caption when
+     present) is that flex column's first item, so before this rule the gap
+     to whichever section renders next — preface, the finalized top10, the
+     progressive top10, or the buckets section when top10 is empty; all four
+     are covered because the rule targets `.head` itself, not any one of
+     them — inherited the 48px section-rhythm number instead of the 24px
+     every other tab uses between its title and its first content. Margins on
+     a flex item stack with `gap` (never collapse into it), so 48px + this
+     rule's −24px lands that one pair on 24px without touching any gap
+     further down the column. This is the active year's own page — the one
+     "Charts" in the masthead actually links to — so this is the number a
+     reader compares against Reviews/Notes/Artists/Archive by clicking
+     between them; a FINALIZED year's frozen page keeps its immutability
+     caption inside `.head` and is one of the justified detail-page
+     exceptions (see e2e/tests/browser.responsive.spec.ts's mobile title-
+     position test and 08-impl-notes/frontend.md for the full list). */
+  .head {
+    margin-bottom: calc(var(--s-24) - var(--s-48));
+  }
   /* A neutral chip, not an accent plate. The accent means "the score made
      this", and while a finalized list IS the scores' final output, the page
      already spends its accent budget on the champion row's rank and rail;

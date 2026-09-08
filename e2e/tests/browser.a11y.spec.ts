@@ -350,28 +350,35 @@ test('제목 클리핑 호스트 0 — 차트 카드 제목은 여전히 라벤�
 });
 
 /**
- * THE MASTHEAD IS ONE ROW, AND ITS ITEMS SHARE ONE LINE (2026-09-07).
+ * THE MASTHEAD IS ONE ROW, AND ITS ITEMS SHARE ONE LINE (2026-09-07, item
+ * count revised 2026-09-08 when Artists left the masthead — see
+ * Masthead.astro for why. Everything below the count is unchanged: it was
+ * already asserting the ROW, not a number of items, via `.nav-link`).
  *
  * Two reported defects, one measurement. The nav wrapped on narrow screens —
- * ARCHIVE dropped to a second line at 360px and ARTISTS joined it below
- * ~345px — which made the site's navigation a two-storey block above every
- * mobile page. And the items were reported as sitting at different heights
- * from each other.
+ * ARCHIVE dropped to a second line at 360px and ARTISTS (when it was still a
+ * fifth item) joined it below ~345px — which made the site's navigation a
+ * two-storey block above every mobile page. And the items were reported as
+ * sitting at different heights from each other.
  *
  * The second report did not reproduce: measured on the shipped build, the
- * five items' glyph boxes and their PAINTED INK were identical to within
- * 0.25px at 1x, 2x and 4x, on three pages and five widths. The only real
- * vertical difference in that masthead was the wrap itself. So this test
- * fixes the invariant in place rather than a bug: at every audited width the
- * five items occupy ONE ROW and ONE vertical position, and the touch target
- * stays whole in both axes. If either half ever stops being true it is now a
+ * items' glyph boxes and their PAINTED INK were identical to within 0.25px
+ * at 1x, 2x and 4x, on three pages and five widths. The only real vertical
+ * difference in that masthead was the wrap itself. So this test fixes the
+ * invariant in place rather than a bug: at every audited width the items
+ * occupy ONE ROW and ONE vertical position, and the touch target stays
+ * whole in both axes. If either half ever stops being true it is now a
  * failing test rather than something someone has to notice.
  *
  * 320px is deliberately NOT audited: the supported floor is 360, and below
  * ~345 the row is allowed to wrap rather than overflow — degrading into a
- * second line is the correct failure, a horizontal scrollbar is not.
+ * second line is the correct failure, a horizontal scrollbar is not. With
+ * one fewer item and one fewer gap the row is now narrower at every width
+ * than it was when this margin was measured, so the wrap floor this
+ * paragraph describes is the OLD, tighter one — a lower bound that still
+ * holds, not a claim that it moved down with the item count.
  */
-test('마스트헤드 내비 — 360px부터 다섯 항목이 한 줄 · 세로 위치 동일 · 44px 타깃', async ({ page }) => {
+test('마스트헤드 내비 — 360px부터 네 항목이 한 줄 · 세로 위치 동일 · 44px 타깃', async ({ page }) => {
   await page.goto(u('/'));
   const problems: string[] = [];
   const lines: string[] = [];
@@ -400,7 +407,7 @@ test('마스트헤드 내비 — 360px부터 다섯 항목이 한 줄 · 세로 
         clientW: document.documentElement.clientWidth,
       };
     });
-    expect(m.items.length, '내비 항목이 5개가 아님').toBe(5);
+    expect(m.items.length, '내비 항목이 4개가 아님').toBe(4);
     lines.push(
       `${width}: rows=${m.rows} · ${m.items.map((i) => `${i.label} ${i.w.toFixed(1)}x${i.h.toFixed(1)}`).join(' · ')}`,
     );

@@ -110,3 +110,109 @@ test('모바일 — .page-title 계열 상단 위치가 데스크톱과 같은 �
     expect(mobileGap, `${width}px — 값축 그룹과 이름축 그룹의 간격(${mobileGap})이 데스크톱(${desktopGap})과 다름`).toBeCloseTo(desktopGap, 0);
   }
 });
+
+/**
+ * TITLE→CONTENT GAP — EVERY BARE `.page-title` AGREES ON ONE NUMBER
+ * (2026-09-08).
+ *
+ * The test above proves five listing pages agree on where their title's TOP
+ * edge sits. It says nothing about where the title's BOTTOM edge sits
+ * relative to what follows it, which is the report this test answers: "각
+ * 탭 별로 제목이랑 컨텐츠 간격이 일정하지가 않다" (Charts/Reviews/Notes/
+ * Artists/Archive). Measured before this fix: Reviews, Notes, Artists and
+ * the three archive axis-value listings all opened 24px under their title
+ * (`.cards`/`.rows` `margin-top: var(--s-24)`, set per page); the Archive hub
+ * and About opened 32px (`.archive`/`.about`'s flex `gap`, built for spacing
+ * BETWEEN that page's own sections and only incidentally governing the first
+ * one too); Charts (the active year, what the masthead's Charts link
+ * actually opens) opened 48px, same cause. Three numbers for what a reader
+ * experiences as one relationship, on the one axis nothing else in this
+ * suite checks.
+ *
+ * NO PAGE LIST, BY DESIGN — the lead's standing instruction after today's
+ * mobile-listing miss (4343fbc): a hardcoded array only proves five pages
+ * agree with EACH OTHER, and stops meaning anything the moment a sixth page
+ * is added and nobody remembers to extend it. What is asserted instead is
+ * the RULE global.css's own `.page-title` comment already states — "every
+ * page has exactly one h1" — walked one step further: a `.page-title` whose
+ * title block carries NOTHING beside the h1 itself (no frozen-year chip, no
+ * caption, no byline) is a "BARE" title, and every bare title on the built
+ * site, whichever page it is on, shares one title→content gap. That
+ * structural test (not a path) is what makes this survive new pages without
+ * an edit: a future tab with a bare `.page-title` is picked up automatically;
+ * a future page that adds byline/caption furniture under its title correctly
+ * falls out of the comparison instead of failing it, because a bare-title
+ * gap and a captioned one are not the same measurement (the finalized face of
+ * `/list/{year}/` and the monthly recap are today's examples — both keep a
+ * caption between the title and the list, which is content, not drift).
+ *
+ * WHAT COUNTS AS THE TITLE'S OWN BLOCK, since some pages wrap the h1 in a
+ * `<header>` (Charts, for the frozen-year chip and immutability caption that
+ * only render on a FINALIZED year) and others do not (every
+ * `.listing`/`.artists`/`.archive` page, where the h1 sits directly in
+ * `<main>` beside `FormatLabel`/`.cards` as siblings, never inside a
+ * `<header>` of its own). `h1.closest('header')` is the structural signal —
+ * a semantic tag the pages already use with exactly this meaning, not a
+ * class name invented for this test. Where a `<header>` exists, IT is the
+ * title block and is bare only while the h1 is its ONLY child; where none
+ * exists, the h1 itself is the block and is always bare (nothing can sit
+ * between an unwrapped h1 and whatever follows it — FormatLabel, the one
+ * eyebrow this test's sibling above already covers, only ever renders
+ * BEFORE the h1). Either way "bare" means the block's next element sibling
+ * is the first content the reader sees, with nothing structural between the
+ * title and it.
+ */
+test('타이틀→콘텐츠 간격 — 형제 요소 없는 순수 .page-title 지면은 모두 동일 (지면 목록 하드코딩 없음)', async ({ page }) => {
+  const B = basePathOf(join(SANDBOX_ROOT, 'rich'));
+  const pages = distPagePaths(join(SANDBOX_ROOT, 'rich')).filter((p) => p !== '/404.html');
+
+  const measure = async (width: number) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const bare: { path: string; gap: number }[] = [];
+    const skipped: string[] = [];
+    for (const path of pages) {
+      await page.goto(`${B}${path}`, { waitUntil: 'load' });
+      const m = await page.evaluate(() => {
+        const h1 = document.querySelector('main h1.page-title');
+        if (!h1) return null;
+        // The title's own block: the closest <header> ancestor if one wraps
+        // the h1 (Charts' `.head`), the h1 itself otherwise (every other
+        // `.page-title` page — see the intro above for why that split is
+        // exhaustive rather than a guess).
+        const header = h1.closest('header');
+        const block = header ?? h1;
+        const isBare = header ? header.children.length === 1 : true;
+        const next = block.nextElementSibling;
+        if (!isBare || !next) return { bare: false as const };
+        return {
+          bare: true as const,
+          gap: Math.round((next.getBoundingClientRect().top - h1.getBoundingClientRect().bottom) * 100) / 100,
+        };
+      });
+      if (m === null) continue; // not a .page-title page at all (review/story/recap/404)
+      if (!m.bare) {
+        skipped.push(path);
+        continue;
+      }
+      bare.push({ path, gap: m.gap });
+    }
+    return { bare, skipped };
+  };
+
+  for (const width of [1440, 390]) {
+    const { bare, skipped } = await measure(width);
+    console.log(
+      `${width}px — bare .page-title 간격 실측 ${bare.length}건 (제외 ${skipped.length}: ${skipped.join(', ') || '없음'}):\n  ` +
+        bare.map((b) => `${b.path}=${b.gap}`).join('\n  '),
+    );
+    // A run that found nothing to compare would pass vacuously — the same
+    // guard the baseline test above uses.
+    expect(bare.length, '비교된 bare .page-title 지면이 하나도 없음').toBeGreaterThan(4);
+    const gaps = bare.map((b) => b.gap);
+    const spread = Math.max(...gaps) - Math.min(...gaps);
+    expect(
+      spread,
+      `${width}px — bare 타이틀 지면들의 콘텐츠 간격이 서로 어긋남: ${bare.map((b) => `${b.path}=${b.gap}`).join(', ')}`,
+    ).toBeLessThanOrEqual(0.5);
+  }
+});
