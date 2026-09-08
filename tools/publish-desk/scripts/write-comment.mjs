@@ -10,8 +10,9 @@
  * Usage: node scripts/write-comment.mjs <mode> <outputFile>
  *   mode=pd-error       env CODE, MESSAGE
  *   mode=build-failure  env REPORT_PATH   (reports/build-report.md from the public checkout)
+ *                       env CREATED_ARTIST (optional — see report-comment.mjs's derived-E-113 filter)
  *   mode=infra-error    env RUN_URL       (optional)
- *   mode=success        env KIND, URL
+ *   mode=success        env ACTION (optional, default publish), KIND, URL, NOTES (optional, " / "-joined)
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
@@ -25,9 +26,18 @@ const [, , mode, outputFile] = process.argv;
 
 const bodies = {
   'pd-error': () => formatPdErrorComment(process.env.CODE ?? 'PD-UNKNOWN', process.env.MESSAGE ?? ''),
-  'build-failure': () => formatBuildFailureComment(readFileSync(process.env.REPORT_PATH, 'utf8')),
+  'build-failure': () =>
+    formatBuildFailureComment(readFileSync(process.env.REPORT_PATH, 'utf8'), {
+      createdArtistSlug: process.env.CREATED_ARTIST || undefined,
+    }),
   'infra-error': () => formatInfraErrorComment(process.env.RUN_URL || undefined),
-  success: () => formatSuccessComment({ kind: process.env.KIND, url: process.env.URL }),
+  success: () =>
+    formatSuccessComment({
+      action: process.env.ACTION || undefined,
+      kind: process.env.KIND,
+      url: process.env.URL,
+      notes: (process.env.NOTES ?? '').split(' / ').filter(Boolean),
+    }),
 };
 
 const build = bodies[mode];

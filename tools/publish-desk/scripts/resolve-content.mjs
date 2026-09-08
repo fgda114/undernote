@@ -71,6 +71,71 @@ export function existingSlugSet(root, kind, ext) {
 }
 
 /**
+ * @returns {Array<{slug: string, album: string}>} every content/reviews/*.md,
+ * reduced to just its own `album:` reference. Used by takedown.mjs to answer
+ * "does any SURVIVING review still point at this album" — not a shape/schema
+ * read (that is the build's job), so an unparsable or partially-invalid file
+ * still contributes whatever `album` value it has rather than being dropped
+ * silently (a takedown plan must never UNDER-count references).
+ */
+export function listReviews(root) {
+  const dir = join(root, 'content', 'reviews');
+  return listFiles(dir, '.md').map((f) => {
+    const slug = f.slice(0, -3);
+    const data = readFrontmatter(join(dir, f));
+    return { slug, album: String(data?.album ?? '') };
+  });
+}
+
+/**
+ * @returns {Array<{slug: string, albumRefs: string[]}>} every
+ * content/stories/*.md, reduced to the album slugs it {ref}-erences. A
+ * free-text `{text, artist}` mention is deliberately excluded — it carries
+ * no reachability, exactly mirroring how src/lib/derive/archive.ts builds
+ * `by_artist` (a story only reaches an artist THROUGH a registered album
+ * ref, never through prose alone). takedown.mjs relies on this exact
+ * exclusion to decide what an artist/album takedown may safely remove.
+ */
+export function listStories(root) {
+  const dir = join(root, 'content', 'stories');
+  return listFiles(dir, '.md').map((f) => {
+    const slug = f.slice(0, -3);
+    const data = readFrontmatter(join(dir, f));
+    const albums = Array.isArray(data?.albums) ? data.albums : [];
+    const albumRefs = albums.filter((a) => a && typeof a.ref === 'string').map((a) => a.ref);
+    return { slug, albumRefs };
+  });
+}
+
+/**
+ * @returns {Array<{slug: string, year: number, referencedAlbums: string[]}>}
+ * every content/snapshots/*.md, reduced to the album slugs its FROZEN
+ * top10/bucket entries reference — exactly the set src/lib/checker/resolve.ts
+ * checks against content/reviews/ at build time (E-110). Reading it here lets
+ * a takedown be refused with a specific, actionable reason BEFORE any file is
+ * touched, instead of surfacing later as an opaque build failure (R-2 —
+ * confirmed annual lists are immutable, so there is no "fix" for the writer
+ * to make; only a developer can decide to override it).
+ */
+export function listSnapshots(root) {
+  const dir = join(root, 'content', 'snapshots');
+  return listFiles(dir, '.md').map((f) => {
+    const slug = f.slice(0, -3);
+    const data = readFrontmatter(join(dir, f)) ?? {};
+    const top10 = Array.isArray(data.top10) ? data.top10 : [];
+    const buckets = Array.isArray(data.buckets) ? data.buckets : [];
+    const referencedAlbums = [
+      ...top10.map((t) => t?.album).filter((a) => typeof a === 'string'),
+      ...buckets.flatMap((b) => [
+        ...(typeof b?.winner === 'string' ? [b.winner] : []),
+        ...(Array.isArray(b?.nominees) ? b.nominees.map((n) => n?.album).filter((a) => typeof a === 'string') : []),
+      ]),
+    ];
+    return { slug, year: Number(data.year), referencedAlbums };
+  });
+}
+
+/**
  * Find an existing artist by exact normalized name. Returns:
  *   {status: 'found', slug} — reuse this slug, do not write a new file.
  *   {status: 'none'}        — no match, caller creates a new artist.

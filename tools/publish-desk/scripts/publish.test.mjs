@@ -7,15 +7,23 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { publishReview, publishStory } from './publish.mjs';
+import { publishReview, publishStory, updateReview, updateStory, takedownReview, takedownStory } from './publish.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fixtureBody = (name) => readFileSync(join(here, 'fixtures', name), 'utf8');
+// Normalized to LF on read: a Windows checkout (core.autocrlf) turns these
+// fixture .txt files into CRLF on disk, which silently broke every test
+// below that edits the fixture text with a literal `\n`-embedded
+// `.replace()` (pre-existing bug, found and fixed in this same session —
+// parseReviewForm/parseStoryForm themselves already normalize CRLF
+// internally, so this only affects the TEST's own string surgery, never
+// production behavior).
+const fixtureBody = (name) => readFileSync(join(here, 'fixtures', name), 'utf8').replace(/\r\n/g, '\n');
 
 /** A fetch stub that returns a real (synthetic) JPEG for ANY url — used
  * everywhere a fixture happens to carry a dropped-image URL but the test
@@ -226,4 +234,183 @@ test('publishStory: title collision is avoided, not failed (two stories, same ti
 
   assert.equal(first.slug, 'same-title');
   assert.equal(second.slug, 'same-title-2');
+});
+
+test('publishReview: score 8.35 (a real E-105 case) still marks the artist as freshly created (createdArtistSlug)', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const result = await publishReview({ issueBody: fixtureBody('review-form-body-minimal.txt'), publicRepoDir: root, fetchImpl: stubFetch });
+  assert.equal(result.ok, true);
+  assert.equal(result.action, 'publish');
+  assert.ok(result.createdArtistSlug, 'a brand new artist must be reported so a build-failure comment can filter a derived E-113');
+});
+
+test('publishReview: reusing an existing artist never reports createdArtistSlug', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: 피비 브리저스\n---\n', 'utf8');
+  const result = await publishReview({ issueBody: fixtureBody('review-form-body.txt'), publicRepoDir: root, fetchImpl: stubFetch });
+  assert.equal(result.createdArtistSlug, undefined);
+});
+
+// ── update / takedown — exercised against a REAL git repo (not a stub), so
+// the whole path (resolve-published.mjs's git plumbing INCLUDED) is proven
+// end to end, the same way resolve-published.test.mjs proves the plumbing
+// in isolation. ──
+
+function gitRun(cmd, cwd) {
+  return execFileSync('sh', ['-c', cmd], { cwd, encoding: 'utf8' });
+}
+
+/** A fixture repo that has ALREADY been through one successful `publish`,
+ * committed exactly the way .github/workflows/publish.yml's own "Commit and
+ * push" step does — the one convention resolve-published.mjs depends on. */
+async function makePublishedFixtureRepo({ issueNumber = 7, issueBody = fixtureBody('review-form-body.txt'), kind = 'review' } = {}) {
+  const root = makeFixtureRepo();
+  gitRun('git init -q -b main', root);
+  gitRun('git config user.email "actions@users.noreply.github.com"', root);
+  gitRun('git config user.name "undernote publish desk"', root);
+
+  const result = kind === 'story' ? await publishStory({ issueBody, publicRepoDir: root }) : await publishReview({ issueBody, publicRepoDir: root, fetchImpl: stubFetch });
+  gitRun(`git add -A && git commit -q -m "발행: title (issue #${issueNumber})"`, root);
+  return { root, result };
+}
+
+test('updateReview: body + score + cover change and are applied; date is frozen to the ORIGINAL publish date', async (t) => {
+  const { root, result } = await makePublishedFixtureRepo({ issueNumber: 7 });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const originalDateLine = readFileSync(join(root, 'content', 'reviews', `${result.slug}.md`), 'utf8').match(/^date: .+$/m)[0];
+
+  const editedBody = fixtureBody('review-form-body.txt')
+    .replace('8.4', '9.0')
+    .replace('나는 음악을 찾아서 듣는 편이 아니다', '고친 문장이다');
+
+  const outcome = await updateReview({ issueBody: editedBody, issueNumber: 7, publicRepoDir: root, fetchImpl: stubFetch });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.action, 'update');
+  assert.equal(outcome.slug, result.slug);
+
+  const reviewMd = readFileSync(join(root, 'content', 'reviews', `${result.slug}.md`), 'utf8');
+  assert.match(reviewMd, /score: "9\.0"/);
+  assert.match(reviewMd, /고친 문장이다/);
+  // date: unchanged from the original publish, even though the edit landed
+  // "later" — R-1's tie-break and the archive's publication-year axis both
+  // key off it, so an edit must never move it.
+  assert.match(reviewMd, new RegExp(originalDateLine.replace('.', '\\.')));
+});
+
+test('updateReview: changing the album title is REJECTED with PD-IDENTITY-LOCKED, and writes nothing', async (t) => {
+  const { root, result } = await makePublishedFixtureRepo({ issueNumber: 7 });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const before = readFileSync(join(root, 'content', 'reviews', `${result.slug}.md`), 'utf8');
+
+  const editedBody = fixtureBody('review-form-body.txt').replace('Lost Weekend', 'A Completely Different Album');
+  await assert.rejects(
+    () => updateReview({ issueBody: editedBody, issueNumber: 7, publicRepoDir: root, fetchImpl: stubFetch }),
+    (err) => {
+      assert.equal(err.code, 'PD-IDENTITY-LOCKED');
+      assert.match(err.message, /앨범명/);
+      return true;
+    },
+  );
+  assert.equal(readFileSync(join(root, 'content', 'reviews', `${result.slug}.md`), 'utf8'), before, 'nothing may be written on rejection');
+});
+
+test('updateReview: changing the release date is REJECTED', async (t) => {
+  const { root } = await makePublishedFixtureRepo({ issueNumber: 7 });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const editedBody = fixtureBody('review-form-body.txt').replace('2026', '2020');
+  await assert.rejects(
+    () => updateReview({ issueBody: editedBody, issueNumber: 7, publicRepoDir: root, fetchImpl: stubFetch }),
+    (err) => {
+      assert.equal(err.code, 'PD-IDENTITY-LOCKED');
+      assert.match(err.message, /발매일/);
+      return true;
+    },
+  );
+});
+
+test('updateReview: an unresolvable genre label still fails with PD-GENRE-UNKNOWN (config drift, not an identity change)', async (t) => {
+  const { root } = await makePublishedFixtureRepo({ issueNumber: 7 });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const editedBody = fixtureBody('review-form-body.txt').replace('Rock', 'Jazz');
+  await assert.rejects(
+    () => updateReview({ issueBody: editedBody, issueNumber: 7, publicRepoDir: root, fetchImpl: stubFetch }),
+    (err) => {
+      assert.equal(err.code, 'PD-GENRE-UNKNOWN');
+      return true;
+    },
+  );
+});
+
+test('updateStory: body changes; title change is REJECTED', async (t) => {
+  const { root, result } = await makePublishedFixtureRepo({ issueNumber: 12, kind: 'story', issueBody: fixtureBody('story-form-body.txt') });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const editedBody = fixtureBody('story-form-body.txt').replace('그 해 여름은', '고친 문장, 그 해 여름은');
+  const outcome = await updateStory({ issueBody: editedBody, issueNumber: 12, publicRepoDir: root });
+  assert.equal(outcome.ok, true);
+  const storyMd = readFileSync(join(root, 'content', 'stories', `${result.slug}.md`), 'utf8');
+  assert.match(storyMd, /고친 문장/);
+
+  const titleChanged = fixtureBody('story-form-body.txt').replace('93년 여름의 플레이리스트', '다른 제목');
+  await assert.rejects(
+    () => updateStory({ issueBody: titleChanged, issueNumber: 12, publicRepoDir: root }),
+    (err) => {
+      assert.equal(err.code, 'PD-IDENTITY-LOCKED');
+      return true;
+    },
+  );
+});
+
+test('takedownReview: deletes review + album + cover + artist when nothing else references them', async (t) => {
+  const { root, result } = await makePublishedFixtureRepo({ issueNumber: 7 });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const outcome = await takedownReview({ issueNumber: 7, publicRepoDir: root });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.action, 'takedown');
+  assert.equal(outcome.url, null);
+  assert.equal(existsSync(join(root, 'content', 'reviews', `${result.slug}.md`)), false);
+  assert.equal(existsSync(join(root, 'content', 'albums', `${result.slug}.yaml`)), false);
+  assert.equal(existsSync(join(root, 'content', 'artists', 'phoebe-bridgers.md')), false);
+  assert.match(outcome.notes.join(' '), /아티스트 페이지도 함께 내렸습니다/);
+});
+
+test('takedownReview: refuses when the review is frozen into a confirmed year-end snapshot', async (t) => {
+  const { root, result } = await makePublishedFixtureRepo({ issueNumber: 7 });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'content', 'snapshots'), { recursive: true });
+  writeFileSync(
+    join(root, 'content', 'snapshots', 'y2026.md'),
+    [
+      '---',
+      'year: 2026',
+      'finalized_at: 2026-12-31T00:00:00.000Z',
+      `top10:\n  - { rank: 1, album: ${result.slug}, title: "T", artists_label: "A", score: "8.4" }`,
+      'buckets: []',
+      '---',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
+  await assert.rejects(
+    () => takedownReview({ issueNumber: 7, publicRepoDir: root }),
+    (err) => {
+      assert.equal(err.code, 'PD-TAKEDOWN-LOCKED');
+      assert.match(err.message, /2026/);
+      return true;
+    },
+  );
+  assert.equal(existsSync(join(root, 'content', 'reviews', `${result.slug}.md`)), true, 'the review must survive an unresolved takedown');
+});
+
+test('takedownStory: deletes the story and any artist reachable only through it', async (t) => {
+  const { root, result } = await makePublishedFixtureRepo({ issueNumber: 12, kind: 'story', issueBody: fixtureBody('story-form-body.txt') });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const outcome = await takedownStory({ issueNumber: 12, publicRepoDir: root });
+  assert.equal(outcome.ok, true);
+  assert.equal(existsSync(join(root, 'content', 'stories', `${result.slug}.md`)), false);
 });

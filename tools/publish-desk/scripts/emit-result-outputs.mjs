@@ -30,10 +30,19 @@ function writeLine(line) {
 
 writeLine(`ok=${result.ok}`);
 writeLine(`code=${result.code ?? ''}`);
+// 'publish' | 'update' | 'takedown' — added alongside those two pipelines
+// (2026-09-08); absent from an older result shape only if this script and
+// publish.mjs somehow drift apart, so it defaults to 'publish' rather than
+// leaving the workflow's mode-aware steps to branch on an empty string.
+writeLine(`action=${result.action ?? 'publish'}`);
 writeLine(`kind=${result.kind ?? ''}`);
 writeLine(`slug=${result.slug ?? ''}`);
 writeLine(`url=${result.url ?? ''}`);
 writeLine(`notes=${(result.notes ?? []).join(' / ')}`);
+// Only set by publishReview when THIS run created a brand-new artist file —
+// consumed by the "Comment build failure" step to filter a DERIVED E-113
+// (report-comment.mjs#suppressDerivedOrphan). Empty for every other result.
+writeLine(`created_artist=${result.createdArtistSlug ?? ''}`);
 
 const delimiter = `EOF_${randomUUID()}`;
 writeLine(`message<<${delimiter}`);

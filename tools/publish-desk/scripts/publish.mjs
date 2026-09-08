@@ -3,15 +3,24 @@
  * Orchestrator — the only non-pure module in this package. Everything it
  * decides is delegated to the pure functions in the sibling modules; this
  * file's own job is sequencing + file I/O, called once per workflow run
- * from `.github/workflows/publish.yml` with the issue's data in env vars.
+ * from `.github/workflows/publish.yml` with the issue's data (and MODE —
+ * see below) in env vars.
  *
  * Contract with the workflow: this script NEVER calls `npm run build` and
- * NEVER touches git — it only writes files under $PUBLIC_REPO_DIR and then
- * writes ONE result file, scripts/publish-result.json, for the workflow to
- * act on:
+ * NEVER commits or pushes — it only writes/deletes files under
+ * $PUBLIC_REPO_DIR and then writes ONE result file,
+ * scripts/publish-result.json, for the workflow to act on:
  *
- *   success -> { ok: true, kind, slug, url, notes: string[] }
+ *   success -> { ok: true, action, kind, slug, url, notes: string[], createdArtistSlug? }
  *   PD-*    -> { ok: false, code: "PD-...", message: "<Korean, ready to post>" }
+ *
+ * `action` is 'publish' | 'update' | 'takedown' (MODE, echoed back) — added
+ * 2026-09-08 alongside the update/take-down pipelines; `kind` stays
+ * 'review' | 'story' as before. It MAY also read git history (read-only:
+ * `git log`/`git show` against the already-checked-out public repo, never a
+ * write) to recover a prior publish's identity for MODE=update/takedown —
+ * see resolve-published.mjs for why that is not a "touches git" violation
+ * of the rule above, which is about MUTATING state, not reading it.
  *
  * A thrown/uncaught error (a bug here, or an unexpected I/O fault) is NOT
  * written as a PD-* result — it exits nonzero with nothing in
@@ -21,7 +30,7 @@
  * vs "only the developer can" — is the reason every failure path below
  * either produces a PD-* code or is left to propagate.
  */
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import sharp from 'sharp';
@@ -33,12 +42,15 @@ import {
   listArtists,
   listAlbums,
   existingSlugSet,
+  normalizeName,
   findArtistByName,
   findAlbumByTitleArtist,
   resolveGenreBucket,
 } from './resolve-content.mjs';
 import { extractImageUrl, downloadImage, resizeCoverBuffer } from './cover.mjs';
-import { reviewFile, albumFile, artistFile, storyFile } from './frontmatter.mjs';
+import { reviewFile, albumFile, artistFile, storyFile, updateAlbumCover } from './frontmatter.mjs';
+import { resolveOriginalPublication } from './resolve-published.mjs';
+import { planReviewTakedown, planStoryTakedown, lockedSnapshotYears } from './takedown.mjs';
 
 /** KST is fixed UTC+9, no DST — same pure-arithmetic convention as
  * src/lib/derive/lists.ts#currentYearMonthSeoul in the public repo. Used as
@@ -161,6 +173,22 @@ function resolveAlbum({ title, slugHint, artistSlug }, publicRepoDir) {
   return { slug, isNew };
 }
 
+/** Shared by both cover resolvers below: download + resize, or fail with a
+ * PD-COVER-FETCH-FAILED whose recovery hint differs by caller (a first
+ * publish vs an edit have different "what happens if you just leave this
+ * empty" answers, so the hint is a parameter, not duplicated logic). */
+async function fetchAndResizeCover(url, fetchImpl, emptyFieldHint) {
+  try {
+    const buffer = await downloadImage(url, fetchImpl);
+    return await resizeCoverBuffer(buffer, sharp);
+  } catch (err) {
+    pdFail(
+      'PD-COVER-FETCH-FAILED',
+      `커버 이미지를 처리하지 못했습니다 (${err instanceof Error ? err.message : String(err)}). 사진을 다시 끌어다 놓고 저장해 주세요. ${emptyFieldHint}`,
+    );
+  }
+}
+
 async function resolveCover({ fieldText, albumIsNew, notes, fetchImpl }) {
   if (fieldText.trim() === '') return null;
   const url = extractImageUrl(fieldText);
@@ -173,21 +201,34 @@ async function resolveCover({ fieldText, albumIsNew, notes, fetchImpl }) {
   if (!albumIsNew) {
     // Never overwrite a curated cover on an existing album from a follow-up
     // review submission — see docs/publishing.md for why this is scoped out
-    // rather than attempting an in-place YAML edit.
+    // rather than attempting an in-place YAML edit. (This is a DIFFERENT
+    // situation from updateReview's own cover handling below: there, the
+    // album is always THIS review's own, never a stranger's curated one.)
     notes.push('참고: 이미 있는 앨범이라 이번에 올린 커버 이미지는 반영되지 않았습니다 (기존 앨범 파일은 건드리지 않습니다).');
     return null;
   }
-  let buffer;
-  try {
-    buffer = await downloadImage(url, fetchImpl);
-    buffer = await resizeCoverBuffer(buffer, sharp);
-  } catch (err) {
+  return fetchAndResizeCover(url, fetchImpl, '급하면 그 칸을 비워두고 저장하면 기본 이미지로 우선 발행됩니다.');
+}
+
+/**
+ * Cover resolution for the UPDATE path (docs/publishing.md §"수정"). Unlike
+ * `resolveCover` above — which must never touch an EXISTING album's curated
+ * cover when a review for that SAME album arrives from a different
+ * submission — an edit always targets THIS review's OWN album, so a
+ * non-empty cover field always replaces whatever is there now (placeholder
+ * or not): that IS the feature ("나중에 넣어도 됩니다" — the form's own promise
+ * to the writer, docs/publishing.md).
+ */
+async function resolveCoverForUpdate({ fieldText, fetchImpl }) {
+  if (fieldText.trim() === '') return null;
+  const url = extractImageUrl(fieldText);
+  if (url === null) {
     pdFail(
-      'PD-COVER-FETCH-FAILED',
-      `커버 이미지를 처리하지 못했습니다 (${err instanceof Error ? err.message : String(err)}). 사진을 다시 끌어다 놓고 저장해 주세요. 급하면 그 칸을 비워두고 저장하면 기본 이미지로 우선 발행됩니다.`,
+      'PD-COVER-NOT-IMAGE',
+      '"커버 이미지" 칸에 사진이 아닌 내용이 들어 있습니다. 사진 파일을 그 칸에 끌어다 놓으면 자동으로 업로드됩니다 — 다시 시도해 주세요. 사진을 바꾸지 않으려면 그 칸을 비워두면 됩니다.',
     );
   }
-  return buffer;
+  return fetchAndResizeCover(url, fetchImpl, '급하면 그 칸을 비워두고 저장하면 커버는 지금 상태 그대로 유지됩니다.');
 }
 
 // `fetchImpl` defaults to the global fetch — tests inject a stub so the
@@ -259,7 +300,19 @@ async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
   );
 
   const site = readSiteConfig(publicRepoDir);
-  return { ok: true, kind: 'review', slug: album.slug, url: `${site.base_url}/reviews/${album.slug}/`, notes };
+  return {
+    ok: true,
+    action: 'publish',
+    kind: 'review',
+    slug: album.slug,
+    url: `${site.base_url}/reviews/${album.slug}/`,
+    notes,
+    // Only set when THIS run created a brand-new artist file — the one
+    // piece of ground truth report-comment.mjs's derived-E-113 filter needs
+    // and cannot safely guess at from the build report alone (see its own
+    // doc comment for why: guessing would risk hiding a REAL orphan).
+    createdArtistSlug: artist.isNew ? artist.slug : undefined,
+  };
 }
 
 /** "앨범명 (아티스트명)" or bare "앨범명" -> a storyAlbumRefSchema entry.
@@ -304,13 +357,200 @@ async function publishStory({ issueBody, publicRepoDir }) {
   );
 
   const site = readSiteConfig(publicRepoDir);
-  return { ok: true, kind: 'story', slug, url: `${site.base_url}/stories/${slug}/`, notes: [] };
+  return { ok: true, action: 'publish', kind: 'story', slug, url: `${site.base_url}/stories/${slug}/`, notes: [] };
+}
+
+/**
+ * Apply an EDIT of an already-published review issue (docs/publishing.md
+ * §"수정"). Exactly three things may ever change here — body, score, cover
+ * — the decision-maker's explicit scope. Everything that would move the
+ * review's IDENTITY (which album, which artist, which genre bucket, which
+ * release date) is compared against the ORIGINAL publish
+ * (resolve-published.mjs) and REJECTED with a PD-* explanation instead of
+ * silently applying: undernote never moves a slug/URL once published (R-9),
+ * and a bucket/date change would retroactively reclassify content the
+ * archive/lists already derived from the old value (R-2/R-8,
+ * exceptions.md). `date:` itself is likewise frozen — an edit changes what
+ * the review SAYS, never WHEN it counts as published (R-1's tie-break, and
+ * the archive's publication-year axis, both key off it).
+ */
+async function updateReview({ issueBody, issueNumber, publicRepoDir, fetchImpl = fetch, git = undefined }) {
+  const form = parseReviewForm(issueBody);
+  const original = resolveOriginalPublication({ issueNumber, publicRepoDir, git, parseYaml });
+  if (original === null || original.kind !== 'review') {
+    // Structurally should be unreachable: MODE=update only ever runs when
+    // the `published` label is already on the issue, which this workflow
+    // itself only ever adds right after the ORIGINAL publish commit lands.
+    // Not a PD-* — the writer has no field to fix here; only the developer
+    // can (see this file's own module doc on the PD-* vs thrown-error split).
+    throw new Error(`발행 이력을 찾지 못했습니다 (issue #${issueNumber}) — published 라벨은 있는데 대응하는 발행 커밋이 없습니다.`);
+  }
+
+  const changed = [];
+  if (normalizeName(form.albumTitle) !== normalizeName(original.albumTitle)) {
+    changed.push(`앨범명 "${original.albumTitle}" → "${form.albumTitle}"`);
+  }
+  if (normalizeName(form.artistName) !== normalizeName(original.artistName)) {
+    changed.push(`아티스트명 "${original.artistName}" → "${form.artistName}"`);
+  }
+  if (form.releaseDate.trim() !== original.releaseDate) {
+    changed.push(`발매일 "${original.releaseDate}" → "${form.releaseDate.trim()}"`);
+  }
+  const bucket = resolveGenreBucket(form.genreLabel, publicRepoDir);
+  if (bucket.status !== 'found') {
+    pdFail(
+      'PD-GENRE-UNKNOWN',
+      `장르 "${form.genreLabel}"을(를) 사이트 설정(config/genres.yaml)에서 찾지 못했습니다. 이슈 폼의 장르 목록이 사이트 설정과 어긋난 것 같습니다 — User(개발 담당)에게 알려주세요.`,
+    );
+  } else if (bucket.id !== original.bucketId) {
+    changed.push(`장르 (기존 "${original.bucketId}"과(와) 다른 값)`);
+  }
+
+  if (changed.length > 0) {
+    pdFail(
+      'PD-IDENTITY-LOCKED',
+      [
+        '앨범명·아티스트명·장르·발매일은 이 화면에서 고칠 수 없습니다 — 이 값들은 글의 인터넷 주소나 분류를 바꾸기 때문입니다.',
+        `바뀐 항목: ${changed.join(', ')}`,
+        '이 칸들을 처음 저장했을 때의 값으로 되돌리고, 본문·점수·커버만 고쳐서 다시 저장해 주세요.',
+        '정말 앨범명 등을 바꿔야 한다면 User(개발 담당)에게 이 글의 번호를 알려주세요 — 그건 직접 손봐야 합니다.',
+      ].join('\n'),
+    );
+  }
+
+  const bodyMd = toMarkdownBody(form.bodyText);
+  if (bodyMd.trim() === '') pdFail('PD-MISSING-BODY', '평론 본문이 비어 있습니다. "글" 칸을 채워 주세요.');
+
+  const notes = [];
+  const coverBuffer = await resolveCoverForUpdate({ fieldText: form.coverField, fetchImpl });
+
+  // ── Commit phase ──
+  writeFileSync(
+    join(publicRepoDir, 'content', 'reviews', `${original.slug}.md`),
+    reviewFile({ albumSlug: original.slug, score: form.score.trim(), date: original.originalDate, body: bodyMd }),
+    'utf8',
+  );
+  if (coverBuffer) {
+    const albumPath = join(publicRepoDir, 'content', 'albums', `${original.slug}.yaml`);
+    writeFileSync(
+      albumPath,
+      updateAlbumCover(readFileSync(albumPath, 'utf8'), {
+        cover: `covers/${original.slug}.jpg`,
+        coverSource: '독자 제공 (발행 데스크, 수정 — 축소본)',
+      }),
+      'utf8',
+    );
+    mkdirSync(join(publicRepoDir, 'public', 'covers'), { recursive: true });
+    writeFileSync(join(publicRepoDir, 'public', 'covers', `${original.slug}.jpg`), coverBuffer);
+    notes.push('커버 이미지를 새로 올린 사진으로 바꿨습니다.');
+  }
+
+  const site = readSiteConfig(publicRepoDir);
+  return { ok: true, action: 'update', kind: 'review', slug: original.slug, url: `${site.base_url}/reviews/${original.slug}/`, notes };
+}
+
+/**
+ * Apply an EDIT of an already-published story issue. By the same "never
+ * move a slug/URL" rule as updateReview, `제목` (title — the story's own
+ * slug source) is locked; body and the album-mentions list are free to
+ * change (neither affects any URL — a mention only ever renders as text or
+ * a link to an ALBUM's own page, never creates one of its own).
+ */
+async function updateStory({ issueBody, issueNumber, publicRepoDir, git = undefined }) {
+  const form = parseStoryForm(issueBody);
+  const original = resolveOriginalPublication({ issueNumber, publicRepoDir, git, parseYaml });
+  if (original === null || original.kind !== 'story') {
+    throw new Error(`발행 이력을 찾지 못했습니다 (issue #${issueNumber}) — published 라벨은 있는데 대응하는 발행 커밋이 없습니다.`);
+  }
+
+  if (form.title.trim() !== original.title) {
+    pdFail(
+      'PD-IDENTITY-LOCKED',
+      [
+        '제목은 이 화면에서 고칠 수 없습니다 — 이야기의 인터넷 주소가 제목에서 만들어지기 때문입니다.',
+        `바뀐 항목: 제목 "${original.title}" → "${form.title.trim()}"`,
+        '제목 칸을 처음 저장했을 때의 값으로 되돌리고, 본문과 "언급한 앨범들"만 고쳐서 다시 저장해 주세요.',
+        '정말 제목을 바꿔야 한다면 User(개발 담당)에게 이 글의 번호를 알려주세요.',
+      ].join('\n'),
+    );
+  }
+
+  const bodyMd = toMarkdownBody(form.bodyText);
+  if (bodyMd.trim() === '') pdFail('PD-MISSING-BODY', '이야기 본문이 비어 있습니다. "글" 칸을 채워 주세요.');
+
+  const albums = form.albumLines.map((line) => resolveStoryAlbumLine(line, publicRepoDir));
+  writeFileSync(
+    join(publicRepoDir, 'content', 'stories', `${original.slug}.md`),
+    storyFile({ title: form.title, date: original.originalDate, body: bodyMd, albums }),
+    'utf8',
+  );
+
+  const site = readSiteConfig(publicRepoDir);
+  return { ok: true, action: 'update', kind: 'story', slug: original.slug, url: `${site.base_url}/stories/${original.slug}/`, notes: [] };
+}
+
+/**
+ * Take an already-published review down (docs/publishing.md §"삭제"):
+ * delete the review, and — per the decision-maker's explicit policy — its
+ * album/cover and artist file too, but ONLY when nothing else in the repo
+ * still needs them (planReviewTakedown, takedown.mjs). Refuses outright,
+ * BEFORE touching any file, if the review is frozen into a confirmed
+ * year-end snapshot (R-2) — deleting it anyway would only surface later as
+ * an opaque E-110 build failure with no actionable next step for the writer.
+ */
+async function takedownReview({ issueNumber, publicRepoDir, git = undefined }) {
+  const original = resolveOriginalPublication({ issueNumber, publicRepoDir, git, parseYaml });
+  if (original === null || original.kind !== 'review') {
+    throw new Error(`발행 이력을 찾지 못했습니다 (issue #${issueNumber}).`);
+  }
+  const lockedYears = lockedSnapshotYears(original.slug, publicRepoDir);
+  if (lockedYears.length > 0) {
+    pdFail(
+      'PD-TAKEDOWN-LOCKED',
+      `이 글은 ${lockedYears.join(', ')}년 확정 연말 리스트에 실려 있어 내릴 수 없습니다 — 확정된 리스트는 어떤 이유로도 바뀌지 않는다는 이 매거진의 원칙 때문입니다. 정말 내려야 한다면 User(개발 담당)에게 이 글의 번호를 알려주세요.`,
+    );
+  }
+
+  const plan = planReviewTakedown({ slug: original.slug, publicRepoDir });
+  for (const rel of plan.deleteFiles) {
+    const abs = join(publicRepoDir, rel);
+    if (existsSync(abs)) rmSync(abs);
+  }
+
+  const notes = [];
+  if (plan.deleteAlbum) notes.push('평론뿐 아니라 앨범 페이지도 함께 내렸습니다 (더는 이 앨범을 다루는 다른 글이 없습니다).');
+  if (plan.deleteArtists.length > 0) notes.push(`아티스트 페이지도 함께 내렸습니다: ${plan.deleteArtists.join(', ')}.`);
+  return { ok: true, action: 'takedown', kind: 'review', slug: original.slug, url: null, notes };
+}
+
+/** Symmetric take-down for a story (docs/publishing.md §"삭제") — no
+ * snapshot lock applies (a snapshot never references a story, only album
+ * slugs via reviews — src/lib/schema/snapshot.ts), so this is simpler than
+ * takedownReview: delete the story, then any artist that becomes
+ * unreachable as a result (planStoryTakedown, takedown.mjs). */
+async function takedownStory({ issueNumber, publicRepoDir, git = undefined }) {
+  const original = resolveOriginalPublication({ issueNumber, publicRepoDir, git, parseYaml });
+  if (original === null || original.kind !== 'story') {
+    throw new Error(`발행 이력을 찾지 못했습니다 (issue #${issueNumber}).`);
+  }
+
+  const plan = planStoryTakedown({ slug: original.slug, publicRepoDir });
+  for (const rel of plan.deleteFiles) {
+    const abs = join(publicRepoDir, rel);
+    if (existsSync(abs)) rmSync(abs);
+  }
+
+  const notes = [];
+  if (plan.deleteArtists.length > 0) notes.push(`아티스트 페이지도 함께 내렸습니다: ${plan.deleteArtists.join(', ')}.`);
+  return { ok: true, action: 'takedown', kind: 'story', slug: original.slug, url: null, notes };
 }
 
 async function main() {
   const publicRepoDir = process.env.PUBLIC_REPO_DIR;
+  const mode = process.env.MODE || 'publish'; // 'publish' | 'update' | 'takedown'
   const issueKind = process.env.ISSUE_KIND; // 'review' | 'story'
   const issueBody = process.env.ISSUE_BODY ?? '';
+  const issueNumber = process.env.ISSUE_NUMBER ?? '';
   const resultPath = process.env.PUBLISH_RESULT_PATH ?? join(process.cwd(), 'publish-result.json');
 
   if (!publicRepoDir || !existsSync(publicRepoDir)) {
@@ -318,8 +558,15 @@ async function main() {
   }
 
   try {
-    const result =
-      issueKind === 'story' ? await publishStory({ issueBody, publicRepoDir }) : await publishReview({ issueBody, publicRepoDir });
+    const isStory = issueKind === 'story';
+    let result;
+    if (mode === 'update') {
+      result = isStory ? await updateStory({ issueBody, issueNumber, publicRepoDir }) : await updateReview({ issueBody, issueNumber, publicRepoDir });
+    } else if (mode === 'takedown') {
+      result = isStory ? await takedownStory({ issueNumber, publicRepoDir }) : await takedownReview({ issueNumber, publicRepoDir });
+    } else {
+      result = isStory ? await publishStory({ issueBody, publicRepoDir }) : await publishReview({ issueBody, publicRepoDir });
+    }
     writeFileSync(resultPath, JSON.stringify(result, null, 2), 'utf8');
   } catch (err) {
     if (err instanceof PdError) {
@@ -340,4 +587,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { publishReview, publishStory, resolveArtist, resolveAlbum, resolveStoryAlbumLine, todayKst };
+export {
+  publishReview,
+  publishStory,
+  updateReview,
+  updateStory,
+  takedownReview,
+  takedownStory,
+  resolveArtist,
+  resolveAlbum,
+  resolveStoryAlbumLine,
+  todayKst,
+};

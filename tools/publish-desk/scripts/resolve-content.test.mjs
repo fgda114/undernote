@@ -7,6 +7,9 @@ import {
   normalizeName,
   listArtists,
   listAlbums,
+  listReviews,
+  listStories,
+  listSnapshots,
   existingSlugSet,
   findArtistByName,
   findAlbumByTitleArtist,
@@ -112,5 +115,66 @@ test('resolve-content: end-to-end against a fixture checkout', async (t) => {
 
   await t.test('resolveGenreBucket: an unknown label (config drift) reports "none", never a silent guess', () => {
     assert.deepEqual(resolveGenreBucket('Jazz', root), { status: 'none' });
+  });
+});
+
+test('listReviews / listStories / listSnapshots — takedown.mjs readers', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'publish-desk-test-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'content', 'reviews'), { recursive: true });
+  mkdirSync(join(root, 'content', 'stories'), { recursive: true });
+  mkdirSync(join(root, 'content', 'snapshots'), { recursive: true });
+
+  writeFileSync(
+    join(root, 'content', 'reviews', 'phoebe-bridgers-lost-weekend.md'),
+    '---\nalbum: phoebe-bridgers-lost-weekend\nscore: "8.4"\ndate: 2026-09-06\neditorial_check: true\n---\n\n본문\n',
+    'utf8',
+  );
+
+  await t.test('listReviews reads every review, reduced to its own album reference', () => {
+    assert.deepEqual(listReviews(root), [{ slug: 'phoebe-bridgers-lost-weekend', album: 'phoebe-bridgers-lost-weekend' }]);
+  });
+
+  writeFileSync(
+    join(root, 'content', 'stories', '93-summer.md'),
+    [
+      '---',
+      'title: "93년 여름"',
+      'date: 2026-09-08',
+      'albums:',
+      '  - { ref: phoebe-bridgers-lost-weekend }',
+      '  - { text: "미등록 앨범", artist: "미등록 아티스트" }',
+      '---',
+      '',
+      '본문',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
+  await t.test('listStories reduces albums to ONLY {ref} entries — a {text} mention carries no reachability', () => {
+    assert.deepEqual(listStories(root), [{ slug: '93-summer', albumRefs: ['phoebe-bridgers-lost-weekend'] }]);
+  });
+
+  writeFileSync(
+    join(root, 'content', 'snapshots', 'y2026.md'),
+    [
+      '---',
+      'year: 2026',
+      'finalized_at: 2026-12-31T00:00:00.000Z',
+      'top10:',
+      '  - { rank: 1, album: phoebe-bridgers-lost-weekend, title: "Lost Weekend", artists_label: "Phoebe Bridgers", score: "8.4" }',
+      'buckets:',
+      '  - { id: rock, label: Rock, published: true, winner: phoebe-bridgers-lost-weekend, nominees: [] }',
+      '---',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
+  await t.test('listSnapshots collects every referenced album slug across top10 AND bucket winner/nominees', () => {
+    assert.deepEqual(listSnapshots(root), [
+      { slug: 'y2026', year: 2026, referencedAlbums: ['phoebe-bridgers-lost-weekend', 'phoebe-bridgers-lost-weekend'] },
+    ]);
   });
 });

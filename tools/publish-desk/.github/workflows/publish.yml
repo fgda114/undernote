@@ -1,5 +1,8 @@
 # undernote publish desk — turns a writer's Issue Form submission into a
-# commit on the PUBLIC undernote repo. Validation is never duplicated here:
+# commit on the PUBLIC undernote repo: a first save PUBLISHES, editing an
+# already-published issue UPDATES (body/score/cover only — everything else
+# is a locked identity field, see scripts/publish.mjs#updateReview), and
+# adding the "내림" label TAKES DOWN. Validation is never duplicated here:
 # step "Build public repo" runs that repo's own `npm run build` (the exact
 # gate every other piece of content goes through, E-1xx), and a failure's
 # message is relayed to the issue close to verbatim (docs/publishing.md).
@@ -10,14 +13,14 @@
 #     close, and label the issue that triggered the run.
 #   secrets.PUBLISH_PAT (fine-grained, scoped to ONLY the public repo,
 #     Contents: Read and write) — the one thing that ever touches the
-#     public repo: checking it out and pushing the new commit.
+#     public repo: checking it out and pushing the new commit (or deletion).
 # See docs/publishing.md for exactly which PAT scopes to enable and why
 # neither token needs more than this.
 name: Publish
 
 on:
   issues:
-    types: [opened, edited]
+    types: [opened, edited, labeled]
 
 env:
   # R-10 in the public repo: all date attribution is Asia/Seoul. This
@@ -37,19 +40,27 @@ jobs:
     runs-on: ubuntu-latest
     # A job-level `if` is the only place that can skip the ENTIRE run before
     # it spends any Actions minutes (private repos are billed per minute —
-    # docs/publishing.md §비용). Three independent gates:
-    #   1. never re-process an issue that already published (an edit made
-    #      after the "발행됨" label was added must not try to publish again)
-    #   2. only a collaborator's issue may trigger a push to the public repo
+    # docs/publishing.md §비용). Three gates, still true for all three
+    # pipelines (publish/update/take-down):
+    #   1. only a collaborator's issue may trigger a push to the public repo
     #      (defence in depth: a private repo is already collaborator-only,
     #      but author_association costs nothing to also check)
-    #   3. only our own two templates carry a publish:* label at all — a
+    #   2. only our own two templates carry a publish:* label at all — a
     #      blank issue can't reach this workflow (blank_issues_enabled:
     #      false in ISSUE_TEMPLATE/config.yml), this is the second layer
+    #   3. the action must be one this workflow can do something with: a
+    #      fresh save (opened/edited — the "Determine mode" step below
+    #      tells publish from update) or OUR OWN take-down label being
+    #      added. Any OTHER label a repo happens to carry (bug, question, …)
+    #      must never even start this job.
     if: |
-      !contains(github.event.issue.labels.*.name, 'published') &&
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association) &&
-      (contains(github.event.issue.labels.*.name, 'publish:review') || contains(github.event.issue.labels.*.name, 'publish:story'))
+      (contains(github.event.issue.labels.*.name, 'publish:review') || contains(github.event.issue.labels.*.name, 'publish:story')) &&
+      (
+        github.event.action == 'opened' ||
+        github.event.action == 'edited' ||
+        (github.event.action == 'labeled' && github.event.label.name == '내림')
+      )
     steps:
       # SHAs below are the exact pins the PUBLIC repo's own .github/workflows/ci.yml
       # already uses for the same actions (checked 2026-09-08) — reused rather
@@ -64,13 +75,21 @@ jobs:
           repository: fgda114/undernote
           token: ${{ secrets.PUBLISH_PAT }}
           path: public
+          # Full history, not the default shallow clone: MODE=update/takedown
+          # (resolve-published.mjs) reads `git log`/`git show` against this
+          # checkout to recover the ORIGINAL publish commit for an issue — a
+          # shallow clone could be missing it entirely for an old issue.
+          fetch-depth: 0
 
       # Unlike an Issue Form's own `labels:` field (which auto-creates a
       # missing label the first time it's used), `gh issue edit --add-label`
-      # does NOT — it errors on a label that doesn't exist yet. Idempotent:
-      # `|| true` only covers the one expected failure ("already exists").
-      - name: Ensure the "published" label exists
-        run: gh label create published --color 0e8a16 --description "발행 완료" 2>/dev/null || true
+      # / a writer adding a label by hand does NOT — the label has to exist
+      # first. Idempotent: `|| true` only covers the one expected failure
+      # ("already exists").
+      - name: Ensure labels exist
+        run: |
+          gh label create published --color 0e8a16 --description "발행 완료" 2>/dev/null || true
+          gh label create "내림" --color b60205 --description "이 글을 사이트에서 내립니다" 2>/dev/null || true
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -89,8 +108,24 @@ jobs:
         working-directory: public
         run: npm ci
 
+      # publish | update | takedown | skip — see scripts/determine-mode.mjs
+      # for the full decision table and its own tests. 'skip' should be
+      # unreachable given the job-level `if` above already narrows to
+      # exactly these three cases, but every step below still checks it
+      # explicitly (defence in depth — P1: never trust a value just because
+      # it was supposed to be enforced upstream, applied to our OWN gate).
+      - name: Determine mode
+        id: mode
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_EVENT_ACTION: ${{ github.event.action }}
+          GH_EVENT_LABEL_NAME: ${{ github.event.label.name }}
+          GH_ISSUE_LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+        run: node scripts/determine-mode.mjs
+
       - name: Determine issue kind
         id: kind
+        if: steps.mode.outputs.mode != 'skip'
         run: |
           if [ "${{ contains(github.event.issue.labels.*.name, 'publish:story') }}" = "true" ]; then
             echo "kind=story" >> "$GITHUB_OUTPUT"
@@ -102,27 +137,34 @@ jobs:
       # here through `env:`, never interpolated into a `run:` script body,
       # so it can never be read as shell syntax (GitHub Actions script-
       # injection hardening guidance). publish.mjs reads it back out of
-      # process.env.ISSUE_BODY. Writes files under public/ only; never runs
-      # the build and never touches git (see publish.mjs's own doc comment).
-      - name: Resolve + write content
+      # process.env.ISSUE_BODY. Writes/deletes files under public/ only;
+      # never runs the build and never commits/pushes (see publish.mjs's own
+      # doc comment) — it MAY read (never write) public/'s git history for
+      # MODE=update/takedown.
+      - name: Resolve + write/update/delete content
         id: publish
+        if: steps.mode.outputs.mode != 'skip'
         continue-on-error: true
         env:
           PUBLIC_REPO_DIR: ${{ github.workspace }}/public
+          MODE: ${{ steps.mode.outputs.mode }}
           ISSUE_KIND: ${{ steps.kind.outputs.kind }}
           ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
           PUBLISH_RESULT_PATH: ${{ github.workspace }}/publish-result.json
         run: node scripts/publish.mjs
 
       - name: Read publish result
         id: result
+        if: steps.mode.outputs.mode != 'skip'
         env:
           PUBLISH_RESULT_PATH: ${{ github.workspace }}/publish-result.json
         run: node scripts/emit-result-outputs.mjs
 
       # ── Branch A: a PD-* pre-check failure (docs/publishing.md) — a slug
-      # collision, an unresolvable genre label, a cover that wouldn't
-      # download, etc. The writer can fix this by editing the issue. ──
+      # collision, an unresolvable genre label, a locked identity field on an
+      # edit, a snapshot-locked take-down, etc. The writer can act on this
+      # (usually: fix a field and save again). ──
       - name: Comment PD-* failure
         if: steps.result.outputs.ok == 'false' && startsWith(steps.result.outputs.code, 'PD-')
         env:
@@ -131,6 +173,15 @@ jobs:
         run: |
           node scripts/write-comment.mjs pd-error comment.txt
           gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt
+
+      # A blocked take-down (PD-TAKEDOWN-LOCKED) must not leave "내림" sitting
+      # on the issue looking like a take-down is still in progress — remove
+      # it so a writer (or the developer) can tell at a glance it did NOT
+      # happen. Scoped to the take-down mode only: an ordinary PD-* rejection
+      # on a publish/update must never touch this issue's labels.
+      - name: Remove the take-down label after a blocked attempt
+        if: steps.mode.outputs.mode == 'takedown' && steps.result.outputs.ok == 'false' && startsWith(steps.result.outputs.code, 'PD-')
+        run: gh issue edit "${{ github.event.issue.number }}" --remove-label "내림" || true
 
       # ── Branch B: publish.mjs crashed without writing a result at all —
       # a bug here or an unexpected fault, not something the writer caused
@@ -144,8 +195,11 @@ jobs:
           gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt
 
       # ── The real gate: the SAME build every other piece of content goes
-      # through (E-1xx). Nothing above this line validated field shapes or
-      # cross-file rules on purpose — this is where that happens. ──
+      # through (E-1xx) — for a publish, an update, AND a take-down alike (a
+      # take-down's own safety net: if this pipeline under-deleted something,
+      # E-113 still catches it here for real, exactly as if a human had made
+      # the same mistake by hand). Nothing above this line validated field
+      # shapes or cross-file rules on purpose — this is where that happens. ──
       - name: Build public repo
         id: build
         if: steps.result.outputs.ok == 'true'
@@ -157,47 +211,84 @@ jobs:
         if: steps.result.outputs.ok == 'true' && steps.build.outcome == 'failure'
         env:
           REPORT_PATH: ${{ github.workspace }}/public/reports/build-report.md
+          CREATED_ARTIST: ${{ steps.result.outputs.created_artist }}
         run: |
           node scripts/write-comment.mjs build-failure comment.txt
           gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt
 
-      # ── Success: commit exactly the files publish.mjs wrote, push, close
-      # the loop. A fresh checkout with nothing else modified means `git
-      # add` here can only ever pick up new content — there is nothing else
-      # in the tree to accidentally stage. ──
+      # ── Success: commit exactly the files publish.mjs wrote OR deleted,
+      # push, close the loop. A fresh checkout with nothing else modified
+      # means `git add` here can only ever pick up this run's own changes —
+      # there is nothing else in the tree to accidentally stage. `git add
+      # <pathspec>` has staged deletions within that pathspec since Git 2.0,
+      # so ONE line covers publish/update (new/changed files) and take-down
+      # (removed files) alike. ──
       - name: Commit and push
         id: commit
         if: steps.result.outputs.ok == 'true' && steps.build.outcome == 'success'
         working-directory: public
         # ISSUE_TITLE is writer-controlled text — bound through `env:` (see
-        # "Resolve + write content" above for why) and read back with printf
-        # "%s", never interpolated into the script body itself, so nothing
-        # in a mischievous title can be read as shell syntax.
+        # "Resolve + write/update/delete content" above for why) and read
+        # back with printf "%s", never interpolated into the script body
+        # itself, so nothing in a mischievous title can be read as shell
+        # syntax.
         env:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ACTION: ${{ steps.result.outputs.action }}
         run: |
           git config user.name "undernote publish desk"
           git config user.email "actions@users.noreply.github.com"
+          case "$ACTION" in
+            update)   PREFIX="수정" ;;
+            takedown) PREFIX="내림" ;;
+            *)        PREFIX="발행" ;;
+          esac
           git add content public/covers
-          git commit -m "$(printf '발행: %s (issue #%s)' "$ISSUE_TITLE" "$ISSUE_NUMBER")"
+          # resolve-published.mjs greps commit messages for this EXACT
+          # "<PREFIX>: " form (and, for the original publish, the literal
+          # "발행: " prefix specifically) to recover an issue's history later
+          # — changing this format is a breaking change to that lookup.
+          if git diff --cached --quiet; then
+            # Re-running an already-applied take-down (the "내림" label added
+            # a second time) is the one realistic way to reach here with
+            # nothing new to stage — treated as a harmless no-op success,
+            # not an error, since the desired end state already holds.
+            echo "커밋할 변경 사항이 없습니다 — 이미 반영된 상태로 보입니다."
+          else
+            git commit -m "$(printf '%s: %s (issue #%s)' "$PREFIX" "$ISSUE_TITLE" "$ISSUE_NUMBER")"
+          fi
           git push origin HEAD:main
 
       - name: Comment success and close the issue
         if: steps.commit.outcome == 'success'
         env:
+          ACTION: ${{ steps.result.outputs.action }}
           KIND: ${{ steps.result.outputs.kind }}
           URL: ${{ steps.result.outputs.url }}
+          NOTES: ${{ steps.result.outputs.notes }}
         run: |
           node scripts/write-comment.mjs success comment.txt
           gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt
-          gh issue edit "${{ github.event.issue.number }}" --add-label published
-          gh issue close "${{ github.event.issue.number }}"
+          if [ "$ACTION" = "publish" ]; then
+            gh issue edit "${{ github.event.issue.number }}" --add-label published
+            gh issue close "${{ github.event.issue.number }}"
+          elif [ "$ACTION" = "takedown" ]; then
+            # "내림" stays on the issue as a permanent marker; "published" no
+            # longer applies (the piece is no longer live). The issue should
+            # already be closed from its original publish — no need to close
+            # it again.
+            gh issue edit "${{ github.event.issue.number }}" --remove-label published || true
+          fi
+          # "update" needs neither — the issue already carries `published`
+          # and is already closed from its original publish.
 
       # A red X here is for the DEVELOPER (Actions tab) — the writer only
-      # ever learns the outcome from the issue comment/close above.
+      # ever learns the outcome from the issue comment/close above. Skipped
+      # entirely for mode=skip (an irrelevant label add, etc.) — there is
+      # nothing to judge success/failure of.
       - name: Fail the run unless it actually published
-        if: always()
+        if: always() && steps.mode.outputs.mode != 'skip'
         run: |
           if [ "${{ steps.result.outputs.ok }}" != "true" ] || [ "${{ steps.commit.outcome }}" != "success" ]; then
             exit 1
