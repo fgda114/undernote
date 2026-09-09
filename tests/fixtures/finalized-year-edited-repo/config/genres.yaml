@@ -1,0 +1,14 @@
+# E-119 fixture: this 2026 block does NOT match content/snapshots/2026.md's
+# frozen buckets — "pop"'s label was edited after finalize (should read "팝",
+# frozen as such) and "rock" was added after the fact. Both are R-8
+# violations the build must now catch structurally, not just by convention.
+years:
+  - year: 2026
+    buckets:
+      - { id: "pop", label: "팝 (수정됨)", order: 1 }
+      - { id: "rock", label: "록", order: 2 }
+    min_reviews_to_publish: 3
+  - year: 2027
+    buckets:
+      - { id: "pop", label: "팝", order: 1 }
+    min_reviews_to_publish: 3

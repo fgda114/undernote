@@ -59,6 +59,19 @@ export interface SiteData {
   homeVariant: HomeVariant;
   /** Snapshot years present in content (for /list/[year] static paths). */
   snapshotYears: number[];
+  /**
+   * Every year /list/{year}/ renders for (2026-09-08, chart year nav): the
+   * union of years with a genres.yaml block, years with a snapshot, and
+   * active_year itself. A block-less year never appears (nothing to derive a
+   * progressive board from and no snapshot to render), and a year is present
+   * here for exactly as long as R-8's freeze condition allows it to be
+   * EDITED — before a snapshot exists it can still change build to build, so
+   * this list is recomputed fresh every build rather than cached across them.
+   * Sorted ascending; list/[year]/index.astro's prev/next nav walks it
+   * directly, so this is also the single definition of "which years exist"
+   * for that feature.
+   */
+  listYears: number[];
 }
 
 let cached: SiteData | null = null;
@@ -96,6 +109,13 @@ export function getSiteData(): SiteData {
       hasPreviousSnapshot: data.snapshots.some((s) => s.data.year === data.site!.active_year - 1),
     }),
     snapshotYears: data.snapshots.map((s) => s.data.year).sort((a, b) => a - b),
+    listYears: [
+      ...new Set([
+        data.site.active_year,
+        ...data.genres.years.map((y) => y.year),
+        ...data.snapshots.map((s) => s.data.year),
+      ]),
+    ].sort((a, b) => a - b),
   };
   return cached;
 }

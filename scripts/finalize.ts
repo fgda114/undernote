@@ -12,11 +12,23 @@
  *    fixed by deleting the file and re-running finalize).
  *  - Snapshot entries are DENORMALIZED (title/artists_label/score copied as
  *    strings) so later album/config/score edits can never reach a frozen
- *    year (R-2/R-8).
- *  - Also appends a {year+1} bucket block to config/genres.yaml (copy of the
- *    finalized year's buckets — D1: next-year changes are a NEW block, past
- *    blocks stay untouched) and advances active_year, which makes the next
- *    build render the post-finalize home (§1.6) with a fresh empty board.
+ *    year (R-2/R-8). E-119 (checker/resolve.ts) enforces the config-block
+ *    half of the same promise at build time.
+ *  - RETROACTIVE FINALIZE (2026-09-08, R-8 rewrite): --year no longer has to
+ *    be the current active_year. A year below active_year that has never
+ *    been finalized can be built up "the same way" active_year is (its own
+ *    genres.yaml block, its own reviews) and finalized once it is complete —
+ *    the freeze rule is keyed on "has a snapshot", not on the calendar. That
+ *    means finalizing a PAST year must never move active_year: it only
+ *    advances when the year being finalized is the one active_year is
+ *    currently pointing at (or later — advancing is always forward-only).
+ *    The {year+1} bucket-block auto-copy is ALSO skipped on the retroactive
+ *    path: that convenience exists so the NEXT active year always has a
+ *    starting block the moment the current one freezes, which is meaningless
+ *    for a year the site has already moved past (its "next" block, if it
+ *    should exist at all, was either created earlier for the real active
+ *    year or is a deliberate editorial decision this script should not guess
+ *    at).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -143,17 +155,33 @@ async function main() {
   writeFileSync(snapshotPath, `---\n${yamlText}---\n\n${preface}\n`, 'utf8');
   console.log(`스냅샷 생성: content/snapshots/${year}.md`);
 
-  // active_year → year+1 (targeted line edit — keeps the file's comments).
+  // active_year: forward-only. Advancing to year+1 is correct exactly when
+  // finalizing the current frontier (year === active_year, the normal case)
+  // or something even later; finalizing a PAST year (retroactive — see the
+  // intro) must leave the clock alone, or a late 2025 freeze done after 2026
+  // and 2027 both already exist would silently drag active_year backwards.
   const sitePath = join(root, 'config/site.yaml');
   const siteText = readFileSync(sitePath, 'utf8');
-  writeFileSync(sitePath, siteText.replace(/^active_year:\s*\d+/m, `active_year: ${year + 1}`), 'utf8');
-  console.log(`config/site.yaml: active_year → ${year + 1}`);
+  const activeMatch = /^active_year:\s*(\d+)/m.exec(siteText);
+  if (!activeMatch) {
+    console.error('config/site.yaml: active_year 필드를 찾을 수 없습니다 (치환 대상 없음) — 형식을 확인하세요.');
+    process.exit(1);
+  }
+  const currentActive = Number(activeMatch[1]);
+  const isRetroactive = year + 1 <= currentActive;
+  if (isRetroactive) {
+    console.log(`config/site.yaml: 소급 확정 — active_year(${currentActive})는 그대로 둡니다 (과거 연도 확정은 진행 중인 연도를 되돌리지 않습니다).`);
+  } else {
+    writeFileSync(sitePath, siteText.replace(/^active_year:\s*\d+/m, `active_year: ${year + 1}`), 'utf8');
+    console.log(`config/site.yaml: active_year → ${year + 1}`);
+  }
 
   // Next-year bucket block: copied from the finalized year (edit the NEW
   // block if the buckets should change — past blocks are immutable, R-8).
+  // Skipped entirely on the retroactive path — see the intro.
   const genresPath = join(root, 'config/genres.yaml');
   const hasNextBlock = data.genres.years.some((y) => y.year === year + 1);
-  if (!hasNextBlock && yearBlock) {
+  if (!isRetroactive && !hasNextBlock && yearBlock) {
     const nextBlock = stringify(
       {
         years: [

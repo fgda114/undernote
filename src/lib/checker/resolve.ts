@@ -3,7 +3,8 @@
  *   E-101 empty body · E-102 review→album · E-103 album→artists ·
  *   E-104 buckets vs release-year config (checked per element — MULTI-GENRE,
  *   2026-09-08) · E-108 file name = album field · E-114 duplicate-year
- *   snapshot
+ *   snapshot · E-119 finalized year's config block edited post-freeze
+ *   (R-8, 2026-09-08)
  *   E-201 unregistered tags · E-203 story without refs · E-204 dead story ref ·
  *   E-205 no listen links
  *
@@ -13,6 +14,16 @@
  * with a real bucket) lives in the album schema itself, same reasoning as
  * E-109 — this module only checks relations that no single file can know
  * about.
+ *
+ * E-119 (2026-09-08, R-8 rewrite): a finalized year's genres.yaml block must
+ * still equal what finalize() actually froze into its snapshot. "Finalized"
+ * is decided the same way everywhere in this codebase — a
+ * content/snapshots/<year>.md file exists — so this is the ONE place that
+ * rule is enforced structurally, matching it against the ONE place a past
+ * block's contents are recorded (the snapshot itself, which already stores
+ * every bucket's id+label as part of freezing the board — see
+ * scripts/finalize.ts). No separate "frozen config" ledger is kept: the
+ * snapshot already doubles as one, and a second copy could itself drift.
  *
  * Empty artist body is NOT E-101: an aggregation-only artist page is a
  * designed state (api-contracts §3.4, US-14/R-4) — E-101 applies to reviews
@@ -184,6 +195,30 @@ export function resolveRepo(data: RepoData): CheckResult {
           file: snap.file,
         });
       }
+    }
+  }
+
+  // E-119 — a finalized year's config block must equal the snapshot it was
+  // frozen from (id+label set, order-independent). A block that no longer
+  // exists is NOT a violation: deleting an old block is the documented R-8
+  // fallback (back-catalog albums validate against the union of remaining
+  // blocks), only EDITING one while it still exists is. Fields the snapshot
+  // never captured (order, min_reviews_to_publish) are deliberately not
+  // compared — they cannot affect the already-rendered frozen page (R-8's
+  // actual concern), so re-litigating them here would reject harmless edits.
+  for (const snap of data.snapshots) {
+    const block = genreYears.get(snap.data.year);
+    if (!block) continue;
+    const key = (b: { id: string; label: string }) => `${b.id} ${b.label}`;
+    const frozen = new Set(snap.data.buckets.map(key));
+    const current = new Set(block.buckets.map(key));
+    const same = frozen.size === current.size && [...frozen].every((k) => current.has(k));
+    if (!same) {
+      failures.push({
+        code: 'E-119',
+        message: `E-119: config/genres.yaml의 ${snap.data.year}년 블록이 확정 스냅샷(content/snapshots/${snap.data.year}.md)과 다릅니다. 확정된 해의 버킷 설정은 수정할 수 없습니다 (R-8) — 원래대로 되돌리거나, 버킷을 바꾸려면 새 연도 블록을 만드세요.`,
+        file: 'config/genres.yaml',
+      });
     }
   }
 
