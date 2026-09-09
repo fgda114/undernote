@@ -35,7 +35,16 @@
  * distinction this decision draws that the reverted one did not have
  * available yet. /artists/ itself is UNCHANGED — see its own file — this
  * only removes its masthead slot.
- */
+ *
+ * ARCHIVE BECAME SEARCH (2026-09-09), the path the paragraph above already
+ * named. /archive/ now renders every article server-side and a query box
+ * filters what is already on the page (search-hub design — see
+ * lib/derive/archive.ts#deriveHubIndex and archive/index.astro's intro); the
+ * masthead item's LABEL follows that rename. Its `key` and `href` do not —
+ * both stay 'archive' / '/archive/', because the year/genre/tag axis pages
+ * under that path (`/archive/{year}/` etc.) would otherwise sit under a
+ * different prefix than the label naming them, which is worse than a
+ * label/URL mismatch nobody but a URL-bar reader ever sees. */
 import { getSiteConfig } from '../lib/site.ts';
 import { withBase } from '../lib/paths.ts';
 
@@ -52,7 +61,7 @@ const items = [
   { key: 'list', label: 'Charts', href: withBase(`/list/${site.active_year}/`) },
   { key: 'reviews', label: 'Reviews', href: withBase('/archive/reviews/') },
   { key: 'stories', label: 'Notes', href: withBase('/archive/stories/') },
-  { key: 'archive', label: 'Archive', href: withBase('/archive/') },
+  { key: 'archive', label: 'Search', href: withBase('/archive/') },
 ] as const;
 ---
 

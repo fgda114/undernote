@@ -5,7 +5,7 @@
  * inlined in a template.
  */
 import { loadRepo, type RepoData } from '../checker/load.ts';
-import { deriveArchiveIndex, deriveArtistIndex, type ArchiveIndex, type ArtistIndexEntry } from './archive.ts';
+import { deriveArchiveIndex, deriveArtistIndex, deriveHubIndex, type ArchiveIndex, type ArtistIndexEntry, type HubItem } from './archive.ts';
 import { excerptFrom } from './excerpt.ts';
 import { prepareLadder } from './links.ts';
 import {
@@ -53,6 +53,9 @@ export interface SiteData {
   archive: ArchiveIndex;
   /** /artists/ rows — name + per-format counts, name order (see archive.ts). */
   artistIndex: ArtistIndexEntry[];
+  /** /archive/ hub rows — every article plus its filter facets and precomputed
+   * match text (search-hub design, 2026-09-09; see archive.ts#deriveHubIndex). */
+  hubIndex: HubItem[];
   /** Prepared ladder inputs (story list + reverse index) — review pages call
    * deriveBacklinks with these. */
   ladder: ReturnType<typeof prepareLadder>;
@@ -101,6 +104,7 @@ export function getSiteData(): SiteData {
     homeSections: deriveHomeSections(board, allArticles),
     archive,
     artistIndex: deriveArtistIndex(data, archive),
+    hubIndex: deriveHubIndex(data, archive, allArticles),
     ladder: prepareLadder(data, excerptFrom),
     homeVariant: deriveHomeVariant({
       reviewCount: data.reviews.length,

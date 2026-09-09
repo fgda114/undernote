@@ -254,15 +254,27 @@ test('US-9/SS-12 — 아티스트 집계: 공유 아티스트 2편, 복수 아�
  * turned out to be an addition, and finally removed outright. Each time,
  * this line is what said so out loud instead of letting the payload drift.
  *
- * THE CEILING DID NOT MOVE A FOURTH TIME, but the payload shrank again:
- * 1995B → 1970B on 2026-09-08, when the module's text moved out of
+ * THE CEILING DID NOT MOVE A FOURTH TIME on 2026-09-08, but the payload
+ * shrank again: 1995B → 1970B, when the module's text moved out of
  * Base.astro into src/scripts/enhance.js so that the CSP hash and the shipped
  * bytes come from one string (lib/csp.ts). Twenty-five bytes of prose moved
  * to the emit point, where comments cost nothing; nothing was minified and no
- * behaviour changed. 2048 stays: a move that shrinks the payload by 1% is not
- * a decision about the budget.
+ * behaviour changed. 2048 stayed: a move that shrinks the payload by 1% is
+ * not a decision about the budget.
+ *
+ * 2048 → 2560 on 2026-09-09 (lead decision), when the archive hub grew a
+ * search filter — the module's first FUNCTIONAL reader, not a third
+ * decoration. Before this feature the block sat at 1970B against the 2048B
+ * ceiling (78B headroom, per the immediately preceding paragraph); the
+ * filter alone would not have fit in that headroom, so the ceiling moved
+ * rather than the payload being shaved to squeeze under it — which is
+ * exactly the "decision someone has to make on purpose, in a diff, with a
+ * reason" the comment above this constant already calls out. The block now
+ * measures 2544B against 2560B. The feature is documented in full in
+ * Base.astro (search under "The site's ONE script"), not repeated here:
+ * this file only ever needs to carry the NUMBER and why it moved.
  */
-const INLINE_JS_BUDGET_BYTES = 2048;
+const INLINE_JS_BUDGET_BYTES = 2560;
 
 test('NFR — 클라이언트 JS 예산: 지면당 인라인 1개 · 외부 JS 0 · 상한 이하', () => {
   for (const p of pages) {

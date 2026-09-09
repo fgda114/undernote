@@ -218,6 +218,31 @@ test('focus-visible — 링이 자기 배경에서 3:1 이상 (전 인터랙티�
     if (parseFloat(r.width!) < 2) failures.push(`${r.label} — 아웃라인 ${r.width} (2px 미만)`);
     if (c < 3) failures.push(`${r.label} — 링 대비 ${c.toFixed(2)}:1 < 3`);
   }
+
+  // Archive search input (search-hub design, 2026-09-09) — the one new
+  // focusable control this round added. It lives on /archive/, not the home
+  // page every row above is read from, so it gets its own navigation rather
+  // than riding on the home evaluate() call above.
+  await page.goto(u('/archive/'));
+  const searchRing = await page.evaluate(() => {
+    const el = document.querySelector('.search-input') as HTMLElement | null;
+    if (!el) return null;
+    el.focus();
+    const cs = getComputedStyle(el);
+    let p: HTMLElement | null = el, bg = 'rgba(0, 0, 0, 0)';
+    while (p && bg === 'rgba(0, 0, 0, 0)') { bg = getComputedStyle(p).backgroundColor; p = p.parentElement; }
+    return { style: cs.outlineStyle, width: cs.outlineWidth, color: cs.outlineColor, over: bg };
+  });
+  if (!searchRing) {
+    failures.push('아카이브 검색창 — 선택자 .search-input 없음 (스위트가 낡음)');
+  } else {
+    const c = ratio(rgb(searchRing.color), rgb(searchRing.over));
+    lines.push(`아카이브 검색창: ${searchRing.style} ${searchRing.width} ${searchRing.color} on ${searchRing.over} = ${c.toFixed(2)}:1`);
+    if (searchRing.style === 'none') failures.push('아카이브 검색창 — 아웃라인 없음');
+    if (parseFloat(searchRing.width) < 2) failures.push(`아카이브 검색창 — 아웃라인 ${searchRing.width} (2px 미만)`);
+    if (c < 3) failures.push(`아카이브 검색창 — 링 대비 ${c.toFixed(2)}:1 < 3`);
+  }
+
   console.log(`포커스 링 실측:\n  ${lines.join('\n  ')}`);
   expect(failures, failures.join('\n')).toEqual([]);
 });
@@ -352,6 +377,21 @@ test('forced-colors — 전 텍스트 역할이 시스템 캔버스에서 보인
   const row = await inkOf(page, '.row-card-link .title');
   lines.push(`아카이브 행 제목: bg ${hex(row.bg)} · 잉크 ${hex(row.color)} ${row.ratio.toFixed(2)}:1`);
   if (row.ratio < 4.5) failures.push(`아카이브 행 제목 — 고대비 모드에서 ${row.ratio.toFixed(2)}:1`);
+
+  // Archive search UI (search-hub design, 2026-09-09) — the label and the
+  // live result count are the two new text roles this round added; the
+  // input's own placeholder/typed text is left to the UA's own forced-colors
+  // form-control handling, which this suite does not otherwise probe.
+  await page.goto(u('/archive/'));
+  await page.waitForTimeout(200);
+  for (const [label, sel] of [
+    ['검색 라벨', '.search .axis-title'] as const,
+    ['검색 결과 카운트', '.search-count'] as const,
+  ]) {
+    const r = await inkOf(page, sel);
+    lines.push(`${label}: bg ${hex(r.bg)} · 잉크 ${hex(r.color)} ${r.ratio.toFixed(2)}:1 (${(r.share * 100).toFixed(1)}%)`);
+    if (r.ratio < 4.5) failures.push(`${label} — 고대비 모드에서 ${r.ratio.toFixed(2)}:1 (${hex(r.color)} on ${hex(r.bg)})`);
+  }
 
   console.log(`forced-colors 픽셀 실측:\n  ${lines.join('\n  ')}`);
   expect(failures, `고대비 모드에서 안 보이는 텍스트:\n${failures.join('\n')}`).toEqual([]);

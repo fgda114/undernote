@@ -116,9 +116,15 @@ interface Props {
   /** Print the type overline — see the intro. Default on; off only where
    * the surface's own heading already says the type. */
   showFormat?: boolean;
+  /** /archive/'s search hub only: the row's precomputed lowercase match text
+   * (lib/derive/archive.ts#deriveHubIndex), written as `data-s` on the root
+   * `<li>` for enhance.js to read. Every other call site omits it, so the
+   * attribute is simply absent there — this component stays ignorant of what
+   * a "match" means, it just carries the string. */
+  searchKey?: string;
 }
 
-const { item, variant = 'row', eager = false, showScore = false, showFormat = true } = Astro.props;
+const { item, variant = 'row', eager = false, showScore = false, showFormat = true, searchKey } = Astro.props;
 
 // Rendered box: at most 320px from 641px up (the track cap — see
 // index.astro's ladder; 4 → 3 → 2 columns all cap at 320px, so one number
@@ -147,7 +153,7 @@ const score = showScore ? item.score : undefined;
 
 {
   variant === 'card' ? (
-    <li class="article-card card">
+    <li class="article-card card" data-s={searchKey}>
       <a href={withBase(item.url)} class="card-link">
         <span class="visual">
           {item.type === 'review' ? (
@@ -189,7 +195,7 @@ const score = showScore ? item.score : undefined;
       </a>
     </li>
   ) : (
-    <li class="article-card">
+    <li class="article-card" data-s={searchKey}>
       <a href={withBase(item.url)} class="row-card-link">
         <span class="thumb">
           {item.type === 'review' ? (
