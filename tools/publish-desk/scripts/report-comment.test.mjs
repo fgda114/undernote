@@ -88,3 +88,18 @@ test('formatBuildFailureComment: an E-113 for a DIFFERENT artist is never touche
   const out = formatBuildFailureComment(report, { createdArtistSlug: 'pipeline-check' });
   assert.match(out, /some-other-artist/, 'only the slug THIS run created may ever be suppressed — never a pre-existing orphan');
 });
+
+test('formatSuccessComment omits the "참고" block when there are no notes', () => {
+  assert.doesNotMatch(formatSuccessComment({ kind: 'review', url: 'https://x/' }), /참고:/);
+});
+
+test('formatSuccessComment relays every note under "참고" (2026-09-08 — e.g. an auto-generated slug)', () => {
+  const out = formatSuccessComment({
+    kind: 'review',
+    url: 'https://x/reviews/y/',
+    notes: ['아티스트 주소를 자동으로 "artist-abc123"(으)로 정했습니다.', '커버 이미지는 반영되지 않았습니다.'],
+  });
+  assert.match(out, /참고:/);
+  assert.match(out, /- 아티스트 주소를 자동으로 "artist-abc123"\(으\)로 정했습니다\./);
+  assert.match(out, /- 커버 이미지는 반영되지 않았습니다\./);
+});

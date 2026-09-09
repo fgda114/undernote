@@ -29,7 +29,7 @@ function makeGitFixtureRepo() {
   writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: Phoebe Bridgers\n---\n', 'utf8');
   writeFileSync(
     join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'),
-    'title: "Lost Weekend"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbucket: rock\n',
+    'title: "Lost Weekend"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\n',
     'utf8',
   );
   writeFileSync(
@@ -94,7 +94,7 @@ test('resolve-published: against a REAL git repository', async (t) => {
     assert.equal(original.artistName, 'Phoebe Bridgers');
     assert.equal(original.artistSlug, 'phoebe-bridgers');
     assert.equal(original.releaseDate, '2026');
-    assert.equal(original.bucketId, 'rock');
+    assert.deepEqual(original.bucketIds, ['rock']);
     // date/score come from the ORIGINAL commit's blob — the score edit that
     // followed (8.4 -> 8.5) must not leak into what "original" means.
     assert.equal(original.originalDate, '2026-09-06');
@@ -129,7 +129,7 @@ test('resolveOriginalPublication: reused-existing-album case (no content/albums/
   writeFileSync(join(root, 'content', 'artists', 'boygenius.md'), '---\nname: boygenius\n---\n', 'utf8');
   writeFileSync(
     join(root, 'content', 'albums', 'boygenius-the-record.yaml'),
-    'title: "the record"\nartists: [boygenius]\nrelease_date: "2023"\nbucket: rock\n',
+    'title: "the record"\nartists: [boygenius]\nrelease_date: "2023"\nbuckets: [rock]\n',
     'utf8',
   );
   run('git add -A && git commit -q -m "content: seed"');

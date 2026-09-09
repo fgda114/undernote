@@ -66,7 +66,7 @@ function albumOf(slug: string, over: Partial<Album> = {}): Entry<Album> {
     title: `앨범 ${slug}`,
     artists: ['artist-a'],
     release_date: '2026-03-01',
-    bucket: 'pop',
+    buckets: ['pop'],
     tags: [],
     ...over,
   } as Album);
@@ -152,7 +152,7 @@ describe('R-3 — 귀속 2축 공존 (사양)', () => {
 
 describe('R-7 — etc 버킷 취급', () => {
   const repo = repoOf({
-    albums: [albumOf('etc-masterpiece', { bucket: 'etc' }), albumOf('pop-album')],
+    albums: [albumOf('etc-masterpiece', { buckets: ['etc'] }), albumOf('pop-album')],
     reviews: [reviewOf('etc-masterpiece', '9.1', '2026-01-01'), reviewOf('pop-album', '8.0', '2026-01-02')],
   });
   const joined = joinReviews(repo);
@@ -171,7 +171,7 @@ describe('R-7 — etc 버킷 취급', () => {
 
 describe('R-4 · R-6 — 빈 집합과 미달', () => {
   it('빈 버킷도 구조에 남고(entries 0) 5편 초과는 상위 5만', () => {
-    const albums = Array.from({ length: 7 }, (_, i) => albumOf(`hh-${i}`, { bucket: 'hiphop-rnb' }));
+    const albums = Array.from({ length: 7 }, (_, i) => albumOf(`hh-${i}`, { buckets: ['hiphop-rnb'] }));
     const reviews = albums.map((a, i) => reviewOf(a.slug, `${(9 - i * 0.1).toFixed(1)}`, '2026-01-01'));
     const joined = joinReviews(repoOf({ albums, reviews }));
     const board = deriveBoard(joined, genres, 2026);
@@ -226,7 +226,7 @@ describe('R-10 — Asia/Seoul 종료 월 판정 (유일한 시계 소비처)', (
 
 describe('E-301 — 경계 동점만 알림', () => {
   it('보드 5↔6위 동점 → E-301, 비경계(2↔3위) 동점 → 미산출', () => {
-    const albums = Array.from({ length: 6 }, (_, i) => albumOf(`hh-${i}`, { bucket: 'hiphop-rnb' }));
+    const albums = Array.from({ length: 6 }, (_, i) => albumOf(`hh-${i}`, { buckets: ['hiphop-rnb'] }));
     // 5th and 6th share 8.0 (boundary); 2nd/3rd share 8.5 (non-boundary).
     const scores = ['9.0', '8.5', '8.5', '8.2', '8.0', '8.0'];
     const reviews = albums.map((a, i) => reviewOf(a.slug, scores[i], `2026-01-0${i + 1}`));
@@ -237,7 +237,7 @@ describe('E-301 — 경계 동점만 알림', () => {
   });
 
   it('버킷 1↔2위 동점도 경계다', () => {
-    const albums = [albumOf('a1', { bucket: 'pop' }), albumOf('a2', { bucket: 'pop' })];
+    const albums = [albumOf('a1', { buckets: ['pop'] }), albumOf('a2', { buckets: ['pop'] })];
     const reviews = [reviewOf('a1', '9.0', '2026-01-01'), reviewOf('a2', '9.0', '2026-01-02')];
     const notices = detectBoundaryTies(joinReviews(repoOf({ albums, reviews })), genres, 2026);
     expect(notices.some((n) => n.message.includes('1↔2위'))).toBe(true);
@@ -247,7 +247,7 @@ describe('E-301 — 경계 동점만 알림', () => {
 describe('E-302 · E-303', () => {
   it('이후 연도 발매작 평론 존재 + 미확정 → E-302', () => {
     const repo = repoOf({
-      albums: [albumOf('next-year', { release_date: '2027-01-05', bucket: 'etc' })],
+      albums: [albumOf('next-year', { release_date: '2027-01-05', buckets: ['etc'] })],
       reviews: [reviewOf('next-year', '8.0', '2027-01-10')],
     });
     const notices = detectUnfinalizedYear(repo, joinReviews(repo));
@@ -256,7 +256,7 @@ describe('E-302 · E-303', () => {
 
   it('직전 빌드 보드 상태와의 차이 → E-303 진입/탈락', () => {
     const repo = repoOf({
-      albums: [albumOf('rising', { bucket: 'pop' })],
+      albums: [albumOf('rising', { buckets: ['pop'] })],
       reviews: [reviewOf('rising', '8.5', '2026-01-01')],
     });
     const board = deriveBoard(joinReviews(repo), genres, 2026);
@@ -320,7 +320,7 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
 
   it('charts = 보드를 버킷 순서 → 순위 순으로 평탄화하고 버킷 라벨·버킷 내 순위를 싣는다', () => {
     const repo = repoOf({
-      albums: [albumOf('pop-hi'), albumOf('pop-lo'), albumOf('hip', { bucket: 'hiphop-rnb' })],
+      albums: [albumOf('pop-hi'), albumOf('pop-lo'), albumOf('hip', { buckets: ['hiphop-rnb'] })],
       reviews: [
         reviewOf('pop-hi', '9.0', '2026-01-01'),
         reviewOf('pop-lo', '7.0', '2026-01-02'),

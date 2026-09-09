@@ -19,9 +19,19 @@ export interface ReviewPageData {
   artistsLabel: string;
   /** Per-artist link data — hero renders names as /artists/ links (US-9 AC1). */
   artistLinks: { slug: string; name: string }[];
+  /** First bucket's label (array order — see Album#buckets doc, order is
+   * NOT a ranking). Kept singular for existing callers (SpecMeta, the hero
+   * subtitle, LadderBlock's bucket lead copy) that only ever show one genre;
+   * `bucketLabels` below carries all of them for a future multi-genre
+   * display. MULTI-GENRE GAP (2026-09-08): an album in more than one bucket
+   * still only SHOWS its first one here — see 08-impl-notes/backend.md. */
   bucketLabel: string;
-  /** Bucket id — the /archive/genre/ link target on the spec block. */
+  /** First bucket's id — the /archive/genre/ link target on the spec block. */
   bucketId: string;
+  /** Every bucket this album belongs to, resolved to {id, label} pairs, same
+   * array order as Album#buckets. Not consumed by any page yet (2026-09-08) —
+   * added additively for a future multi-genre spec-block/hero row. */
+  bucketLabels: { id: string; label: string }[];
   releaseDateText: string;
   cover: CoverSet | null;
   /** Stored score string, rendered verbatim in the verdict (no reformatting). */
@@ -87,13 +97,15 @@ export function buildReviewPageData(input: {
 }): ReviewPageData {
   const { slug, review, album, artists, genres, site, tagLabels } = input;
   const artistsLabel = artistsLabelFor(album.artists, artists);
+  const releaseYear = Number(album.release_date.slice(0, 4));
   return {
     slug,
     title: album.title,
     artistsLabel,
     artistLinks: album.artists.map((s) => ({ slug: s, name: artists.get(s)?.name ?? s })),
-    bucketLabel: bucketLabelFor(album.bucket, Number(album.release_date.slice(0, 4)), genres),
-    bucketId: album.bucket,
+    bucketLabel: bucketLabelFor(album.buckets[0], releaseYear, genres),
+    bucketId: album.buckets[0],
+    bucketLabels: album.buckets.map((id) => ({ id, label: bucketLabelFor(id, releaseYear, genres) })),
     releaseDateText: formatReleaseDate(album.release_date),
     cover: coverSetFor({ slug, title: album.title, artistsLabel, cover: album.cover }),
     score: review.score,

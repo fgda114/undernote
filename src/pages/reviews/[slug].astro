@@ -78,7 +78,7 @@ const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, yea
 
 // Follow blocks (§2.5 fixed order): ① the ladder ② "{artist}'s other work".
 const backlinks = deriveBacklinks(
-  { slug: review.id, tags: album.data.tags, bucket: album.data.bucket },
+  { slug: review.id, tags: album.data.tags, buckets: album.data.buckets },
   siteData.ladder.stories,
   siteData.ladder.refIndex,
   siteData.ladder.albumBuckets,

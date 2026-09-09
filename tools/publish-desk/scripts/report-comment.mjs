@@ -110,15 +110,31 @@ export function formatInfraErrorComment(runUrl) {
  * Success comment for all three actions. `action` defaults to 'publish' so
  * every call site from before the update/take-down pipelines existed still
  * behaves exactly as before (backward-compatible signature).
+ *
+ * `notes` — publishReview/publishStory's own `notes: string[]` (e.g. "커버
+ * 이미지는 반영되지 않았습니다", or the 2026-09-08 auto-slug lines from
+ * resolveArtist/resolveAlbum, or take-down's "the artist page went too").
+ * These describe a DECISION made on the writer's behalf, so they must reach
+ * the one place the writer actually reads — this comment — not just sit in
+ * the JSON result file. Bulleted under a "참고:" heading in every action,
+ * take-down included: a decision made for someone reads the same way
+ * whichever pipeline made it.
  */
+function noteLines(notes) {
+  return notes.length > 0 ? ['참고:', ...notes.map((note) => `- ${note}`), ''] : [];
+}
+
 export function formatSuccessComment({ action = 'publish', kind, url, notes = [] }) {
   const label = kind === 'story' ? '이야기' : '평론';
   if (action === 'takedown') {
-    return [`이 ${label}을(를) 사이트에서 내렸습니다.`, ...(notes.length > 0 ? ['', ...notes] : [])].join('\n');
+    // No URL line: the page this comment is about no longer exists.
+    const lines = [`이 ${label}을(를) 사이트에서 내렸습니다.`];
+    if (notes.length > 0) lines.push('', ...noteLines(notes).slice(0, -1));
+    return lines.join('\n');
   }
   const verb = action === 'update' ? '수정' : '발행';
   const lines = [`${verb}됐습니다. ${label} 주소: ${url}`, ''];
-  if (notes.length > 0) lines.push(...notes, '');
+  lines.push(...noteLines(notes));
   lines.push('보통 몇 분 안에 실제 사이트에도 반영됩니다.');
   return lines.join('\n');
 }

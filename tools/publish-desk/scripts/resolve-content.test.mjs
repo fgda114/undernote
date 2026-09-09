@@ -14,6 +14,7 @@ import {
   findArtistByName,
   findAlbumByTitleArtist,
   resolveGenreBucket,
+  resolveGenreBuckets,
 } from './resolve-content.mjs';
 
 /** Build a minimal fixture "public repo" checkout — just enough of
@@ -29,7 +30,7 @@ function makeFixtureRepo() {
 
   writeFileSync(
     join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'),
-    'title: lost weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbucket: rock\n',
+    'title: lost weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\n',
     'utf8',
   );
 
@@ -115,6 +116,22 @@ test('resolve-content: end-to-end against a fixture checkout', async (t) => {
 
   await t.test('resolveGenreBucket: an unknown label (config drift) reports "none", never a silent guess', () => {
     assert.deepEqual(resolveGenreBucket('Jazz', root), { status: 'none' });
+  });
+
+  await t.test('resolveGenreBuckets: MULTI-GENRE — every checked label resolves to its own id, order kept', () => {
+    assert.deepEqual(resolveGenreBuckets(['Rock', 'Hip-Hop / R&B'], root), { status: 'found', ids: ['rock', 'hiphop-rnb'] });
+  });
+
+  await t.test('resolveGenreBuckets: "그 외" alone resolves to ["etc"] without reading config', () => {
+    assert.deepEqual(resolveGenreBuckets(['그 외'], root), { status: 'found', ids: ['etc'] });
+  });
+
+  await t.test('resolveGenreBuckets: [] resolves to an empty id list (caller decides whether that is allowed)', () => {
+    assert.deepEqual(resolveGenreBuckets([], root), { status: 'found', ids: [] });
+  });
+
+  await t.test('resolveGenreBuckets: stops at the FIRST unresolvable label and names it', () => {
+    assert.deepEqual(resolveGenreBuckets(['Rock', 'Jazz', 'Pop'], root), { status: 'none', label: 'Jazz' });
   });
 });
 

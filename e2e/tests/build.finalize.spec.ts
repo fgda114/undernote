@@ -122,7 +122,7 @@ test('점수 수정 → 평론은 반영, 확정 스냅샷 지면은 불변 (US-
 test('확정 후 지난해 발매작 평론 발행 → 스냅샷 불변 + 아카이브만 편입 (US-13 AC2)', () => {
   writeFileSync(
     join(dir, 'content/albums/late-arrival.yaml'),
-    'title: 뒤늦은 도착\nartists: [fixture-artist]\nrelease_date: "2026-08-30"\nbucket: pop\n',
+    'title: 뒤늦은 도착\nartists: [fixture-artist]\nrelease_date: "2026-08-30"\nbuckets: [pop]\n',
     'utf8',
   );
   writeFileSync(

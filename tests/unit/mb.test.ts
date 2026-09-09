@@ -82,7 +82,7 @@ describe('scaffold — MB 응답 → 파일 내용', () => {
       title: 'Fixture Album',
       artistSlugs: ['fixture-artist'],
       releaseDate: '2026-05-01',
-      bucket: 'pop',
+      buckets: ['pop'],
       mbid: 'mbid-1234',
       cover: 'covers/fixture-artist-fixture-album.jpg',
       coverSource: 'https://coverartarchive.org/...',
@@ -92,7 +92,7 @@ describe('scaffold — MB 응답 → 파일 내용', () => {
   });
 
   it('release_date가 문자열로 저장된다 (YAML 숫자 접힘 방지)', () => {
-    const yaml = albumYaml({ title: 'T', artistSlugs: ['a'], releaseDate: '2026', bucket: 'etc' });
+    const yaml = albumYaml({ title: 'T', artistSlugs: ['a'], releaseDate: '2026', buckets: ['etc'] });
     expect(yaml).toContain('"2026"');
   });
 

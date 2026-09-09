@@ -1,4 +1,4 @@
 title: 옛 명반
 artists: [fixture-artist]
 release_date: "2020-03-01"
-bucket: pop
+buckets: [pop]

@@ -1,4 +1,4 @@
 title: 동점 a
 artists: [fixture-artist]
 release_date: "2026-04-01"
-bucket: pop
+buckets: [pop]

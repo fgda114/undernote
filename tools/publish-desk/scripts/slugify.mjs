@@ -53,10 +53,61 @@ export function combinedSlug(parts) {
 }
 
 /**
+ * Deterministic hex fragment derived from a string's own UTF-8 bytes (FNV-1a,
+ * 32-bit, 6 hex chars) — NOT a slug by itself, a building block for one.
+ *
+ * Used as the "no romanizable characters survived" fallback (see
+ * fallbackSlug below): it depends on nothing but the input TEXT, never on
+ * wall-clock time, randomness, or environment, so the same display name
+ * always produces the same fragment on every run and every machine — the
+ * same determinism discipline the public repo's own derive layer holds
+ * itself to for build output (src/lib/derive/lists.ts's R-1/R-10 comments).
+ */
+export function hashSlugFragment(text) {
+  let h = 0x811c9dc5; // FNV offset basis
+  for (const byte of Buffer.from(text.normalize('NFC'), 'utf8')) {
+    h ^= byte;
+    h = Math.imul(h, 0x01000193); // FNV prime
+  }
+  return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+}
+
+/**
+ * Deterministic replacement for asking the writer "영문 표기를 알려주세요"
+ * when `slugify(text)` comes back empty (an all-Korean name, typically) —
+ * publish-desk must never block a writer mid-submission for a romanization
+ * answer (lead directive, 2026-09-08): a slug is still produced, from data
+ * already ON the issue, and the caller is responsible for telling the writer
+ * what got used (see publish.mjs's `notes`, surfaced in the success comment)
+ * since the resulting URL segment is not something they typed themselves.
+ *
+ * `kind` picks what stands in for the missing romanization:
+ *   'album'  → the release year-month (already on every review submission,
+ *              human-readable, and groups a writer's Korean-titled albums by
+ *              when they came out rather than by an opaque fragment)
+ *   'artist' → a content hash (no release date exists at artist-resolution
+ *              time — this runs BEFORE the album is resolved)
+ * Either way, any ASCII fragment `slugify(text)` DID recover (a mixed-script
+ * name) is kept and prepended/appended — the fallback is a last resort for
+ * what remains unreadable, not a replacement for what already romanized.
+ */
+export function fallbackSlug(kind, text, releaseDate) {
+  const processable = slugify(text);
+  if (kind === 'album') {
+    const ym = /^(\d{4})-?(\d{2})?/.exec(releaseDate ?? '');
+    const stamp = ym ? `${ym[1]}${ym[2] ?? '00'}` : hashSlugFragment(text);
+    return processable ? `${stamp}-${processable}` : stamp;
+  }
+  const hash = hashSlugFragment(text);
+  return processable ? `${processable}-${hash}` : `artist-${hash}`;
+}
+
+/**
  * Pick the first slug in `slug`, `slug-2`, `slug-3`, … that is not already
- * taken. Used only where a collision is a harmless naming coincidence, not
- * a sign of an actual duplicate (music stories — see resolve-content.mjs
- * for the album/artist case, which fails instead of guessing).
+ * taken. Used where a collision is a harmless naming coincidence (music
+ * stories — see resolve-content.mjs for the album/artist HINT/name case,
+ * which still fails instead of guessing) and as the collision backstop for
+ * `fallbackSlug` above, whose output is otherwise unreviewed by a human.
  */
 export function firstAvailableSlug(base, existingSlugs) {
   if (!existingSlugs.has(base)) return base;

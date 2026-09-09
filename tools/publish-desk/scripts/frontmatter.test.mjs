@@ -18,11 +18,16 @@ test('reviewFile: even a malformed score is passed through quoted, not fixed —
 });
 
 test('albumFile: release_date is always quoted, tags/cover omitted when absent', () => {
-  const out = albumFile({ title: 'Lost Weekend', artistSlugs: ['phoebe-bridgers'], releaseDate: '2026', bucket: 'rock' });
+  const out = albumFile({ title: 'Lost Weekend', artistSlugs: ['phoebe-bridgers'], releaseDate: '2026', buckets: ['rock'] });
   assert.equal(
     out,
-    'title: "Lost Weekend"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbucket: rock\n',
+    'title: "Lost Weekend"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\n',
   );
+});
+
+test('albumFile: MULTI-GENRE — more than one bucket is written in the given order', () => {
+  const out = albumFile({ title: 'Lost Weekend', artistSlugs: ['phoebe-bridgers'], releaseDate: '2026', buckets: ['rock', 'pop'] });
+  assert.match(out, /\nbuckets: \[rock, pop\]\n/);
 });
 
 test('albumFile: cover fields appear together, tags appear when present', () => {
@@ -30,7 +35,7 @@ test('albumFile: cover fields appear together, tags appear when present', () => 
     title: 'Lost Weekend',
     artistSlugs: ['phoebe-bridgers'],
     releaseDate: '2026',
-    bucket: 'rock',
+    buckets: ['rock'],
     tags: ['city-pop'],
     cover: 'covers/phoebe-bridgers-lost-weekend.jpg',
     coverSource: '앨범 커버 (축소본)',
@@ -41,7 +46,7 @@ test('albumFile: cover fields appear together, tags appear when present', () => 
 });
 
 test('albumFile: a title containing a double quote is safely escaped', () => {
-  const out = albumFile({ title: 'The "Deluxe" Edition', artistSlugs: ['a'], releaseDate: '2026', bucket: 'pop' });
+  const out = albumFile({ title: 'The "Deluxe" Edition', artistSlugs: ['a'], releaseDate: '2026', buckets: ['pop'] });
   assert.match(out, /^title: "The \\"Deluxe\\" Edition"\n/);
 });
 

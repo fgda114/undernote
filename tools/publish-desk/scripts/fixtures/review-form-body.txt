@@ -18,9 +18,12 @@ _No response_
 
 2026
 
-### 장르
+### 장르 (여러 개 선택 가능)
 
-Rock
+- [X] Hip-Hop / R&B
+- [ ] Pop
+- [X] Rock
+- [ ] 그 외
 
 ### 점수
 

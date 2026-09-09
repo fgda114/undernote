@@ -260,13 +260,17 @@ jobs:
           fi
           git push origin HEAD:main
 
+      # PUBLISH_RESULT_PATH (not the individual KIND/URL step outputs): the
+      # success comment now also relays `notes` (2026-09-08 — e.g. an
+      # auto-generated slug the writer never typed), and re-reading the JSON
+      # file directly avoids round-tripping a note's text through
+      # GITHUB_OUTPUT's own join/escaping (see write-comment.mjs's doc
+      # comment on the 'success' mode for why).
       - name: Comment success and close the issue
         if: steps.commit.outcome == 'success'
         env:
           ACTION: ${{ steps.result.outputs.action }}
-          KIND: ${{ steps.result.outputs.kind }}
-          URL: ${{ steps.result.outputs.url }}
-          NOTES: ${{ steps.result.outputs.notes }}
+          PUBLISH_RESULT_PATH: ${{ github.workspace }}/publish-result.json
         run: |
           node scripts/write-comment.mjs success comment.txt
           gh issue comment "${{ github.event.issue.number }}" --body-file comment.txt

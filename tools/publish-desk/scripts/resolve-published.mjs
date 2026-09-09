@@ -104,7 +104,7 @@ function showFile(sha, path, publicRepoDir, git) {
  *   so this module never pulls in the `yaml` package a second time;
  *   publish.mjs already has it.
  * @returns {null | { kind: 'review', slug, sha, originalDate, albumTitle,
- *   artistName, artistSlug, releaseDate, bucketId } |
+ *   artistName, artistSlug, releaseDate, bucketIds } |
  *   { kind: 'story', slug, sha, originalDate, title }}
  */
 export function resolveOriginalPublication({ issueNumber, publicRepoDir, git = defaultGit, parseYaml }) {
@@ -146,7 +146,15 @@ export function resolveOriginalPublication({ issueNumber, publicRepoDir, git = d
       artistName,
       artistSlug: artistSlug ?? '',
       releaseDate: String(album.release_date ?? ''),
-      bucketId: String(album.bucket ?? ''),
+      // MULTI-GENRE (2026-09-08): `buckets` is an array (album.ts schema —
+      // was singular `bucket` before). Read here exactly as written, in
+      // whatever order the ORIGINAL publish stored it; the update path
+      // (publish.mjs#updateReview) is responsible for comparing this against
+      // a re-submission as a SET, never by array position — nothing here
+      // guarantees the two orders ever line up (e.g. config/genres.yaml's
+      // own bucket order, or the Issue Form's checkbox order, may both
+      // change over the life of a published album).
+      bucketIds: Array.isArray(album.buckets) ? album.buckets.map(String) : [],
     };
   }
 

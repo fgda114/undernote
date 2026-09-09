@@ -12,7 +12,14 @@
  *   mode=build-failure  env REPORT_PATH   (reports/build-report.md from the public checkout)
  *                       env CREATED_ARTIST (optional — see report-comment.mjs's derived-E-113 filter)
  *   mode=infra-error    env RUN_URL       (optional)
- *   mode=success        env ACTION (optional, default publish), KIND, URL, NOTES (optional, " / "-joined)
+ *   mode=success        env ACTION (optional, default publish) plus
+ *     PUBLISH_RESULT_PATH (publish.mjs's own result JSON). kind/url/notes
+ *     are read from the FILE rather than threaded through individual
+ *     GITHUB_OUTPUT fields, so a `notes` entry containing " / " or a
+ *     newline survives intact; emit-result-outputs.mjs's joined `notes`
+ *     output is for the Actions UI, not for reconstructing exact strings
+ *     here. ACTION stays on the env because it is the WORKFLOW's decision
+ *     (which pipeline ran), not something publish.mjs recorded.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
@@ -31,13 +38,15 @@ const bodies = {
       createdArtistSlug: process.env.CREATED_ARTIST || undefined,
     }),
   'infra-error': () => formatInfraErrorComment(process.env.RUN_URL || undefined),
-  success: () =>
-    formatSuccessComment({
+  success: () => {
+    const result = JSON.parse(readFileSync(process.env.PUBLISH_RESULT_PATH, 'utf8'));
+    return formatSuccessComment({
       action: process.env.ACTION || undefined,
-      kind: process.env.KIND,
-      url: process.env.URL,
-      notes: (process.env.NOTES ?? '').split(' / ').filter(Boolean),
-    }),
+      kind: result.kind,
+      url: result.url,
+      notes: result.notes ?? [],
+    });
+  },
 };
 
 const build = bodies[mode];

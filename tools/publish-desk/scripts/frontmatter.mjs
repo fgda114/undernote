@@ -31,13 +31,17 @@ export function reviewFile({ albumSlug, score, date, body }) {
   return `${front}\n${body}\n`;
 }
 
-/** content/albums/<slug>.yaml — no body (albums are data-only, api-contracts §3.1). */
-export function albumFile({ title, artistSlugs, releaseDate, bucket, tags = [], cover, coverSource }) {
+/** content/albums/<slug>.yaml — no body (albums are data-only, api-contracts §3.1).
+ * `buckets` (MULTI-GENRE, 2026-09-08 — was singular `bucket`): one or more
+ * bucket ids, written verbatim in the order resolveGenreBuckets returned
+ * them (checked-option / template order — carries no ranking meaning, see
+ * src/lib/schema/album.ts). */
+export function albumFile({ title, artistSlugs, releaseDate, buckets, tags = [], cover, coverSource }) {
   const lines = [
     `title: ${yamlString(title)}`,
     `artists: [${artistSlugs.join(', ')}]`,
     `release_date: "${releaseDate}"`,
-    `bucket: ${bucket}`,
+    `buckets: [${buckets.join(', ')}]`,
   ];
   if (tags.length > 0) lines.push(`tags: [${tags.join(', ')}]`);
   if (cover) lines.push(`cover: ${cover}`, `cover_source: ${yamlString(coverSource ?? '')}`);

@@ -20,7 +20,7 @@ function albumOf(slug: string, over: Partial<Album> = {}): Entry<Album> {
     title: `앨범 ${slug}`,
     artists: ['artist-a'],
     release_date: '2026-01-01',
-    bucket: 'pop',
+    buckets: ['pop'],
     tags: [],
     ...over,
   } as Album);
@@ -45,7 +45,7 @@ function repoOf(input: Partial<RepoData>): RepoData {
 }
 
 describe('폴백 사슬 4모드 (섞기 금지)', () => {
-  const target = { slug: 'target', tags: ['city-pop'], bucket: 'pop' };
+  const target = { slug: 'target', tags: ['city-pop'], buckets: ['pop'] };
 
   it('① 직접 참조 ≥1 → 전부, 발행 역순', () => {
     const repo = repoOf({
@@ -154,7 +154,7 @@ describe('AlbumBox 행 상태 (안 A · US-4)', () => {
       { ...upgraded, stories: [entry<Story>('the-story', story, '요지.')] },
       excerptFrom,
     );
-    const back = deriveBacklinks({ slug: 'pending-album', tags: [], bucket: 'pop' }, stories, refIndex, albumBuckets);
+    const back = deriveBacklinks({ slug: 'pending-album', tags: [], buckets: ['pop'] }, stories, refIndex, albumBuckets);
     expect(back.mode).toBe('direct');
     expect(back.stories[0].url).toBe('/stories/the-story/');
   });
