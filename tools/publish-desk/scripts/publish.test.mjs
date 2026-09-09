@@ -13,7 +13,8 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { publishReview, publishStory, updateReview, updateStory, takedownReview, takedownStory } from './publish.mjs';
+import { publishReview, publishStory, updateReview, updateStory, takedownReview, takedownStory, resolveStoryAlbumLine } from './publish.mjs';
+import { hashSlugFragment } from './slugify.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Normalized to LF on read: a Windows checkout (core.autocrlf) turns these
@@ -67,6 +68,12 @@ function makeFixtureRepo() {
     'utf8',
   );
   writeFileSync(join(root, 'config', 'site.yaml'), 'site_name: "test"\nbase_url: "https://example.com/undernote"\nactive_year: 2026\n', 'utf8');
+  // Mirrors the public repo's OWN shipped config/tags.yaml (config/tags.yaml
+  // in this repo) — one pre-registered entry, so tests can exercise BOTH
+  // "reuse an existing label" and "register a brand-new one" in the same
+  // fixture, the same way makeFixtureRepo's genres.yaml gives every test a
+  // realistic mix of known buckets to resolve against.
+  writeFileSync(join(root, 'config', 'tags.yaml'), 'tags:\n  - { slug: "city-pop", label: "시티팝", aliases: ["citypop"] }\n', 'utf8');
   return root;
 }
 
@@ -93,6 +100,16 @@ test('publishReview: brand new artist + album + cover — writes all files, cove
   // MULTI-GENRE: the fixture checks BOTH "Hip-Hop / R&B" and "Rock" — both
   // ids land in `buckets`, in the order the form listed them.
   assert.match(albumYaml, /\nbuckets: \[hiphop-rnb, rock\]\n/);
+  // The fixture's "(선택) 부제" field ("Deluxe Edition") is written verbatim.
+  assert.match(albumYaml, /\nsubtitle: "Deluxe Edition"\n/);
+  // "시티팝" matches the shipped config/tags.yaml registry entry BY LABEL
+  // (reused as "city-pop"); "dream pop" is a genuinely new tag, ASCII enough
+  // to slugify directly — see the dedicated resolveTags tests for the
+  // all-Korean-newcomer (fallback slug + auto-registration) case.
+  assert.match(albumYaml, /\ntags: \[city-pop, dream-pop\]\n/);
+  const tagsYaml = readFileSync(join(root, 'config', 'tags.yaml'), 'utf8');
+  assert.match(tagsYaml, /slug: dream-pop, label: "dream pop", aliases: \[\]/);
+  assert.doesNotMatch(tagsYaml, /slug: city-pop, label: "시티팝"[\s\S]*slug: city-pop/, 'the ALREADY-registered "city-pop" must not be duplicated');
   const reviewMd = readFileSync(join(root, 'content', 'reviews', 'phoebe-bridgers-lost-weekend.md'), 'utf8');
   assert.match(reviewMd, /album: phoebe-bridgers-lost-weekend/);
   assert.match(reviewMd, /score: "8\.4"/);
@@ -121,7 +138,10 @@ test('publishReview: no artist-slug hint AND an all-Korean name — auto-generat
   assert.match(result.slug, /^artist-[a-f0-9]{6}-lost-weekend$/);
   assert.ok(existsSync(join(root, 'content', 'artists', `${result.slug.replace(/-lost-weekend$/, '')}.md`)));
   // The writer never typed this URL segment — the success `notes` must say so.
-  assert.equal(result.notes.length, 1);
+  // (2026-09-09: the fixture now also carries "시티팝, dream pop" in its
+  // "태그" field, both unregistered — a second note reports that
+  // auto-registration, see the dedicated tags tests further down.)
+  assert.equal(result.notes.length, 2);
   assert.match(result.notes[0], /아티스트 "피비 브리저스"의 인터넷 주소를 자동으로/);
   assert.match(result.notes[0], /User\(개발 담당\)에게 알려/);
 
@@ -159,7 +179,16 @@ test('publishReview: reuses an existing album, leaves its file untouched, and no
   assert.equal(result.slug, 'phoebe-bridgers-lost-weekend');
   const albumYaml = readFileSync(join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'), 'utf8');
   assert.match(albumYaml, /curated by hand/, 'existing album file must be left untouched');
+  assert.doesNotMatch(albumYaml, /subtitle:/, 'the fixture\'s "Deluxe Edition" subtitle must NOT be applied to an existing album');
+  assert.doesNotMatch(albumYaml, /tags:/, 'the fixture\'s "시티팝, dream pop" tags must NOT be applied to an existing album');
   assert.match(result.notes.join(' '), /이번에 올린 커버 이미지는 반영되지 않았습니다/);
+  assert.match(result.notes.join(' '), /이번에 적은 부제는 반영되지 않았습니다/);
+  assert.match(result.notes.join(' '), /이번에 적은 태그는 반영되지 않았습니다/);
+  // No tag was actually applied anywhere, so nothing should have been
+  // registered into config/tags.yaml either (an unused registry entry would
+  // be dead data no build ever surfaces).
+  const tagsYaml = readFileSync(join(root, 'config', 'tags.yaml'), 'utf8');
+  assert.doesNotMatch(tagsYaml, /dream-pop/);
 });
 
 test('publishReview: refuses to overwrite when a review already exists for the album (1 album = 1 review)', async (t) => {
@@ -243,6 +272,16 @@ test('publishStory: writes a story with a resolved ref and an unresolved text me
   const storyMd = readFileSync(join(root, 'content', 'stories', `${result.slug}.md`), 'utf8');
   assert.match(storyMd, /- \{ ref: phoebe-bridgers-lost-weekend \}/);
   assert.match(storyMd, /- \{ text: "아직 평론 없는 어떤 앨범", artist: "아직 모르는 아티스트" \}/);
+  // The fixture's "태그" field ("여름, 플레이리스트") is all-Korean, so BOTH
+  // are new AND neither has an ASCII fragment to keep — each resolves to
+  // the deterministic hash-only fallback ("tag-<hash>", slugify.mjs).
+  const summerSlug = `tag-${hashSlugFragment('여름')}`;
+  const playlistSlug = `tag-${hashSlugFragment('플레이리스트')}`;
+  assert.match(storyMd, new RegExp(`\\ntags: \\[${summerSlug}, ${playlistSlug}\\]\\n`));
+  assert.match(result.notes.join(' '), /새 태그로 등록했습니다: 여름, 플레이리스트/);
+  const tagsYaml = readFileSync(join(root, 'config', 'tags.yaml'), 'utf8');
+  assert.match(tagsYaml, new RegExp(`slug: ${summerSlug}, label: "여름", aliases: \\[\\]`));
+  assert.match(tagsYaml, new RegExp(`slug: ${playlistSlug}, label: "플레이리스트", aliases: \\[\\]`));
 });
 
 test('publishStory: title collision is avoided, not failed (two stories, same title)', async (t) => {
@@ -272,6 +311,83 @@ test('publishReview: reusing an existing artist never reports createdArtistSlug'
   writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: 피비 브리저스\n---\n', 'utf8');
   const result = await publishReview({ issueBody: fixtureBody('review-form-body.txt'), publicRepoDir: root, fetchImpl: stubFetch });
   assert.equal(result.createdArtistSlug, undefined);
+});
+
+// PD-COVER-NOT-IMAGE real-world repro (2026-09-09, `fgda114/undernote-desk#2`)
+// end to end: a real GitHub <img>-tag cover submission must publish
+// successfully, not fail with PD-COVER-NOT-IMAGE the way it did before this
+// fix (extractImageUrl, cover.mjs).
+test('publishReview: a real GitHub <img>-tag cover (not markdown) is recognized and published', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const result = await publishReview({ issueBody: fixtureBody('review-form-body-img-cover.txt'), publicRepoDir: root, fetchImpl: stubFetch });
+
+  assert.equal(result.ok, true);
+  const albumYaml = readFileSync(join(root, 'content', 'albums', `${result.slug}.yaml`), 'utf8');
+  assert.match(albumYaml, /cover: covers\//, 'the <img>-tag cover must have been downloaded and applied, not skipped as "not an image"');
+  assert.ok(existsSync(join(root, 'public', 'covers', `${result.slug}.jpg`)));
+});
+
+// ── MN-3 (code review, 2026-09-09) — resolveStoryAlbumLine's parenthesis
+// parsing. See the function's own doc comment (publish.mjs) for the full
+// reasoning; these tests exercise the three cases it distinguishes. ──
+
+test('resolveStoryAlbumLine: an album title with its OWN parens, no artist typed, but the album IS registered — parsed as one unsplit title, not a fake artist', () => {
+  const root = makeFixtureRepo();
+  writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: Phoebe Bridgers\n---\n', 'utf8');
+  writeFileSync(
+    join(root, 'content', 'albums', 'phoebe-bridgers-songs.yaml'),
+    'title: "Songs (Deluxe Edition)"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\n',
+    'utf8',
+  );
+  try {
+    // Before the fix: {text: "Songs", artist: "Deluxe Edition"} — "Deluxe
+    // Edition" would render as a fabricated artist name (deriveAlbumBoxRows,
+    // src/lib/derive/links.ts). After: the registry proves it is the title.
+    assert.deepEqual(resolveStoryAlbumLine('Songs (Deluxe Edition)', root), { text: 'Songs (Deluxe Edition)' });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('resolveStoryAlbumLine: a title with its own parens AND a real trailing artist paren still resolves correctly (unaffected by the fix)', () => {
+  const root = makeFixtureRepo();
+  writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: Phoebe Bridgers\n---\n', 'utf8');
+  writeFileSync(
+    join(root, 'content', 'albums', 'phoebe-bridgers-songs.yaml'),
+    'title: "Songs (Deluxe Edition)"\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\n',
+    'utf8',
+  );
+  try {
+    assert.deepEqual(resolveStoryAlbumLine('Songs (Deluxe Edition) (Phoebe Bridgers)', root), { ref: 'phoebe-bridgers-songs' });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('resolveStoryAlbumLine: an UNREGISTERED album whose own title has parens, no artist typed — residual ambiguity, unchanged (documented, SS-9 safe state)', () => {
+  const root = makeFixtureRepo();
+  try {
+    // No album/artist data exists to prove either reading — this is the
+    // irreducible case the code review accepted as low-risk (never a crash
+    // or publish failure, just a name that MIGHT be wrong in the box row).
+    assert.deepEqual(resolveStoryAlbumLine('Brand New Thing (Remaster)', root), { text: 'Brand New Thing', artist: 'Remaster' });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('resolveStoryAlbumLine: a genuinely unregistered ARTIST mention (the Issue Form\'s own placeholder shape) still keeps the artist name', () => {
+  const root = makeFixtureRepo();
+  try {
+    assert.deepEqual(resolveStoryAlbumLine('아직 평론 없는 어떤 앨범 (아직 모르는 아티스트)', root), {
+      text: '아직 평론 없는 어떤 앨범',
+      artist: '아직 모르는 아티스트',
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // ── update / takedown — exercised against a REAL git repo (not a stub), so

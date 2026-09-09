@@ -51,3 +51,29 @@ describe('Album 스키마 — E-118 (buckets 자기모순 게이트)', () => {
     }
   });
 });
+
+describe('Album 스키마 — subtitle (선택 필드, 2026-09-09 추가, 하위호환)', () => {
+  const valid = {
+    title: 'Lost Weekend',
+    artists: ['phoebe-bridgers'],
+    release_date: '2026',
+    buckets: ['rock'],
+  };
+
+  it('subtitle이 없어도 통과한다 (기존 앨범 파일과의 하위호환)', () => {
+    const result = albumSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.subtitle).toBeUndefined();
+  });
+
+  it('subtitle이 있으면 그대로 통과한다', () => {
+    const result = albumSchema.safeParse({ ...valid, subtitle: 'The 3rd Studio Album' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.subtitle).toBe('The 3rd Studio Album');
+  });
+
+  it('subtitle이 빈 문자열이면 거부된다 (빈 줄을 렌더하느니 필드 생략을 요구)', () => {
+    const result = albumSchema.safeParse({ ...valid, subtitle: '' });
+    expect(result.success).toBe(false);
+  });
+});

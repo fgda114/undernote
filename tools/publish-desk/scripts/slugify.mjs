@@ -94,6 +94,12 @@ export function hashSlugFragment(text) {
  *              when they came out rather than by an opaque fragment)
  *   'artist' → a content hash (no release date exists at artist-resolution
  *              time — this runs BEFORE the album is resolved)
+ *   'tag'    → a content hash, same shape as 'artist' (added 2026-09-09 for
+ *              resolveTags/publish.mjs — a brand-new all-Korean tag, e.g. an
+ *              editor typing "시티팝" for the first time before anyone has
+ *              registered it in config/tags.yaml, needs the exact same
+ *              "never block the writer" treatment as an unresolvable
+ *              artist/album name)
  * Either way, any ASCII fragment `slugify(text)` DID recover (a mixed-script
  * name) is kept and prepended/appended — the fallback is a last resort for
  * what remains unreadable, not a replacement for what already romanized.
@@ -106,7 +112,8 @@ export function fallbackSlug(kind, text, releaseDate) {
     return processable ? `${stamp}-${processable}` : stamp;
   }
   const hash = hashSlugFragment(text);
-  return processable ? `${processable}-${hash}` : `artist-${hash}`;
+  const prefix = kind === 'tag' ? 'tag' : 'artist';
+  return processable ? `${processable}-${hash}` : `${prefix}-${hash}`;
 }
 
 /**

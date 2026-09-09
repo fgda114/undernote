@@ -4,11 +4,11 @@ New Artist
 
 ### (선택) 아티스트 영문 표기
 
-_No response_
+new-artist
 
 ### 앨범 이름
 
-Brand New Album
+Real Cover Test
 
 ### (선택) 앨범 주소
 
@@ -20,7 +20,7 @@ _No response_
 
 ### 발매일
 
-2026-05-03
+2026
 
 ### 장르 (여러 개 선택 가능)
 
@@ -35,7 +35,7 @@ _No response_
 
 ### 점수
 
-8.35
+8.0
 
 ### 최종 확인
 
@@ -43,8 +43,9 @@ _No response_
 
 ### 커버 이미지 (있으면)
 
-_No response_
+<img width="640" height="640" alt="Image" src="https://github.com/user-attachments/assets/3d1bb141-3647-42b1-be84-89aec2ae9b58" />
 
 ### 글
 
-한 줄짜리 짧은 평.
+이 픽스처는 실제 GitHub 이슈(fgda114/undernote-desk#2, PD-COVER-NOT-IMAGE)에 삽입된 커버 마크업을
+그대로 옮긴 것이다 — 손으로 마크다운 형태를 재현한 것이 아니다.

@@ -6,11 +6,11 @@
 import { describe, expect, it } from 'vitest';
 import { coverSetFor, derivedCoverPath } from '../../src/lib/covers';
 import { excerptFrom } from '../../src/lib/derive/excerpt';
-import { bucketLabelFor, formatReleaseDate, otherWorkByArtist } from '../../src/lib/derive/review-page';
+import { buildReviewPageData, bucketLabelFor, formatReleaseDate, otherWorkByArtist } from '../../src/lib/derive/review-page';
 import type { ArchiveItem } from '../../src/lib/derive/archive';
 import type { ArticleItem } from '../../src/lib/derive/lists';
 import { buildListenLinks, defaultListenLinks } from '../../src/lib/listen-links';
-import type { GenresConfig } from '../../src/lib/schema';
+import type { Album, Artist, GenresConfig, ReviewFrontmatter, SiteConfig } from '../../src/lib/schema';
 
 describe('listen-links (SS-13)', () => {
   const album = { title: 'OK Computer', artistsLabel: 'Radiohead' };
@@ -84,6 +84,39 @@ describe('bucketLabelFor', () => {
 
   it('구반(연도 블록 없음)도 전 연도 합집합에서 라벨 해석 — raw id 노출 금지 (M-4)', () => {
     expect(bucketLabelFor('pop', 2020, genres)).toBe('팝');
+  });
+});
+
+describe('buildReviewPageData — subtitle pass-through (2026-09-09, 앨범 스키마 §7 추가 필드)', () => {
+  const genres: GenresConfig = {
+    years: [{ year: 2026, buckets: [{ id: 'rock', label: '록', order: 1 }], min_reviews_to_publish: 3 }],
+  };
+  const site = { site_name: 'undernote', base_url: 'https://example.com', active_year: 2026, og_use_cover: true, early_stage_threshold: 6 } as SiteConfig;
+  const review: ReviewFrontmatter = { album: 'lost-weekend', score: '8.4', date: '2026-05-01', editorial_check: true };
+  const artists = new Map<string, Artist>([['phoebe-bridgers', { name: 'Phoebe Bridgers' }]]);
+  const baseAlbum: Album = {
+    title: 'Lost Weekend',
+    artists: ['phoebe-bridgers'],
+    release_date: '2026-05-01',
+    buckets: ['rock'],
+    tags: [],
+  };
+
+  it('subtitle이 있으면 그대로 전달된다', () => {
+    const data = buildReviewPageData({
+      slug: 'lost-weekend',
+      review,
+      album: { ...baseAlbum, subtitle: 'The 3rd Studio Album' },
+      artists,
+      genres,
+      site,
+    });
+    expect(data.subtitle).toBe('The 3rd Studio Album');
+  });
+
+  it('subtitle이 없으면 undefined — 지면이 그 줄 자체를 생략할 수 있다', () => {
+    const data = buildReviewPageData({ slug: 'lost-weekend', review, album: baseAlbum, artists, genres, site });
+    expect(data.subtitle).toBeUndefined();
   });
 });
 

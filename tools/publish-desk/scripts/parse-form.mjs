@@ -116,24 +116,44 @@ function normalize(body) {
   return body.replace(/\r\n?/g, '\n');
 }
 
+/** "태그" field raw text -> trimmed, non-empty tag strings, comma-separated
+ * (unlike "언급한 앨범들", which is one-per-LINE — tags are short enough that
+ * a single line of comma-separated values matches how tag lists are
+ * conventionally typed, and keeps the field a single-line `input`, not a
+ * multi-line `textarea`). Resolution to a registry slug (matching an
+ * existing label, or minting a new one) is NOT this module's job — see
+ * resolve-content.mjs#resolveTags, same "parse now, resolve later" split
+ * every other field in this file follows. */
+function splitTags(raw) {
+  return raw
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
 export const REVIEW_LABELS = {
   artistName: '아티스트 이름',
   artistSlugHint: '(선택) 아티스트 영문 표기',
   albumTitle: '앨범 이름',
   albumSlugHint: '(선택) 앨범 주소',
+  albumSubtitle: '(선택) 부제',
   releaseDate: '발매일',
   // MULTI-GENRE (2026-09-08): the field became a checkboxes group (see
   // review.yml) so the label carries the "여러 개" hint the field itself
   // now needs — parseReviewForm below reads it with extractCheckedOptions,
   // not extractField.
   genre: '장르 (여러 개 선택 가능)',
+  tags: '태그 (있으면, 쉼표로 구분)',
   score: '점수',
   editorialCheck: '최종 확인',
   cover: '커버 이미지 (있으면)',
   body: '글',
 };
 
-export const REVIEW_EDITORIAL_OPTION = '이 앨범, 안 들으면 손해라고 확신합니다.';
+// Wording neutralized 2026-09-09 (decision-maker request) — was "이 앨범, 안
+// 들으면 손해라고 확신합니다." The gate itself (editorial_check must be
+// literal true, E-106) is unchanged; only this option's display text is.
+export const REVIEW_EDITORIAL_OPTION = '최종 확인했습니다.';
 
 // The exact set of `### ` headings GitHub can render for this template —
 // EVERY extractField/extractCheckbox/extractCheckedOptions call below passes
@@ -154,10 +174,12 @@ export function parseReviewForm(rawBody) {
     artistSlugHint: extractField(body, REVIEW_LABELS.artistSlugHint, REVIEW_KNOWN_LABELS),
     albumTitle: extractField(body, REVIEW_LABELS.albumTitle, REVIEW_KNOWN_LABELS),
     albumSlugHint: extractField(body, REVIEW_LABELS.albumSlugHint, REVIEW_KNOWN_LABELS),
+    albumSubtitle: extractField(body, REVIEW_LABELS.albumSubtitle, REVIEW_KNOWN_LABELS),
     releaseDate: extractField(body, REVIEW_LABELS.releaseDate, REVIEW_KNOWN_LABELS),
     // MULTI-GENRE (2026-09-08): zero or more checked labels, template order,
     // never deduplicated/validated here (see resolveGenreBuckets for why).
     genreLabels: extractCheckedOptions(body, REVIEW_LABELS.genre, REVIEW_KNOWN_LABELS),
+    tagTexts: splitTags(extractField(body, REVIEW_LABELS.tags, REVIEW_KNOWN_LABELS)),
     score: extractField(body, REVIEW_LABELS.score, REVIEW_KNOWN_LABELS),
     editorialCheck: extractCheckbox(body, REVIEW_LABELS.editorialCheck, REVIEW_EDITORIAL_OPTION, REVIEW_KNOWN_LABELS),
     coverField: extractField(body, REVIEW_LABELS.cover, REVIEW_KNOWN_LABELS),
@@ -172,6 +194,7 @@ export function parseReviewForm(rawBody) {
 export const STORY_LABELS = {
   title: '제목',
   albums: '언급한 앨범들 (있으면)',
+  tags: '태그 (있으면, 쉼표로 구분)',
   body: '글',
 };
 
@@ -189,6 +212,7 @@ export function parseStoryForm(rawBody) {
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line.length > 0),
+    tagTexts: splitTags(extractField(body, STORY_LABELS.tags, STORY_KNOWN_LABELS)),
     bodyText: extractField(body, STORY_LABELS.body, STORY_KNOWN_LABELS),
   };
 }

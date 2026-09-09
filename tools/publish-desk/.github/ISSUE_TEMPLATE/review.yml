@@ -50,6 +50,17 @@ body:
       required: false
 
   - type: input
+    id: album_subtitle
+    attributes:
+      label: "(선택) 부제"
+      description: |
+        앨범명 옆에 함께 적힐 짧은 부제입니다 (예: "정규 3집", "The 3rd Studio Album", "Deluxe Edition").
+        없으면 비워두면 됩니다 — 지면에 그 줄 자체가 나오지 않습니다.
+      placeholder: "예) The 3rd Studio Album"
+    validations:
+      required: false
+
+  - type: input
     id: release_date
     attributes:
       label: 발매일
@@ -86,6 +97,17 @@ body:
       required: false
 
   - type: input
+    id: tags
+    attributes:
+      label: "태그 (있으면, 쉼표로 구분)"
+      description: |
+        이 앨범을 설명하는 짧은 태그를 쉼표로 구분해 적어주세요. 한글로 적어도 됩니다 — 이미 쓰인 적
+        있는 태그면 알아서 같은 태그로 묶이고, 처음 쓰는 태그면 새로 등록됩니다. 없어도 됩니다.
+      placeholder: "예) 시티팝, 드림팝"
+    validations:
+      required: false
+
+  - type: input
     id: score
     attributes:
       label: 점수
@@ -100,7 +122,7 @@ body:
       label: 최종 확인
       description: 이 체크가 없으면 아무리 글이 완성돼 있어도 발행되지 않습니다.
       options:
-        - label: 이 앨범, 안 들으면 손해라고 확신합니다.
+        - label: 최종 확인했습니다.
           required: true
 
   - type: textarea

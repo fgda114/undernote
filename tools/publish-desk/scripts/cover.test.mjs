@@ -19,6 +19,35 @@ test('extractImageUrl takes the FIRST image if the writer somehow drops more tha
   assert.equal(extractImageUrl(field), 'https://example.com/a.jpg');
 });
 
+// ── PD-COVER-NOT-IMAGE real-world repro (2026-09-09, `fgda114/undernote-
+// desk#2`): GitHub inserted an HTML `<img>` tag, not markdown, for a real
+// cover drag-and-drop into a real issue — the exact markup below is copied
+// verbatim from that issue body, not hand-reproduced, per the lead's
+// "새 픽스처는 실제 GitHub이 만든 것을 그대로 쓰십시오" instruction. ──
+
+test('extractImageUrl reads the URL out of a real GitHub-inserted <img> tag (verbatim from the actual issue)', () => {
+  const field = '<img width="640" height="640" alt="Image" src="https://github.com/user-attachments/assets/3d1bb141-3647-42b1-be84-89aec2ae9b58" />';
+  assert.equal(extractImageUrl(field), 'https://github.com/user-attachments/assets/3d1bb141-3647-42b1-be84-89aec2ae9b58');
+});
+
+test('extractImageUrl reads an <img> tag regardless of attribute order (src FIRST, not last)', () => {
+  const field = '<img src="https://user-images.githubusercontent.com/1/2.jpg" width="640" height="640" alt="Image" />';
+  assert.equal(extractImageUrl(field), 'https://user-images.githubusercontent.com/1/2.jpg');
+});
+
+test('extractImageUrl reads an <img> tag with single-quoted attributes and no self-closing slash', () => {
+  const field = "<img alt='Image' src='https://github.com/user-attachments/assets/abc123'>";
+  assert.equal(extractImageUrl(field), 'https://github.com/user-attachments/assets/abc123');
+});
+
+test('extractImageUrl: when BOTH a markdown image and an <img> tag are present, the one appearing FIRST in the text wins', () => {
+  const htmlFirst = '<img src="https://github.com/user-attachments/assets/first" /> 그리고 ![b](https://example.com/b.jpg)';
+  assert.equal(extractImageUrl(htmlFirst), 'https://github.com/user-attachments/assets/first');
+
+  const markdownFirst = '![a](https://example.com/a.jpg) 그리고 <img src="https://github.com/user-attachments/assets/second" />';
+  assert.equal(extractImageUrl(markdownFirst), 'https://example.com/a.jpg');
+});
+
 // resizeCoverBuffer is exercised against a REAL sharp instance and a
 // synthetic image (same technique as e2e/lib/rich-content.mjs's makeCover
 // in the public repo) — a genuine re-encode, not a mocked call.
@@ -95,6 +124,22 @@ test('downloadImage rejects an internal/metadata-shaped host the same way as any
     () => downloadImage('http://169.254.169.254/latest/meta-data/', fakeFetch),
     /허용되지 않은 호스트/,
   );
+});
+
+// The actual host observed in a real submission (2026-09-09,
+// `fgda114/undernote-desk#2`) is the bare `github.com` apex — NOT a
+// `githubusercontent.com` subdomain, which is what §3.1's two original
+// CANDIDATE hostnames both assumed. Had UN-SEC-016's allowlist been narrowed
+// to those two candidates (as its own doc comment considered and rejected),
+// this exact real URL would have been refused — this test is the concrete
+// evidence for docs/publishing.md §3.1's "do not narrow further" decision.
+test('downloadImage accepts the REAL observed host (github.com apex, user-attachments path)', async () => {
+  const bytes = await sharp({ create: { width: 4, height: 4, channels: 3, background: { r: 6, g: 6, b: 6 } } })
+    .jpeg()
+    .toBuffer();
+  const fakeFetch = async () => new Response(bytes, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+  const result = await downloadImage('https://github.com/user-attachments/assets/3d1bb141-3647-42b1-be84-89aec2ae9b58', fakeFetch);
+  assert.ok(Buffer.isBuffer(result));
 });
 
 test('downloadImage accepts a githubusercontent.com SUBDOMAIN (not just the exact apex)', async () => {

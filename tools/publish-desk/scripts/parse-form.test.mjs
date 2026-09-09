@@ -120,8 +120,10 @@ test('parseReviewForm extracts every field from a full real-shaped fixture', () 
   assert.equal(parsed.artistSlugHint, 'phoebe-bridgers');
   assert.equal(parsed.albumTitle, 'Lost Weekend');
   assert.equal(parsed.albumSlugHint, '');
+  assert.equal(parsed.albumSubtitle, 'Deluxe Edition');
   assert.equal(parsed.releaseDate, '2026');
   assert.deepEqual(parsed.genreLabels, ['Hip-Hop / R&B', 'Rock']); // MULTI-GENRE fixture
+  assert.deepEqual(parsed.tagTexts, ['시티팝', 'dream pop']);
   assert.equal(parsed.score, '8.4');
   assert.equal(parsed.editorialCheck, true);
   assert.match(parsed.coverField, /^!\[lost-weekend\]\(https:\/\/private-user-images/);
@@ -131,16 +133,27 @@ test('parseReviewForm extracts every field from a full real-shaped fixture', () 
 
 test('parseReviewForm handles the minimal/optional-fields-empty fixture', () => {
   const parsed = parseReviewForm(fixture('review-form-body-minimal.txt'));
+  assert.equal(parsed.albumSubtitle, '');
   assert.equal(parsed.releaseDate, '2026-05-03');
   assert.deepEqual(parsed.genreLabels, ['그 외']);
+  assert.deepEqual(parsed.tagTexts, []);
   assert.equal(parsed.score, '8.35'); // deliberately malformed — validated later, not here
   assert.equal(parsed.coverField, '');
   assert.equal(parsed.editorialCheck, true);
+});
+
+// PD-COVER-NOT-IMAGE real-world repro (2026-09-09, `fgda114/undernote-desk#2`)
+// — this fixture's cover field is the ACTUAL HTML GitHub inserted, not a
+// hand-written markdown stand-in (see the fixture file's own "글" text).
+test('parseReviewForm: the cover field can be a real GitHub <img> tag, not just markdown', () => {
+  const parsed = parseReviewForm(fixture('review-form-body-img-cover.txt'));
+  assert.match(parsed.coverField, /^<img width="640" height="640" alt="Image" src="https:\/\/github\.com\/user-attachments\/assets\//);
 });
 
 test('parseStoryForm splits "언급한 앨범들" into one entry per line', () => {
   const parsed = parseStoryForm(fixture('story-form-body.txt'));
   assert.equal(parsed.title, '93년 여름의 플레이리스트');
   assert.deepEqual(parsed.albumLines, ['Lost Weekend (피비 브리저스)', '아직 평론 없는 어떤 앨범 (아직 모르는 아티스트)']);
+  assert.deepEqual(parsed.tagTexts, ['여름', '플레이리스트']);
   assert.match(parsed.bodyText, /그 해 여름은 유난히 길었다/);
 });

@@ -15,7 +15,10 @@ import {
   findAlbumByTitleArtist,
   resolveGenreBucket,
   resolveGenreBuckets,
+  loadTagRegistry,
+  resolveTags,
 } from './resolve-content.mjs';
+import { hashSlugFragment } from './slugify.mjs';
 
 /** Build a minimal fixture "public repo" checkout — just enough of
  * content/{artists,albums} and config/genres.yaml for these functions. */
@@ -133,6 +136,82 @@ test('resolve-content: end-to-end against a fixture checkout', async (t) => {
   await t.test('resolveGenreBuckets: stops at the FIRST unresolvable label and names it', () => {
     assert.deepEqual(resolveGenreBuckets(['Rock', 'Jazz', 'Pop'], root), { status: 'none', label: 'Jazz' });
   });
+});
+
+// ── resolveTags / loadTagRegistry (2026-09-09 — "태그" form field) ─────────
+
+function makeTagRegistryRepo(tagsYaml) {
+  const root = mkdtempSync(join(tmpdir(), 'publish-desk-tags-test-'));
+  mkdirSync(join(root, 'config'), { recursive: true });
+  if (tagsYaml !== null) writeFileSync(join(root, 'config', 'tags.yaml'), tagsYaml, 'utf8');
+  return root;
+}
+
+test('loadTagRegistry: reads the live config/tags.yaml', async (t) => {
+  const root = makeTagRegistryRepo('tags:\n  - { slug: "city-pop", label: "시티팝", aliases: ["citypop"] }\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(loadTagRegistry(root), [{ slug: 'city-pop', label: '시티팝', aliases: ['citypop'] }]);
+});
+
+test('loadTagRegistry: a missing file resolves to an empty registry, not a throw', async (t) => {
+  const root = makeTagRegistryRepo(null);
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(loadTagRegistry(root), []);
+});
+
+test('resolveTags: a tag matching an EXISTING label (Korean) reuses its registered slug — no new entry', async (t) => {
+  const root = makeTagRegistryRepo('tags:\n  - { slug: "city-pop", label: "시티팝", aliases: ["citypop"] }\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(resolveTags(['시티팝'], root), { slugs: ['city-pop'], newEntries: [] });
+});
+
+test('resolveTags: label match is whitespace/case-insensitive (normalizeName, same rule as artist/album reuse)', async (t) => {
+  const root = makeTagRegistryRepo('tags:\n  - { slug: "dream-pop", label: "Dream Pop", aliases: [] }\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(resolveTags(['  dream   pop '], root), { slugs: ['dream-pop'], newEntries: [] });
+});
+
+test('resolveTags: an ASCII newcomer slugifies directly and is reported as a new entry', async (t) => {
+  const root = makeTagRegistryRepo('tags: []\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(resolveTags(['dream pop'], root), { slugs: ['dream-pop'], newEntries: [{ slug: 'dream-pop', label: 'dream pop' }] });
+});
+
+test('resolveTags: an all-Korean newcomer falls back to a deterministic hash slug, same as fallbackSlug("tag", …)', async (t) => {
+  const root = makeTagRegistryRepo('tags: []\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const expectedSlug = `tag-${hashSlugFragment('시티팝')}`;
+  assert.deepEqual(resolveTags(['시티팝'], root), { slugs: [expectedSlug], newEntries: [{ slug: expectedSlug, label: '시티팝' }] });
+});
+
+test('resolveTags: the SAME new tag typed twice on one form mints only ONE slug/entry, not two', async (t) => {
+  const root = makeTagRegistryRepo('tags: []\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(resolveTags(['dream pop', 'Dream Pop'], root), {
+    slugs: ['dream-pop'],
+    newEntries: [{ slug: 'dream-pop', label: 'dream pop' }],
+  });
+});
+
+test('resolveTags: blank/whitespace-only entries (an author\'s stray comma) are dropped, not turned into empty-string tags', async (t) => {
+  const root = makeTagRegistryRepo('tags: []\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(resolveTags(['dream pop', '', '   '], root), {
+    slugs: ['dream-pop'],
+    newEntries: [{ slug: 'dream-pop', label: 'dream pop' }],
+  });
+});
+
+test('resolveTags: [] resolves to no slugs and no new entries', async (t) => {
+  const root = makeTagRegistryRepo('tags: []\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(resolveTags([], root), { slugs: [], newEntries: [] });
+});
+
+test('resolveTags: a missing config/tags.yaml is treated as an empty registry — every tag becomes a newcomer', async (t) => {
+  const root = makeTagRegistryRepo(null);
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(resolveTags(['dream pop'], root), { slugs: ['dream-pop'], newEntries: [{ slug: 'dream-pop', label: 'dream pop' }] });
 });
 
 test('listReviews / listStories / listSnapshots — takedown.mjs readers', async (t) => {

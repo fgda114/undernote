@@ -16,6 +16,11 @@ import type { ArticleItem } from './lists.ts';
 export interface ReviewPageData {
   slug: string;
   title: string;
+  /** Short qualifier next to the title, e.g. "The 3rd Studio Album" (album
+   * schema's optional `subtitle`, 2026-09-09) — undefined when the album has
+   * none, so the page template can omit the row entirely rather than render
+   * an empty one. */
+  subtitle?: string;
   artistsLabel: string;
   /** Per-artist link data — hero renders names as /artists/ links (US-9 AC1). */
   artistLinks: { slug: string; name: string }[];
@@ -101,6 +106,7 @@ export function buildReviewPageData(input: {
   return {
     slug,
     title: album.title,
+    subtitle: album.subtitle,
     artistsLabel,
     artistLinks: album.artists.map((s) => ({ slug: s, name: artists.get(s)?.name ?? s })),
     bucketLabel: bucketLabelFor(album.buckets[0], releaseYear, genres),
