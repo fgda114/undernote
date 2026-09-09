@@ -22,6 +22,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
+import { slugify, isValidSlug, fallbackSlug } from './slugify.mjs';
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
@@ -218,4 +219,96 @@ export function resolveGenreBuckets(labels, root) {
     ids.push(resolved.id);
   }
   return { status: 'found', ids };
+}
+
+/** @returns {Array<{slug: string, label: string, aliases: string[]}>} the
+ * LIVE contents of config/tags.yaml from the checked-out public repo — same
+ * "read fresh every run" rule as resolveGenreBucket above, and for the same
+ * reason (a second, stale copy in this package could drift). An absent file
+ * resolves to an empty registry rather than throwing: unlike genres.yaml
+ * (required — E-100 if missing), the checker treats a missing tags.yaml the
+ * same way (E-100), but resolveTags below must still degrade gracefully so a
+ * config problem surfaces as the real build's E-100, not an opaque crash
+ * here before the build ever runs. */
+export function loadTagRegistry(root) {
+  const path = join(root, 'config', 'tags.yaml');
+  if (!existsSync(path)) return [];
+  const config = parseYaml(readFileSync(path, 'utf8'));
+  return Array.isArray(config?.tags) ? config.tags : [];
+}
+
+/**
+ * Resolve writer-typed tag TEXT (Korean or English, one per "태그" form
+ * entry) to canonical registry slugs — mirrors resolveArtist/resolveAlbum's
+ * own "reuse by matching NAME, mint a slug only for a genuine newcomer"
+ * shape (publish.mjs), just keyed on config/tags.yaml's `label` instead of a
+ * content file's `name`/`title`.
+ *
+ * Unlike an artist/album slug, an unregistered tag does NOT fail the build
+ * (E-201 is a WARNING — src/lib/checker/resolve.ts#checkTags; a tag content
+ * still indexes fine under its own literal slug either way,
+ * src/lib/derive/archive.ts's own comment). So this function COULD just
+ * slugify() every tag and stop there. It does more than the minimum on
+ * purpose: config/tags.yaml already exists precisely to give a tag a
+ * human-readable Korean LABEL (e.g. the shipped example, `{slug: "city-pop",
+ * label: "시티팝"}`) — if this function ignored that and always ran
+ * slugify()/fallbackSlug() fresh, a writer typing "시티팝" a second time
+ * would get a NEW hash-based slug ("tag-a1b2c3") that never matches the
+ * curated "city-pop" entry, permanently splitting one concept across two
+ * slugs and leaving a perpetual E-201 warning the developer can never
+ * resolve by editing the registry once. Matching by LABEL first (exact,
+ * normalized — same normalizeName() used for artist/album reuse) closes
+ * that gap: a tag typed the same way twice always resolves to the same
+ * slug, registered or not.
+ *
+ * A tag with NO label match is a genuine newcomer: slugify() it (or fall
+ * back to a deterministic hash for all-Korean text with nothing ASCII to
+ * recover, `fallbackSlug('tag', …)` — same rule as an unresolvable
+ * artist/album name, 2026-09-08 "never ask back" directive) and report it in
+ * `newEntries` so the caller can register it in config/tags.yaml — this is
+ * the "발행 파이프라인이 등록부에 자동으로 추가" decision (backend.md):
+ * chosen BECAUSE it costs nothing (tags carry no identity/URL of their own
+ * to lock — unlike an artist/album slug, renaming a tag's registry label
+ * later is always safe) and it is the only way a writer's Korean tag ever
+ * gets a readable label instead of living as a permanent E-201 warning.
+ *
+ * @returns {{slugs: string[], newEntries: Array<{slug: string, label: string}>}}
+ *   `slugs` is deduplicated, in first-seen order; `newEntries` lists exactly
+ *   the tags this call did NOT find in the registry (label match OR reuse of
+ *   a newEntry minted earlier in the SAME call, e.g. two identical tags
+ *   typed twice on one form) — the caller writes these to config/tags.yaml.
+ */
+export function resolveTags(texts, root) {
+  const registry = loadTagRegistry(root);
+  const slugs = [];
+  const newEntries = [];
+  for (const raw of texts) {
+    const text = raw.trim();
+    if (text === '') continue;
+
+    const known = registry.find((t) => normalizeName(t.label) === normalizeName(text));
+    if (known) {
+      if (!slugs.includes(known.slug)) slugs.push(known.slug);
+      continue;
+    }
+    // Two identical NEW tags on the same form (e.g. "시티팝, 시티팝" — a
+    // writer's copy-paste slip) must mint the SAME slug once, not register
+    // "city-pop" and "city-pop-2" for the same label.
+    const pending = newEntries.find((e) => normalizeName(e.label) === normalizeName(text));
+    if (pending) {
+      if (!slugs.includes(pending.slug)) slugs.push(pending.slug);
+      continue;
+    }
+
+    const candidate = slugify(text) || fallbackSlug('tag', text);
+    // isValidSlug() can only fail here if slugify()/fallbackSlug() itself has
+    // a bug (both are specified to always return SLUG_PATTERN-shaped output)
+    // — defence in depth, not a reachable writer-facing path: an invalid tag
+    // slug would otherwise reach config/tags.yaml unvalidated (no build gate
+    // re-checks THIS file's own slugs the way E-107 checks content slugs).
+    const slug = isValidSlug(candidate) ? candidate : fallbackSlug('tag', text);
+    if (!slugs.includes(slug)) slugs.push(slug);
+    newEntries.push({ slug, label: text });
+  }
+  return { slugs, newEntries };
 }

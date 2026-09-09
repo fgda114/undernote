@@ -35,14 +35,20 @@ export function reviewFile({ albumSlug, score, date, body }) {
  * `buckets` (MULTI-GENRE, 2026-09-08 — was singular `bucket`): one or more
  * bucket ids, written verbatim in the order resolveGenreBuckets returned
  * them (checked-option / template order — carries no ranking meaning, see
- * src/lib/schema/album.ts). */
-export function albumFile({ title, artistSlugs, releaseDate, buckets, tags = [], cover, coverSource }) {
+ * src/lib/schema/album.ts). `subtitle` (2026-09-09, "(선택) 부제" form field)
+ * is omitted entirely when absent — same "no key at all, not an empty
+ * string" convention as `cover`/`tags` below, so an old album written before
+ * this field existed and a new album with no subtitle typed are
+ * byte-identical (schema field is optional, api-contracts stays backward
+ * compatible either way). */
+export function albumFile({ title, artistSlugs, releaseDate, subtitle, buckets, tags = [], cover, coverSource }) {
   const lines = [
     `title: ${yamlString(title)}`,
     `artists: [${artistSlugs.join(', ')}]`,
     `release_date: "${releaseDate}"`,
     `buckets: [${buckets.join(', ')}]`,
   ];
+  if (subtitle) lines.push(`subtitle: ${yamlString(subtitle)}`);
   if (tags.length > 0) lines.push(`tags: [${tags.join(', ')}]`);
   if (cover) lines.push(`cover: ${cover}`, `cover_source: ${yamlString(coverSource ?? '')}`);
   return lines.join('\n') + '\n';
@@ -90,10 +96,16 @@ export function artistFile({ name }) {
 }
 
 /**
- * content/stories/<slug>.md frontmatter + body.
- * @param {{title: string, date: string, body: string, albums: Array<{ref: string} | {text: string, artist?: string}>}} input
+ * content/stories/<slug>.md frontmatter + body. `tags` (2026-09-09) mirrors
+ * albumFile's own convention — omitted entirely when empty, never an
+ * explicit `tags: []` (unlike `albums:`, which IS always written even when
+ * empty, per the test below — `albums` is the ladder's own required axis so
+ * its absence-vs-empty distinction matters structurally; `tags` has no such
+ * consumer that cares about the difference, so the shorter, cleaner omission
+ * is preferred, matching every other optional field in this file).
+ * @param {{title: string, date: string, body: string, albums: Array<{ref: string} | {text: string, artist?: string}>, tags?: string[]}} input
  */
-export function storyFile({ title, date, body, albums }) {
+export function storyFile({ title, date, body, albums, tags = [] }) {
   const lines = ['---', `title: ${yamlString(title)}`, `date: ${date}`];
   if (albums.length === 0) {
     lines.push('albums: []');
@@ -105,6 +117,42 @@ export function storyFile({ title, date, body, albums }) {
       else lines.push(`  - { text: ${yamlString(a.text)} }`);
     }
   }
+  if (tags.length > 0) lines.push(`tags: [${tags.join(', ')}]`);
   lines.push('---', '');
   return lines.join('\n') + `\n${body}\n`;
+}
+
+/**
+ * Register newly-minted tags into config/tags.yaml's raw text (2026-09-09 —
+ * resolve-content.mjs#resolveTags decides WHICH tags are new; this function
+ * only writes them). A LINE-level append, same reasoning as
+ * `updateAlbumCover` above: `config/tags.yaml` is not a file this package
+ * fully owns the shape of (a developer may hand-curate `aliases:` on any
+ * entry at any time), so a parse-then-regenerate round trip risks silently
+ * dropping hand-added data the tagRegistrySchema itself allows but this
+ * package never reads (aliases beyond what it writes here — always `[]` for
+ * a brand-new tag, a developer fills them in later if a tag turns out to
+ * need one).
+ *
+ * Handles the two real shapes `config/tags.yaml` can be in: a block list
+ * with at least one existing entry (the common case — new lines simply
+ * extend it), and the file's own shipped-empty form `tags: []` (a flow-style
+ * empty list, which cannot have block-style items appended after it without
+ * becoming invalid YAML — the flow form is rewritten to a bare `tags:`
+ * header first, then followed by the new entries as normal block items).
+ */
+export function appendTagEntries(rawYaml, entries) {
+  if (entries.length === 0) return rawYaml;
+  let text = rawYaml.replace(/\r\n/g, '\n').replace(/\n$/, '');
+  const newLines = entries.map((e) => `  - { slug: ${e.slug}, label: ${yamlString(e.label)}, aliases: [] }`);
+  if (/^tags:\s*\[\s*\]\s*$/m.test(text)) {
+    text = text.replace(/^tags:\s*\[\s*\]\s*$/m, 'tags:');
+  } else if (!/^tags:\s*$/m.test(text)) {
+    // No `tags:` key at all (an empty/missing file) — start one. Unreachable
+    // for the public repo's real config/tags.yaml (the checker requires the
+    // file to exist, E-100), kept only so this function never assumes a
+    // shape it has not verified.
+    text = text.length > 0 ? `${text}\ntags:` : 'tags:';
+  }
+  return `${text}\n${newLines.join('\n')}\n`;
 }

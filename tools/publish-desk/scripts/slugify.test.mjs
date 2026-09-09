@@ -103,3 +103,16 @@ test('fallbackSlug is deterministic across repeated calls (same input → same o
   assert.equal(fallbackSlug('artist', '같은 이름'), fallbackSlug('artist', '같은 이름'));
   assert.equal(fallbackSlug('album', '같은 제목', '2026-01-01'), fallbackSlug('album', '같은 제목', '2026-01-01'));
 });
+
+// ── fallbackSlug("tag", …) — 2026-09-09, resolveTags' newcomer path ────────
+
+test('fallbackSlug("tag", …): all-Korean text → "tag-" + content hash (NOT "artist-", unlike the other kinds)', () => {
+  const slug = fallbackSlug('tag', '시티팝');
+  assert.equal(slug, `tag-${hashSlugFragment('시티팝')}`);
+  assert.equal(isValidSlug(slug), true);
+});
+
+test('fallbackSlug("tag", …): a mixed-script tag keeps its romanized fragment before the hash', () => {
+  const slug = fallbackSlug('tag', 'K-pop 한글태그');
+  assert.equal(slug, `k-pop-${hashSlugFragment('K-pop 한글태그')}`);
+});

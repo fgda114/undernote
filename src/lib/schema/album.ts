@@ -35,6 +35,18 @@ export const albumSchema = z
         error: () => 'artists가 없습니다. 아티스트 slug 목록을 적으세요 (예: artists: [some-artist]).',
       })
       .min(1, { error: () => 'artists가 비어 있습니다. 최소 1명의 아티스트 slug가 필요합니다.' }),
+    // Short qualifier shown next to the title on the review page (2026-09-09,
+    // decision-maker request — e.g. "The 3rd Studio Album", "Deluxe
+    // Edition"). Optional and additive: existing album files with no
+    // `subtitle:` line parse exactly as before (api-contracts §7 additive
+    // procedure — same pattern as og_use_cover/early_stage_threshold in
+    // config.ts). Rendering it on the review page is a page-layer concern
+    // (src/lib/derive/review-page.ts passes it through verbatim); this
+    // schema only says the field may exist and must be a non-empty string
+    // when it does — an empty string would render as a blank subtitle row,
+    // which is never useful, so it is rejected here rather than left for a
+    // template to special-case.
+    subtitle: z.string().min(1, { error: () => 'subtitle이 빈 문자열입니다. 부제가 없으면 필드 자체를 생략하세요.' }).optional(),
     release_date: releaseDateSchema,
     // Bucket ids the album belongs to, from the release year's config block,
     // or the single reserved "etc" (explicit opt-out — never a silent

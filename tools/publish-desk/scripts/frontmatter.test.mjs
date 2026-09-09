@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reviewFile, albumFile, artistFile, storyFile, updateAlbumCover } from './frontmatter.mjs';
+import { reviewFile, albumFile, artistFile, storyFile, updateAlbumCover, appendTagEntries } from './frontmatter.mjs';
 
 test('reviewFile: score is ALWAYS a quoted string, date unquoted (matches published examples)', () => {
   const out = reviewFile({ albumSlug: 'phoebe-bridgers-lost-weekend', score: '8.4', date: '2026-09-06', body: '본문.' });
@@ -50,6 +50,20 @@ test('albumFile: a title containing a double quote is safely escaped', () => {
   assert.match(out, /^title: "The \\"Deluxe\\" Edition"\n/);
 });
 
+test('albumFile: subtitle is written when present, omitted entirely when absent (2026-09-09)', () => {
+  const withSubtitle = albumFile({
+    title: 'Lost Weekend',
+    artistSlugs: ['phoebe-bridgers'],
+    releaseDate: '2026',
+    buckets: ['rock'],
+    subtitle: 'The 3rd Studio Album',
+  });
+  assert.match(withSubtitle, /\nsubtitle: "The 3rd Studio Album"\n/);
+
+  const withoutSubtitle = albumFile({ title: 'Lost Weekend', artistSlugs: ['phoebe-bridgers'], releaseDate: '2026', buckets: ['rock'] });
+  assert.doesNotMatch(withoutSubtitle, /subtitle:/);
+});
+
 test('artistFile: empty body, quoted name', () => {
   assert.equal(artistFile({ name: 'Phoebe Bridgers' }), '---\nname: "Phoebe Bridgers"\n---\n');
 });
@@ -68,6 +82,14 @@ test('storyFile: mixes ref and text album entries', () => {
 test('storyFile: no album mentions writes an explicit empty list, not an omitted key', () => {
   const out = storyFile({ title: 'T', date: '2026-01-01', body: 'b', albums: [] });
   assert.match(out, /\nalbums: \[\]\n/);
+});
+
+test('storyFile: tags are written when present, omitted entirely when absent (2026-09-09)', () => {
+  const withTags = storyFile({ title: 'T', date: '2026-01-01', body: 'b', albums: [], tags: ['summer', 'playlist'] });
+  assert.match(withTags, /\ntags: \[summer, playlist\]\n/);
+
+  const withoutTags = storyFile({ title: 'T', date: '2026-01-01', body: 'b', albums: [] });
+  assert.doesNotMatch(withoutTags, /tags:/);
 });
 
 test('updateAlbumCover: no prior cover (E-202 placeholder) — appends both lines, leaves everything else untouched', () => {
@@ -109,4 +131,42 @@ test('updateAlbumCover: a cover line with no cover_source line gets one inserted
   const lines = out.trim().split('\n');
   const coverIdx = lines.findIndex((l) => l.startsWith('cover:'));
   assert.equal(lines[coverIdx + 1], 'cover_source: "새 커버"');
+});
+
+// ── appendTagEntries (2026-09-09 — "발행 파이프라인이 등록부에 자동으로
+// 추가" decision, resolve-content.mjs#resolveTags' write-side counterpart) ──
+
+test('appendTagEntries: no new entries returns the file untouched', () => {
+  const raw = 'tags:\n  - { slug: "city-pop", label: "시티팝", aliases: ["citypop"] }\n';
+  assert.equal(appendTagEntries(raw, []), raw);
+});
+
+test('appendTagEntries: extends an EXISTING block list, leaving prior entries byte-for-byte', () => {
+  const raw = 'tags:\n  - { slug: "city-pop", label: "시티팝", aliases: ["citypop"] }\n';
+  const out = appendTagEntries(raw, [{ slug: 'dream-pop', label: 'dream pop' }]);
+  assert.equal(
+    out,
+    'tags:\n  - { slug: "city-pop", label: "시티팝", aliases: ["citypop"] }\n  - { slug: dream-pop, label: "dream pop", aliases: [] }\n',
+  );
+});
+
+test('appendTagEntries: two new entries in one call are both appended, in order', () => {
+  const raw = 'tags:\n  - { slug: "city-pop", label: "시티팝", aliases: ["citypop"] }\n';
+  const out = appendTagEntries(raw, [
+    { slug: 'dream-pop', label: 'dream pop' },
+    { slug: 'tag-a1b2c3', label: '여름' },
+  ]);
+  const lines = out.trim().split('\n');
+  assert.equal(lines[2], '  - { slug: dream-pop, label: "dream pop", aliases: [] }');
+  assert.equal(lines[3], '  - { slug: tag-a1b2c3, label: "여름", aliases: [] }');
+});
+
+test('appendTagEntries: a shipped-empty "tags: []" (flow form) is rewritten to a block list, not left invalid', () => {
+  const out = appendTagEntries('tags: []\n', [{ slug: 'dream-pop', label: 'dream pop' }]);
+  assert.equal(out, 'tags:\n  - { slug: dream-pop, label: "dream pop", aliases: [] }\n');
+});
+
+test('appendTagEntries: a label containing a double quote is safely escaped', () => {
+  const out = appendTagEntries('tags:\n', [{ slug: 'weird-tag', label: 'A "weird" tag' }]);
+  assert.match(out, /label: "A \\"weird\\" tag"/);
 });

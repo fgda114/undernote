@@ -97,8 +97,10 @@ export const ETC_BUCKET_LABEL = '그 외';
 
 /** Bucket id -> display label, first block that defines an id wins (a bucket
  * can repeat across years' config blocks; the first label seen is the one
- * shown everywhere). Shared by the hub below and by every /archive/genre/{id}/
- * page, which each used to carry their own copy of this loop. */
+ * shown everywhere). Used by the hub below (deriveHubIndex) and by
+ * archive/index.astro's own Genre chip row; the per-value
+ * `/archive/genre/{id}/` pages that used to carry their own copy of this
+ * loop were retired in the 2026-09-09 axis-chip redesign. */
 export function bucketLabelMap(data: RepoData): Map<string, string> {
   const labels = new Map<string, string>();
   for (const block of data.genres?.years ?? []) {
@@ -160,13 +162,24 @@ export function deriveArtistIndex(data: RepoData, index: ArchiveIndex): ArtistIn
  * `data-s` attribute enhance.js reads) and this function agree on it, so
  * there is exactly one place that answers "does this row match?".
  *
- * FIELDS, DELIBERATELY: title, artist name(s), publication year, genre
- * bucket label(s), tag label(s), format label — the same five facets
- * /archive/{year,genre,tag}/ and /artists/ already index by. A story's gist
- * paragraph (ArticleItem#subtitle) is left OUT on purpose: matching on prose
- * would make "what did this short query just match" unpredictable, where
- * matching on the axes a reader can already see taught them keeps the hub's
- * idea of "found it" the one the rest of the site already uses.
+ * FIELDS, DELIBERATELY: title, artist name(s), publication year, a review's
+ * OWN RELEASE year, genre bucket label(s), tag label(s), format label. A
+ * story's gist paragraph (ArticleItem#subtitle) is left OUT on purpose:
+ * matching on prose would make "what did this short query just match"
+ * unpredictable, where matching on the axes a reader can already see taught
+ * them keeps the hub's idea of "found it" the one the rest of the site
+ * already uses.
+ *
+ * RELEASE YEAR (2026-09-09, added for the axis-chip redesign — NOT an axis
+ * itself). The hub's own YEAR facet below is still PUBLICATION year only
+ * (R-3, archive.by_year — do not change that); this is a second, separate
+ * token folded into the free-text haystack so that a review's Release-date
+ * link (SpecMeta) — which points at `/archive/?q=<releaseYear>` — resolves
+ * to something for back-catalog content, where release year and publication
+ * year differ. A reader typing a release year by hand benefits the same
+ * way: "1975" now finds a 1975 release even when this magazine got to it
+ * in 2026. Stories have no release year (they are not albums) and carry
+ * none.
  */
 export interface HubItem {
   item: ArticleItem;
@@ -196,12 +209,25 @@ export function deriveHubIndex(data: RepoData, index: ArchiveIndex, allArticles:
   const tagsByUrl = reverse(index.by_tag, (slug) => tagLabels.get(slug) ?? slug);
   const artistsByUrl = reverse(index.by_artist, (slug) => artistNames.get(slug) ?? slug);
 
+  // Review URL -> release year, straight from albums/reviews (no axis needs
+  // this, so it is not part of ArchiveIndex — see the field's own doc above).
+  const albumsBySlug = new Map(data.albums.map((a) => [a.slug, a.data]));
+  const releaseYearByUrl = new Map<string, string>();
+  for (const review of data.reviews) {
+    const album = albumsBySlug.get(review.data.album);
+    if (album) releaseYearByUrl.set(`/reviews/${review.slug}/`, album.release_date.slice(0, 4));
+  }
+
   return allArticles.map((item) => {
     const year = item.date.slice(0, 4);
     const genres = genresByUrl.get(item.url) ?? [];
     const tags = tagsByUrl.get(item.url) ?? [];
     const artists = artistsByUrl.get(item.url) ?? [];
-    const haystack = [item.title, ...artists, year, ...genres, ...tags, item.formatLabel].join(' ').toLowerCase();
+    const releaseYear = releaseYearByUrl.get(item.url);
+    const haystack = [item.title, ...artists, year, releaseYear, ...genres, ...tags, item.formatLabel]
+      .filter((part): part is string => part !== undefined)
+      .join(' ')
+      .toLowerCase();
     return { item, year, genres, tags, artists, haystack };
   });
 }

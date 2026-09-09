@@ -22,10 +22,9 @@ const reviews = allArticles.filter((item) => item.type === 'review');
           {reviews.map((item) => (
             /* showFormat={false} — the h1 above is "Reviews" and this
                listing holds nothing else, so the per-row REVIEWS overline was
-               the page's own title repeated once per entry. The mixed
-               listings (/archive/{year}/, /archive/tag/{tag}/) and the
-               artist pages keep theirs, where the label is what tells the two
-               formats apart. */
+               the page's own title repeated once per entry. The archive hub
+               (mixed types, any axis) and artist pages keep theirs, where the
+               label is what tells the two formats apart. */
             <ArticleCard item={item} showScore showFormat={false} />
           ))}
         </ul>

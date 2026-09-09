@@ -46,10 +46,12 @@ export const reviewSchema = z
     album: slugSchema,
     score: scoreSchema,
     date: isoDateSchema,
-    // The editor's "안 들으면 손해" gate (USP-C): literal true or the build fails.
+    // The editor's final-confirmation gate (USP-C): literal true or the build
+    // fails. Wording neutralized 2026-09-09 (decision-maker request — the
+    // field NAME stays `editorial_check` so existing review files keep
+    // parsing; only the user-facing message text changed).
     editorial_check: z.literal(true, {
-      error: () =>
-        'E-106: editorial_check가 true가 아닙니다. "안 들으면 손해" 확인 후 editorial_check: true로 적어야 발행됩니다.',
+      error: () => 'E-106: editorial_check가 true가 아닙니다. 최종 확인 후 editorial_check: true로 적어야 발행됩니다.',
     }),
   })
   // additionalProperties: false — typos like "socre" must fail loudly,

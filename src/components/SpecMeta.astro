@@ -1,7 +1,6 @@
 ---
 /**
- * SpecMeta (components.md §7) — the review rail's spec block. New in the
- * 2026-09 reskin.
+ * SpecMeta (components.md §7) — the review rail's spec block.
  *
  * Every row below maps to a field that already exists in the content model.
  * The reference mockup also showed a tracklist, BPM, runtime and a staff
@@ -11,23 +10,94 @@
  *
  * `mbid` is deliberately not surfaced: it is an internal identifier and
  * means nothing to a reader.
+ *
+ * ROW SET AND ORDER (2026-09-09, decision-maker request): Title / Artist /
+ * Genre / Label / Tags / Release / Reviewed — three groups, each internally
+ * ordered by how directly it identifies the record:
+ *   1. IDENTITY  — Title, Artist: what the record is and who made it.
+ *   2. CATEGORY  — Genre, Label, Tags: how it is classified. Genre sits
+ *      right under Artist because it is an album property exactly like
+ *      Artist is (both describe the RECORD, not this magazine's relationship
+ *      to it) — the same reasoning that used to put Genre near the bottom
+ *      is reversed here on the decision-maker's explicit instruction.
+ *   3. DATES     — Release, Reviewed: adjacent, on purpose. They used to sit
+ *      apart (Release up top, Reviewed at the foot) with Genre/Label/Tags
+ *      between them, which hid the one relationship a reader most wants from
+ *      a review-of-record: how long after release did this magazine get to
+ *      it. Two dates side by side answer that in one glance ("released
+ *      March, reviewed August") without arithmetic, and that gap is
+ *      editorially meaningful for this publication (it is the whole reason
+ *      "Reviewed" exists as a field distinct from "Release" in the first
+ *      place) — so the two rows are the closing pair, in chronological order.
+ *
+ * THE TITLE ROW DUPLICATES THE PAGE'S OWN <h1>, DELIBERATELY. The reader
+ * already has the album's name from the hero two lines above the rail — so
+ * on its face this row repeats itself for free. It stays for the same reason
+ * Release already repeated the hero's own date and Genre already repeated
+ * the hero's own bucket label before this row existed at all (see
+ * reviews/[slug].astro's hero-sub, which has always carried
+ * "{artists} · {bucket} · {release date}" alongside this block): the spec
+ * block was never a set of facts the hero omits, it is a COMPLETE, SELF-
+ * CONTAINED fact sheet a reader can scan without having read the hero at
+ * all — a rail is exactly the kind of surface a reader's eye can land on
+ * first (it is visually first on narrow screens, per the reskin's
+ * `order: -1` on ScoreMark) or return to later without rereading the title
+ * block. Treating Title as one more row of that same sheet, rather than a
+ * special case that gets left out, keeps the block's own rule ("every fact
+ * about the record lives here") intact instead of carving an exception into
+ * it. What DOES change to keep the repetition from reading as a mistake
+ * rather than a design: the row's value takes the same weight and size as
+ * every other row's value (`dd`'s ordinary sans/14px), never the h1's
+ * display face — it reads as data, not as a second headline. Subtitle
+ * (album schema's optional `subtitle`, 2026-09-09) appends in parentheses
+ * when present, mirroring the "Album (qualifier)" shape the decision-maker
+ * asked for; the row shows the title alone when it is absent, per the same
+ * R-4 "omit the part with nothing to say" rule the whole block already
+ * follows for Label/Tags.
+ *
+ * THE RELEASE ROW LINKS TO THE ARCHIVE, PRE-FILTERED TO ITS YEAR
+ * (2026-09-09, decision-maker request). The per-year archive page
+ * (`/archive/{year}/`) that a link like this used to point at was retired in
+ * the same redesign that added this link — the archive is now one hub page
+ * with a query box, not a page per axis value — so the destination is
+ * `/archive/?q=<releaseYear>` instead: a plain link (works with JS off, just
+ * lands on the unfiltered hub — see archive/index.astro's own intro for why
+ * that is the accepted JS-off shape everywhere on this page) that the hub's
+ * script pre-fills and pre-filters ON LOAD when JS is on, by reading `?q=`
+ * with the exact same code path a typed query or a clicked chip already use
+ * (enhance.js — one filter, three ways to trigger it). The value navigated
+ * to is the RELEASE year, not the review's publication year, because that
+ * is the year printed in this very row — a link that opened a different
+ * year than the one the reader clicked would be its own defect. Genre and
+ * Tags below link the same way, to their own label text.
  */
 import { withBase } from '../lib/paths.ts';
 
 interface Props {
+  title: string;
+  subtitle?: string;
   artistLinks: { slug: string; name: string }[];
   releaseDateText: string;
-  bucketId: string;
-  bucketLabel: string;
+  releaseYear: string;
+  bucketLabels: { id: string; label: string }[];
   reviewDate: string;
   label?: string;
   tags: { slug: string; label: string }[];
 }
 
-const { artistLinks, releaseDateText, bucketId, bucketLabel, reviewDate, label, tags } = Astro.props;
+const { title, subtitle, artistLinks, releaseDateText, releaseYear, bucketLabels, reviewDate, label, tags } = Astro.props;
+
+/** `/archive/?q=<value>` — the one place a static link reaches a pre-filtered
+ * search hub (see the intro above). Centralised so Genre and Tags below
+ * cannot drift from Release's own construction of the same kind of link. */
+const searchLink = (value: string) => withBase(`/archive/?q=${encodeURIComponent(value)}`);
 ---
 
 <dl class="spec" aria-label="앨범 정보">
+  <div class="row">
+    <dt>Title</dt>
+    <dd>{title}{subtitle && ` (${subtitle})`}</dd>
+  </div>
   <div class="row">
     <dt>Artist</dt>
     <dd>
@@ -44,8 +114,26 @@ const { artistLinks, releaseDateText, bucketId, bucketLabel, reviewDate, label, 
     </dd>
   </div>
   <div class="row">
-    <dt>Release</dt>
-    <dd class="tnum">{releaseDateText}</dd>
+    {/* MULTI-GENRE (2026-09-09): an album can belong to more than one
+        bucket (album schema §"복수 장르") — every one of them renders here,
+        in the same array order the content lists them (no ranking implied,
+        same as everywhere else this array is consumed). Singular "Genre"
+        label stays even with several values: it names the AXIS, not a count
+        (same convention SpecMeta's own Tags row and the archive hub's axis
+        titles already use). */}
+    <dt>Genre</dt>
+    <dd>
+      {
+        bucketLabels.map((bucket, i) => (
+          <>
+            {i > 0 && ', '}
+            <a class="meta-link" href={searchLink(bucket.label)}>
+              {bucket.label}
+            </a>
+          </>
+        ))
+      }
+    </dd>
   </div>
   {
     label && (
@@ -55,17 +143,13 @@ const { artistLinks, releaseDateText, bucketId, bucketLabel, reviewDate, label, 
       </div>
     )
   }
-  <div class="row">
-    <dt>Genre</dt>
-    <dd><a class="meta-link" href={withBase(`/archive/genre/${bucketId}/`)}>{bucketLabel}</a></dd>
-  </div>
   {
     tags.length > 0 && (
       <div class="row">
         <dt>Tags</dt>
         <dd class="tags">
           {tags.map((tag) => (
-            <a class="chip" href={withBase(`/archive/tag/${tag.slug}/`)}>
+            <a class="chip" href={searchLink(tag.label)}>
               {tag.label}
             </a>
           ))}
@@ -73,6 +157,10 @@ const { artistLinks, releaseDateText, bucketId, bucketLabel, reviewDate, label, 
       </div>
     )
   }
+  <div class="row">
+    <dt>Release</dt>
+    <dd class="tnum"><a class="meta-link" href={searchLink(releaseYear)}>{releaseDateText}</a></dd>
+  </div>
   <div class="row">
     <dt>Reviewed</dt>
     <dd><time class="tnum" datetime={reviewDate}>{reviewDate}</time></dd>

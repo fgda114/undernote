@@ -243,6 +243,41 @@ test('focus-visible — 링이 자기 배경에서 3:1 이상 (전 인터랙티�
     if (c < 3) failures.push(`아카이브 검색창 — 링 대비 ${c.toFixed(2)}:1 < 3`);
   }
 
+  // Axis chips (axis-chip redesign, 2026-09-09) — resting AND pressed. The
+  // pressed state flips the chip's own fill/border to --accent-2 (see
+  // archive/index.astro's `.chip[aria-pressed='true']`), and that same rule
+  // flips the focus ring's colour too (the `.plate` pattern global.css
+  // already uses for --accent) — checked separately because a ring that
+  // reads fine at rest could still vanish once pressed if that second flip
+  // were ever dropped.
+  const chipRings = await page.evaluate(() => {
+    const chip = document.querySelector('.chip[data-axis-value]') as HTMLElement | null;
+    if (!chip) return null;
+    const ring = () => {
+      chip.focus();
+      const cs = getComputedStyle(chip);
+      let p: HTMLElement | null = chip, bg = 'rgba(0, 0, 0, 0)';
+      while (p && bg === 'rgba(0, 0, 0, 0)') { bg = getComputedStyle(p).backgroundColor; p = p.parentElement; }
+      return { style: cs.outlineStyle, width: cs.outlineWidth, color: cs.outlineColor, over: bg };
+    };
+    const rest = ring();
+    chip.click();
+    const pressed = ring();
+    chip.click(); // toggle back off — leave the page as it was found
+    return { rest, pressed };
+  });
+  if (!chipRings) {
+    failures.push('아카이브 축 칩 — 선택자 .chip[data-axis-value] 없음 (스위트가 낡음)');
+  } else {
+    for (const [state, r] of [['휴지', chipRings.rest], ['눌림', chipRings.pressed]] as const) {
+      const c = ratio(rgb(r.color), rgb(r.over));
+      lines.push(`아카이브 축 칩(${state}): ${r.style} ${r.width} ${r.color} on ${r.over} = ${c.toFixed(2)}:1`);
+      if (r.style === 'none') failures.push(`아카이브 축 칩(${state}) — 아웃라인 없음`);
+      if (parseFloat(r.width) < 2) failures.push(`아카이브 축 칩(${state}) — 아웃라인 ${r.width} (2px 미만)`);
+      if (c < 3) failures.push(`아카이브 축 칩(${state}) — 링 대비 ${c.toFixed(2)}:1 < 3`);
+    }
+  }
+
   console.log(`포커스 링 실측:\n  ${lines.join('\n  ')}`);
   expect(failures, failures.join('\n')).toEqual([]);
 });
@@ -378,15 +413,21 @@ test('forced-colors — 전 텍스트 역할이 시스템 캔버스에서 보인
   lines.push(`아카이브 행 제목: bg ${hex(row.bg)} · 잉크 ${hex(row.color)} ${row.ratio.toFixed(2)}:1`);
   if (row.ratio < 4.5) failures.push(`아카이브 행 제목 — 고대비 모드에서 ${row.ratio.toFixed(2)}:1`);
 
-  // Archive search UI (search-hub design, 2026-09-09) — the label and the
-  // live result count are the two new text roles this round added; the
-  // input's own placeholder/typed text is left to the UA's own forced-colors
-  // form-control handling, which this suite does not otherwise probe.
+  // Archive search + chip UI (2026-09-09) — the label, the live result
+  // count, and an axis chip are the new text roles this round added. The
+  // count is `hidden` at rest (2026-09-09 revision — see archive/index.
+  // astro's intro), so a query is typed first to reveal it before probing;
+  // an element with zero rendered size has no glyphs for `inkOf` to clip.
+  // The input's own placeholder/typed text is left to the UA's own
+  // forced-colors form-control handling, which this suite does not
+  // otherwise probe.
   await page.goto(u('/archive/'));
   await page.waitForTimeout(200);
+  await page.fill('#archive-q', '2026');
   for (const [label, sel] of [
     ['검색 라벨', '.search .axis-title'] as const,
     ['검색 결과 카운트', '.search-count'] as const,
+    ['아카이브 축 칩', '.chip[data-axis-value]'] as const,
   ]) {
     const r = await inkOf(page, sel);
     lines.push(`${label}: bg ${hex(r.bg)} · 잉크 ${hex(r.color)} ${r.ratio.toFixed(2)}:1 (${(r.share * 100).toFixed(1)}%)`);

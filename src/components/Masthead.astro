@@ -33,18 +33,25 @@
  * one of the things you look up, and Reviews/Notes are not axes of the
  * archive but the two things this site actually publishes, which is the
  * distinction this decision draws that the reverted one did not have
- * available yet. /artists/ itself is UNCHANGED — see its own file — this
- * only removes its masthead slot.
+ * available yet. AT THE TIME OF THIS EDIT /artists/ (the list) was still a
+ * real page and only its masthead slot was being removed; the axis-chip
+ * redesign below folded that list INTO the archive chip row and retired the
+ * page itself. `/artists/{slug}/`, the per-artist page, was never a masthead
+ * item and is unaffected by either change — it stays reachable from a
+ * review's own byline (SpecMeta, the hero) and now also from the archive's
+ * Artist chips.
  *
- * ARCHIVE BECAME SEARCH (2026-09-09), the path the paragraph above already
- * named. /archive/ now renders every article server-side and a query box
- * filters what is already on the page (search-hub design — see
- * lib/derive/archive.ts#deriveHubIndex and archive/index.astro's intro); the
- * masthead item's LABEL follows that rename. Its `key` and `href` do not —
- * both stay 'archive' / '/archive/', because the year/genre/tag axis pages
- * under that path (`/archive/{year}/` etc.) would otherwise sit under a
- * different prefix than the label naming them, which is worse than a
- * label/URL mismatch nobody but a URL-bar reader ever sees. */
+ * ARCHIVE BRIEFLY BECAME "SEARCH" (2026-09-09, same day, reverted). /archive/
+ * grew a query box and, for a few commits, the masthead label followed that
+ * rename. The axis-chip redesign that landed later the same day (see
+ * archive/index.astro's intro) folded Artists back in as a fourth chip axis
+ * and retired the standalone year/genre/tag pages, which made the page read
+ * as the site's browse-and-filter hub again rather than as a search
+ * utility bolted onto it — "Archive" names that better than "Search" does,
+ * and the decision-maker asked for the old label back explicitly. `key` and
+ * `href` were never touched by either rename: both stay 'archive' /
+ * '/archive/' regardless of label, so a future rewording never has to touch
+ * routing. */
 import { getSiteConfig } from '../lib/site.ts';
 import { withBase } from '../lib/paths.ts';
 
@@ -61,7 +68,7 @@ const items = [
   { key: 'list', label: 'Charts', href: withBase(`/list/${site.active_year}/`) },
   { key: 'reviews', label: 'Reviews', href: withBase('/archive/reviews/') },
   { key: 'stories', label: 'Notes', href: withBase('/archive/stories/') },
-  { key: 'archive', label: 'Search', href: withBase('/archive/') },
+  { key: 'archive', label: 'Archive', href: withBase('/archive/') },
 ] as const;
 ---
 

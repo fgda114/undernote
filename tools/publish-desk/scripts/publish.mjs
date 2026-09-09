@@ -46,9 +46,10 @@ import {
   findArtistByName,
   findAlbumByTitleArtist,
   resolveGenreBuckets,
+  resolveTags,
 } from './resolve-content.mjs';
 import { extractImageUrl, downloadImage, resizeCoverBuffer } from './cover.mjs';
-import { reviewFile, albumFile, artistFile, storyFile, updateAlbumCover } from './frontmatter.mjs';
+import { reviewFile, albumFile, artistFile, storyFile, updateAlbumCover, appendTagEntries } from './frontmatter.mjs';
 import { resolveOriginalPublication } from './resolve-published.mjs';
 import { planReviewTakedown, planStoryTakedown, lockedSnapshotYears } from './takedown.mjs';
 
@@ -254,6 +255,26 @@ async function resolveCoverForUpdate({ fieldText, fetchImpl }) {
   return fetchAndResizeCover(url, fetchImpl, '급하면 그 칸을 비워두고 저장하면 커버는 지금 상태 그대로 유지됩니다.');
 }
 
+/** Commit-phase counterpart of `resolveTags` (resolve-content.mjs): write
+ * any newly-minted tags into config/tags.yaml and note what happened for the
+ * writer. Split from resolution itself so tag resolution can happen in the
+ * RESOLVE phase (pure, no writes — see publishReview's own doc comment on
+ * why nothing is written until every value is final) while the actual file
+ * write waits, like every other write, for the commit phase. */
+function writeNewTagEntries(publicRepoDir, newEntries, notes) {
+  if (newEntries.length === 0) return;
+  const tagsPath = join(publicRepoDir, 'config', 'tags.yaml');
+  // A missing config/tags.yaml is an E-100 build failure in the real public
+  // repo (checker/load.ts#loadRepo requires it), so this branch is not a
+  // realistic production path — kept only so this function does not throw
+  // ENOENT ahead of that real, better-worded failure, and so tests can
+  // exercise a fixture repo that has not bothered to create an empty
+  // registry file.
+  const base = existsSync(tagsPath) ? readFileSync(tagsPath, 'utf8') : 'tags:\n';
+  writeFileSync(tagsPath, appendTagEntries(base, newEntries), 'utf8');
+  notes.push(`새 태그로 등록했습니다: ${newEntries.map((e) => e.label).join(', ')} (config/tags.yaml).`);
+}
+
 // `fetchImpl` defaults to the global fetch — tests inject a stub so the
 // suite never makes a real network call (and so the one leg that IS
 // verifiable offline, download→resize→write, still gets a real exercise
@@ -302,6 +323,26 @@ async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
   const coverBuffer = await resolveCover({ fieldText: form.coverField, albumIsNew: album.isNew, notes, fetchImpl });
   const coverPath = coverBuffer ? `covers/${album.slug}.jpg` : undefined;
 
+  // Subtitle/tags are ALBUM fields, so — same rule as buckets/cover above —
+  // they are only ever set when THIS submission is the one creating the
+  // album file. A follow-up review for an album that already exists (e.g.
+  // a second review attempt, or a review of an album the developer
+  // pre-created with album-add.ts) never touches that file's other fields,
+  // so a subtitle/tags typed on such a submission would silently do nothing
+  // if not reported — the notes below make that explicit rather than
+  // leaving the writer to wonder why their tags never showed up (same
+  // reasoning as resolveCover's own "이미 있는 앨범이라 이번에 올린 커버
+  // 이미지는 반영되지 않았습니다" note just above it).
+  const subtitle = form.albumSubtitle.trim() || undefined;
+  let tagSlugs = [];
+  let newTagEntries = [];
+  if (album.isNew) {
+    ({ slugs: tagSlugs, newEntries: newTagEntries } = resolveTags(form.tagTexts, publicRepoDir));
+  } else {
+    if (subtitle) notes.push('참고: 이미 있는 앨범이라 이번에 적은 부제는 반영되지 않았습니다 (기존 앨범 파일은 건드리지 않습니다).');
+    if (form.tagTexts.length > 0) notes.push('참고: 이미 있는 앨범이라 이번에 적은 태그는 반영되지 않았습니다 (기존 앨범 파일은 건드리지 않습니다).');
+  }
+
   // ── Commit phase: every value above is final — only file writes below. ──
   if (artist.isNew) {
     mkdirSync(join(publicRepoDir, 'content', 'artists'), { recursive: true });
@@ -309,14 +350,17 @@ async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
   }
 
   if (album.isNew) {
+    writeNewTagEntries(publicRepoDir, newTagEntries, notes);
     mkdirSync(join(publicRepoDir, 'content', 'albums'), { recursive: true });
     writeFileSync(
       join(publicRepoDir, 'content', 'albums', `${album.slug}.yaml`),
       albumFile({
         title: form.albumTitle,
         artistSlugs: [artist.slug],
+        subtitle,
         releaseDate: form.releaseDate.trim(),
         buckets: buckets.ids,
+        tags: tagSlugs,
         cover: coverPath,
         coverSource: coverPath ? '독자 제공 (발행 데스크, 축소본)' : undefined,
       }),
@@ -351,25 +395,64 @@ async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
   };
 }
 
-/** "앨범명 (아티스트명)" or bare "앨범명" -> a storyAlbumRefSchema entry.
+/**
+ * "앨범명 (아티스트명)" or bare "앨범명" -> a storyAlbumRefSchema entry.
  * Never fails: an unresolved mention just becomes a {text} entry, which is
  * a fully valid, designed state (SS-9) — the ladder for that mention lights
- * up automatically once the album IS reviewed, with no edit needed. */
+ * up automatically once the album IS reviewed, with no edit needed.
+ *
+ * MN-3 fix (code review, 2026-09-09 — escalated by Hananiah's refactoring
+ * pass as a genuine behavior change, out of refactoring scope; fixed here).
+ * The trailing-paren split below is inherently ambiguous free text: a writer
+ * who forgets the artist and writes just "Songs (Deluxe Edition)" produces
+ * the SAME shape as one who correctly wrote "앨범명 (아티스트명)" — nothing in
+ * the string itself says which case it is. The bug this fixes is narrower
+ * and solvable: when the split's "artist" half does NOT match any
+ * REGISTERED artist, check whether the FULL, UNSPLIT line is itself an
+ * EXISTING album's title — if so, the parenthetical is now PROVEN to be
+ * part of that album's own title (registered content confirms it), not an
+ * artist name, and splitting it would falsely present a title fragment as
+ * artist metadata to the reader (`deriveAlbumBoxRows`,
+ * src/lib/derive/links.ts, renders `artist` verbatim as the row's `meta`).
+ * Example: "Songs (Deluxe Edition)" mentioned with no artist, where an album
+ * titled EXACTLY "Songs (Deluxe Edition)" already exists — before this fix,
+ * title="Songs", artist="Deluxe Edition" (wrong); after, {text: "Songs
+ * (Deluxe Edition)"} (right — still unresolved as a REF, since without an
+ * artist name there is no way to pick which artist's "Songs (Deluxe
+ * Edition)" among possibly several, but at least not mislabeled).
+ *
+ * This deliberately does NOT touch the case with no registry evidence either
+ * way (an UNREGISTERED album whose own title happens to contain a paren,
+ * AND no artist typed) — there is no data to disambiguate that from a
+ * legitimately unregistered ARTIST mention (the Issue Form's own placeholder
+ * example, "아직 평론 없는 어떤 앨범 (아직 모르는 아티스트)", is exactly this
+ * shape and MUST keep populating `artist`). That residual ambiguity is the
+ * one the code review accepted as low-risk: worst case is still the safe
+ * SS-9 `{text, artist}` state, never a crash or publish failure.
+ */
 function resolveStoryAlbumLine(line, publicRepoDir) {
   const artists = listArtists(publicRepoDir);
   const albums = listAlbums(publicRepoDir);
   const parenMatch = /^(.+?)\s*\(([^()]+)\)\s*$/.exec(line);
-  const title = parenMatch ? parenMatch[1].trim() : line;
-  const artistName = parenMatch ? parenMatch[2].trim() : undefined;
+  if (!parenMatch) return { text: line };
 
-  if (artistName) {
-    const artistMatch = findArtistByName(artistName, artists);
-    if (artistMatch.status === 'found') {
-      const albumMatch = findAlbumByTitleArtist(title, artistMatch.slug, albums);
-      if (albumMatch.status === 'found') return { ref: albumMatch.slug };
-    }
+  const strippedTitle = parenMatch[1].trim();
+  const candidateArtistName = parenMatch[2].trim();
+
+  const artistMatch = findArtistByName(candidateArtistName, artists);
+  if (artistMatch.status === 'found') {
+    const albumMatch = findAlbumByTitleArtist(strippedTitle, artistMatch.slug, albums);
+    if (albumMatch.status === 'found') return { ref: albumMatch.slug };
+    return { text: strippedTitle, artist: candidateArtistName };
   }
-  return artistName ? { text: title, artist: artistName } : { text: title };
+
+  // MN-3: candidate "artist" is unregistered — before assuming it really is
+  // one, check whether the registry proves it is actually part of the
+  // title instead (see doc comment above).
+  const wholeLineIsRegisteredTitle = albums.some((a) => normalizeName(a.title) === normalizeName(line));
+  if (wholeLineIsRegisteredTitle) return { text: line };
+
+  return { text: strippedTitle, artist: candidateArtistName };
 }
 
 async function publishStory({ issueBody, publicRepoDir }) {
@@ -384,16 +467,22 @@ async function publishStory({ issueBody, publicRepoDir }) {
   const slug = firstAvailableSlug(base, existing);
 
   const albums = form.albumLines.map((line) => resolveStoryAlbumLine(line, publicRepoDir));
+  // Unlike an album (only ever tagged at the moment ITS OWN album file is
+  // created), every story submission writes its own file — there is no
+  // "already exists, skip" branch to guard against, so tags always resolve.
+  const { slugs: tagSlugs, newEntries: newTagEntries } = resolveTags(form.tagTexts, publicRepoDir);
 
+  const notes = [];
+  writeNewTagEntries(publicRepoDir, newTagEntries, notes);
   mkdirSync(join(publicRepoDir, 'content', 'stories'), { recursive: true });
   writeFileSync(
     join(publicRepoDir, 'content', 'stories', `${slug}.md`),
-    storyFile({ title: form.title, date: todayKst(), body: bodyMd, albums }),
+    storyFile({ title: form.title, date: todayKst(), body: bodyMd, albums, tags: tagSlugs }),
     'utf8',
   );
 
   const site = readSiteConfig(publicRepoDir);
-  return { ok: true, action: 'publish', kind: 'story', slug, url: `${site.base_url}/stories/${slug}/`, notes: [] };
+  return { ok: true, action: 'publish', kind: 'story', slug, url: `${site.base_url}/stories/${slug}/`, notes };
 }
 
 /**
@@ -536,14 +625,21 @@ async function updateStory({ issueBody, issueNumber, publicRepoDir, git = undefi
   if (bodyMd.trim() === '') pdFail('PD-MISSING-BODY', '이야기 본문이 비어 있습니다. "글" 칸을 채워 주세요.');
 
   const albums = form.albumLines.map((line) => resolveStoryAlbumLine(line, publicRepoDir));
+  // Tags are free to change on an edit, same as the album-mentions list
+  // above — neither carries any part of the story's URL/slug (title is the
+  // only identity field, already locked above), so there is no "reverting a
+  // published classification" risk the way editing a REVIEW's genre would be.
+  const { slugs: tagSlugs, newEntries: newTagEntries } = resolveTags(form.tagTexts, publicRepoDir);
+  const notes = [];
+  writeNewTagEntries(publicRepoDir, newTagEntries, notes);
   writeFileSync(
     join(publicRepoDir, 'content', 'stories', `${original.slug}.md`),
-    storyFile({ title: form.title, date: original.originalDate, body: bodyMd, albums }),
+    storyFile({ title: form.title, date: original.originalDate, body: bodyMd, albums, tags: tagSlugs }),
     'utf8',
   );
 
   const site = readSiteConfig(publicRepoDir);
-  return { ok: true, action: 'update', kind: 'story', slug: original.slug, url: `${site.base_url}/stories/${original.slug}/`, notes: [] };
+  return { ok: true, action: 'update', kind: 'story', slug: original.slug, url: `${site.base_url}/stories/${original.slug}/`, notes };
 }
 
 /**

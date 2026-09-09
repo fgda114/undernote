@@ -137,7 +137,17 @@ test('확정 후 지난해 발매작 평론 발행 → 스냅샷 불변 + 아카
   expect(list).toContain('8장의 앨범'); // still 8 — 9.5 does not enter
   expect(list).not.toContain('late-arrival');
 
-  const archive = readPage(dir, '/archive/2026/');
+  // Was /archive/2026/ — the per-publication-year archive page was retired
+  // in the 2026-09-09 axis-chip redesign (archive/index.astro's own intro).
+  // The hub IS the index now: every article renders there unconditionally,
+  // so "incorporated into the archive" is checked directly against it rather
+  // than against a page scoped to one year. R-3's actual claim — that this
+  // review attributes to its PUBLICATION year (2026) rather than the new
+  // active_year (2027) — is unit-tested at the derive layer
+  // (tests/unit/derive-archive.test.ts, "연도 축은 발행 연도 기준"); this
+  // e2e assertion only needs to prove the real build actually reaches the
+  // real page.
+  const archive = readPage(dir, '/archive/');
   expect(archive).toContain(`href="${B}/reviews/late-arrival/"`);
 
   const home = readPage(dir, '/');

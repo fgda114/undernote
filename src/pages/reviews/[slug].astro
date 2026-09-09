@@ -32,6 +32,7 @@ import NominateBadge from '../../components/NominateBadge.astro';
 import ListenBlock from '../../components/ListenBlock.astro';
 import Base from '../../layouts/Base.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
+import AdjacentNav from '../../components/AdjacentNav.astro';
 import LadderBlock from '../../components/LadderBlock.astro';
 import { excerptFrom } from '../../lib/derive/excerpt.ts';
 import { deriveBacklinks } from '../../lib/derive/links.ts';
@@ -89,6 +90,18 @@ const otherByArtist = otherWorkByArtist(
   siteData.archive.by_artist,
   siteData.articleByUrl,
 );
+
+// Prev/Next (§2.5 ③, 2026-09-09) — within reviews only, publication-date
+// order (lib/derive/lists.ts#deriveAdjacentMap). This review's own URL is
+// normally guaranteed a key here (the map is built from allArticles, which
+// every published review is part of by construction) — the `?? {…}` fallback
+// exists only for astro:content's `getStaticPaths()` and this module's own
+// direct `loadRepo()` read disagreeing about which pages currently exist
+// (observed once, from a stale content-layer cache in a sandbox that had
+// just deleted the file this page renders for — see build.ladder.spec.ts's
+// "④ none" case). R-4's own rule applies the same way here as everywhere
+// else: nothing to show is nothing rendered, not a crash.
+const { prev, next } = siteData.adjacent.get(`/reviews/${review.id}/`) ?? { prev: null, next: null };
 ---
 
 <Base
@@ -135,10 +148,12 @@ const otherByArtist = otherWorkByArtist(
               08-impl-notes/frontend.md, including the one line that puts it
               back. */}
           <SpecMeta
+            title={page.title}
+            subtitle={page.subtitle}
             artistLinks={page.artistLinks}
             releaseDateText={page.releaseDateText}
-            bucketId={page.bucketId}
-            bucketLabel={page.bucketLabel}
+            releaseYear={page.releaseYear}
+            bucketLabels={page.bucketLabels}
             reviewDate={page.reviewDate}
             label={page.label}
             tags={page.tags}
@@ -191,6 +206,9 @@ const otherByArtist = otherWorkByArtist(
               </section>
             )
           }
+          <div class="column">
+            <AdjacentNav prev={prev} next={next} />
+          </div>
         </div>
       </div>
     </article>

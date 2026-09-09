@@ -16,23 +16,43 @@ import type { ArticleItem } from './lists.ts';
 export interface ReviewPageData {
   slug: string;
   title: string;
+  /** Short qualifier next to the title, e.g. "The 3rd Studio Album" (album
+   * schema's optional `subtitle`, 2026-09-09) — undefined when the album has
+   * none, so the page template can omit the row entirely rather than render
+   * an empty one. */
+  subtitle?: string;
   artistsLabel: string;
   /** Per-artist link data — hero renders names as /artists/ links (US-9 AC1). */
   artistLinks: { slug: string; name: string }[];
   /** First bucket's label (array order — see Album#buckets doc, order is
-   * NOT a ranking). Kept singular for existing callers (SpecMeta, the hero
-   * subtitle, LadderBlock's bucket lead copy) that only ever show one genre;
-   * `bucketLabels` below carries all of them for a future multi-genre
-   * display. MULTI-GENRE GAP (2026-09-08): an album in more than one bucket
-   * still only SHOWS its first one here — see 08-impl-notes/backend.md. */
+   * NOT a ranking). Kept singular for the two remaining single-genre callers
+   * (the hero subtitle, LadderBlock's bucket lead copy) — neither shows more
+   * than one genre in its own sentence, so widening either to the full list
+   * would need a sentence-level rewrite, not just a type change.
+   * `bucketLabels` below carries every bucket for callers that show them
+   * all (SpecMeta's Genre row, since 2026-09-09 — see MULTI-GENRE below). */
   bucketLabel: string;
-  /** First bucket's id — the /archive/genre/ link target on the spec block. */
-  bucketId: string;
   /** Every bucket this album belongs to, resolved to {id, label} pairs, same
-   * array order as Album#buckets. Not consumed by any page yet (2026-09-08) —
-   * added additively for a future multi-genre spec-block/hero row. */
+   * array order as Album#buckets. MULTI-GENRE (added 2026-09-08, consumed by
+   * SpecMeta's Genre row since 2026-09-09): an album spanning more than one
+   * genre now SHOWS every one of them on the review page, closing the gap
+   * `bucketLabel` above (first-only) left open — see 08-impl-notes/backend.md
+   * for the fuller history. */
   bucketLabels: { id: string; label: string }[];
   releaseDateText: string;
+  /** Release year as a plain 4-digit string ("2026") — the spec block's
+   * Release row links here (SpecMeta), not to a per-year archive page (that
+   * route was retired in the 2026-09 search-hub redesign): the target is
+   * `/archive/?q=<releaseYear>`, and deriveHubIndex now folds each review's
+   * release year into its haystack precisely so that query resolves to
+   * something (see archive.ts — the hub's YEAR AXIS still keys on
+   * PUBLICATION year per R-3; this is a second, axis-independent token in
+   * the free-text search space, not a redefinition of that axis). Kept as
+   * its own field rather than re-sliced from releaseDateText at the call
+   * site, which would silently break the day releaseDateText's format ever
+   * changes (e.g. to something locale-formatted that no longer starts with
+   * the year). */
+  releaseYear: string;
   cover: CoverSet | null;
   /** Stored score string, rendered verbatim in the verdict (no reformatting). */
   score: string;
@@ -101,12 +121,13 @@ export function buildReviewPageData(input: {
   return {
     slug,
     title: album.title,
+    subtitle: album.subtitle,
     artistsLabel,
     artistLinks: album.artists.map((s) => ({ slug: s, name: artists.get(s)?.name ?? s })),
     bucketLabel: bucketLabelFor(album.buckets[0], releaseYear, genres),
-    bucketId: album.buckets[0],
     bucketLabels: album.buckets.map((id) => ({ id, label: bucketLabelFor(id, releaseYear, genres) })),
     releaseDateText: formatReleaseDate(album.release_date),
+    releaseYear: String(releaseYear),
     cover: coverSetFor({ slug, title: album.title, artistsLabel, cover: album.cover }),
     score: review.score,
     label: album.label,

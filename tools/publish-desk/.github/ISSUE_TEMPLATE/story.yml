@@ -34,6 +34,17 @@ body:
     validations:
       required: false
 
+  - type: input
+    id: tags
+    attributes:
+      label: "태그 (있으면, 쉼표로 구분)"
+      description: |
+        이 글을 설명하는 짧은 태그를 쉼표로 구분해 적어주세요. 한글로 적어도 됩니다 — 이미 쓰인 적
+        있는 태그면 알아서 같은 태그로 묶이고, 처음 쓰는 태그면 새로 등록됩니다. 없어도 됩니다.
+      placeholder: "예) 시티팝, 드림팝"
+    validations:
+      required: false
+
   - type: textarea
     id: body
     attributes:

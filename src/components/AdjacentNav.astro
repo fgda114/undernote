@@ -1,0 +1,127 @@
+---
+/**
+ * AdjacentNav (2026-09-09) — "이전 글 · 다음 글", on both review and story
+ * detail pages. The chain's order is defined once, in
+ * lib/derive/lists.ts#deriveAdjacentMap (publication date ascending, within
+ * one format only — read that function's own comment before changing this
+ * component's meaning of "prev"/"next"). This component only renders what it
+ * is handed (P1): no lookups, no ordering decisions here.
+ *
+ * ZERO JS. Both sides are plain anchors that exist or do not — there is no
+ * disabled state to fake, because a missing side is simply absent (R-4),
+ * the same rule the ladder/AlbumBox already apply to a missing side.
+ *
+ * Renders nothing at all when both sides are absent (a one-piece format,
+ * still possible on a young site) rather than an empty nav landmark.
+ */
+import { withBase } from '../lib/paths.ts';
+
+interface Props {
+  prev: { url: string; title: string } | null;
+  next: { url: string; title: string } | null;
+}
+
+const { prev, next } = Astro.props;
+---
+
+{
+  (prev || next) && (
+    <nav class="adjacent" aria-label="이전·다음 글">
+      {prev && (
+        <a class="adjacent-link prev" href={withBase(prev.url)}>
+          <span class="adjacent-arrow" aria-hidden="true">←</span>
+          <span class="adjacent-text">
+            <span class="adjacent-label">이전 글</span>
+            <span class="adjacent-title">{prev.title}</span>
+          </span>
+        </a>
+      )}
+      {next && (
+        <a class="adjacent-link next" href={withBase(next.url)}>
+          <span class="adjacent-text">
+            <span class="adjacent-label">다음 글</span>
+            <span class="adjacent-title">{next.title}</span>
+          </span>
+          <span class="adjacent-arrow" aria-hidden="true">→</span>
+        </a>
+      )}
+    </nav>
+  )
+}
+
+<style>
+  .adjacent {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-16);
+    margin-top: var(--s-48);
+    padding-top: var(--s-24);
+    border-top: 1px solid var(--line);
+  }
+  /* Solo-sided bookends (the chain's first/last piece) still land on their
+     own edge — `.next`'s auto margin pushes it to the far side even with no
+     `.prev` sibling to be justify-content:space-between'd against. */
+  .adjacent-link.next {
+    margin-left: auto;
+    text-align: right;
+  }
+  .adjacent-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-8);
+    min-height: 44px;
+    max-width: 100%;
+    color: var(--ink);
+    transition: color var(--t-micro);
+  }
+  .adjacent-link:hover {
+    color: var(--accent-2-ink);
+  }
+  .adjacent-link:hover .adjacent-title {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .adjacent-arrow {
+    font-family: var(--mono);
+    font-size: var(--fs-17);
+    line-height: 1;
+    color: var(--muted);
+  }
+  .adjacent-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .adjacent-label {
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    line-height: 16px;
+    letter-spacing: var(--label-ls);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .adjacent-title {
+    font-size: var(--fs-15);
+    line-height: 20px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    .adjacent {
+      flex-direction: column;
+      gap: var(--s-16);
+    }
+    .adjacent-link.next {
+      margin-left: 0;
+      text-align: left;
+      flex-direction: row-reverse;
+    }
+    .adjacent-link.next .adjacent-text {
+      align-items: flex-start;
+    }
+  }
+</style>

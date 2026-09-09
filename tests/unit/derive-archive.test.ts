@@ -185,6 +185,22 @@ describe('deriveHubIndex — /archive/ 검색 허브 (search-hub design, 2026-09
     // 원래 대소문자('Reviews')는 haystack에 남지 않는다 — 대소문자 무관 매치의 전제.
     expect(duo.haystack).not.toContain('Reviews');
   });
+
+  it('평론 haystack에 발매 연도도 실린다 — 발행 연도와 달라도 (2026-09-09, Release 링크용)', () => {
+    // duo-album: released 2025, reviewed 2026 — both years must be findable,
+    // since SpecMeta's Release row links to /archive/?q=<release year>.
+    const duo = hub.find((h) => h.item.url === '/reviews/duo-album/')!;
+    expect(duo.haystack).toContain('2025'); // release year
+    expect(duo.haystack).toContain('2026'); // publication year (already covered above)
+  });
+
+  it('이야기 haystack에는 발매 연도가 없다 (이야기는 앨범이 아니다)', () => {
+    const story = hub.find((h) => h.item.url === '/stories/duo-story/')!;
+    // The story's own publication year (2026) is present; nothing else near
+    // a year-shaped token should have leaked in from the album it references.
+    expect(story.haystack).toContain('2026');
+    expect(story.haystack).not.toContain('2025');
+  });
 });
 
 describe('E-113 — 고아 검사 확정판', () => {

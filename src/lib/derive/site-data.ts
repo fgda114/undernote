@@ -10,6 +10,7 @@ import { excerptFrom } from './excerpt.ts';
 import { prepareLadder } from './links.ts';
 import {
   currentYearMonthSeoul,
+  deriveAdjacentMap,
   deriveBadgeMap,
   deriveBoard,
   deriveHomeSections,
@@ -18,6 +19,7 @@ import {
   deriveMonthlyRecaps,
   deriveTop10,
   joinReviews,
+  type AdjacentPair,
   type ArticleItem,
   type BadgeInfo,
   type Board,
@@ -59,6 +61,11 @@ export interface SiteData {
   /** Prepared ladder inputs (story list + reverse index) — review pages call
    * deriveBacklinks with these. */
   ladder: ReturnType<typeof prepareLadder>;
+  /** Prev/Next chain, keyed by URL, reviews and stories merged into one map
+   * (the two formats' chains are derived separately — never mixed, see
+   * deriveAdjacentMap — and merged here only because their URL namespaces
+   * never collide, so one lookup per detail page is enough). */
+  adjacent: Map<string, AdjacentPair>;
   homeVariant: HomeVariant;
   /** Snapshot years present in content (for /list/[year] static paths). */
   snapshotYears: number[];
@@ -106,6 +113,10 @@ export function getSiteData(): SiteData {
     artistIndex: deriveArtistIndex(data, archive),
     hubIndex: deriveHubIndex(data, archive, allArticles),
     ladder: prepareLadder(data, excerptFrom),
+    adjacent: new Map([
+      ...deriveAdjacentMap(allArticles.filter((a) => a.type === 'review')),
+      ...deriveAdjacentMap(allArticles.filter((a) => a.type === 'story')),
+    ]),
     homeVariant: deriveHomeVariant({
       reviewCount: data.reviews.length,
       nominateTotal,

@@ -5,33 +5,71 @@
  * repo (ADR-0008 §2 — reduced copy only, source recorded, never the
  * original resolution/bytes).
  *
- * IMPORTANT — see docs/publishing.md §"검증 못 한 것": the download step
- * (downloadImage) has NOT been exercised against a real private-repo issue
- * attachment. This environment has no network access and no live GitHub
- * repo to test against, so its behavior against a `private-user-images.
- * githubusercontent.com` URL is a documented assumption, not a verified
- * fact. `extractImageUrl` and `resizeCoverBuffer` ARE fully testable without
- * network access and have real tests.
+ * IMPORTANT — see docs/publishing.md §"검증 못 한 것" §3.1 for the current
+ * state: a decision-maker's real submission (2026-09-09, `fgda114/undernote-
+ * desk#2`) confirmed the ACTUAL attachment host (`github.com`, specifically
+ * `github.com/user-attachments/assets/<uuid>`) and the ACTUAL markup shape
+ * (an HTML `<img>` tag, not markdown) — both were wrong assumptions this
+ * module used to make, fixed in `extractImageUrl` below. What remains
+ * UNVERIFIED in this environment (no network access) is whether
+ * `downloadImage`'s plain, unauthenticated GET against that host actually
+ * succeeds — the real submission proves the URL/host shape, not the fetch
+ * outcome. `extractImageUrl` and `resizeCoverBuffer` ARE fully testable
+ * without network access and have real tests against the exact markup from
+ * that real issue.
  */
 
-/** Pull the first `![...](https://...)` image URL out of a form field's raw
- * text — this is exactly the markdown GitHub inserts when an image is
- * dropped into any textarea field of an issue/PR. Returns null if the
- * writer left the field empty or pasted something else entirely (plain
- * text, a non-image link) — callers treat that as "no cover provided",
- * matching E-202's designed placeholder-publish path, never a hard failure.
+/**
+ * Pull the first dropped-image URL out of a form field's raw text.
+ *
+ * GitHub inserts ONE OF TWO shapes when a picture is dropped into a textarea
+ * field, and this project has now seen BOTH in the wild (2026-09-09 — a
+ * decision-maker actually dragged a photo into a real issue's cover field,
+ * `fgda114/undernote-desk#2`, `PD-COVER-NOT-IMAGE`): the classic markdown
+ * form `![alt](url)`, and an HTML `<img ... src="url" ... />` tag — GitHub
+ * has been observed to emit the HTML form for at least some attachment
+ * uploads (this project cannot predict which; the two REGEXes below are
+ * tried in one pass so whichever GitHub happens to send is caught). Before
+ * this fix, only the markdown form was recognized — a real `<img>` submission
+ * silently fell through to "not an image" (PD-COVER-NOT-IMAGE), which is
+ * exactly the bug report above.
+ *
+ * `<img>` attribute order/quoting is NOT assumed: real markup carries
+ * `width`/`height`/`alt` in front of `src` (see the fixture reproduced from
+ * the actual issue, `fixtures/review-form-body-img-cover.txt`), the quote
+ * character could in principle be `'` instead of `"`, and the tag may or may
+ * not be self-closing (`/>` vs `>`) — the regex below tolerates all of that
+ * by scanning past whatever attributes precede `src=` rather than assuming a
+ * fixed position.
+ *
+ * Multiple images in the same field (a writer somehow drops more than one,
+ * in either shape, possibly mixed) resolve to whichever URL appears FIRST in
+ * the raw text, matching the pre-existing markdown-only behavior — a single
+ * alternation-based regex naturally finds the leftmost match regardless of
+ * which shape it is, rather than checking "any markdown" then "any html" as
+ * two separate passes (which would always prefer markdown even when an
+ * `<img>` tag came first in the text).
+ *
+ * Returns null if the writer left the field empty or pasted something else
+ * entirely (plain text, a non-image link) — callers treat that as "no cover
+ * provided", matching E-202's designed placeholder-publish path, never a
+ * hard failure.
  *
  * Deliberately does NOT host-check here (security review UN-SEC-016 asked
  * for a host allowlist, but the check lives in `downloadImage` instead —
  * see `isAllowedCoverHost` below): this function's only job is "did the
- * writer paste image markdown", and `resolveCover`/`resolveCoverForUpdate`
+ * writer paste an image reference", and `resolveCover`/`resolveCoverForUpdate`
  * (publish.mjs) both rely on `extractImageUrl` returning a URL vs. null to
  * tell "not an image" (PD-COVER-NOT-IMAGE) apart from "an image, but we
  * refuse to fetch it" (PD-COVER-FETCH-FAILED, via downloadImage) — those are
  * different failure messages a writer needs to tell apart. */
+const IMAGE_REFERENCE_RE =
+  /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)|<img\b[^>]*?\bsrc\s*=\s*(?:"(https?:\/\/[^"]+)"|'(https?:\/\/[^']+)')[^>]*>/i;
+
 export function extractImageUrl(fieldText) {
-  const match = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/.exec(fieldText);
-  return match ? match[1] : null;
+  const match = IMAGE_REFERENCE_RE.exec(fieldText);
+  if (!match) return null;
+  return match[1] ?? match[2] ?? match[3] ?? null;
 }
 
 /**

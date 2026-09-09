@@ -1,63 +1,90 @@
 ---
 /**
- * /archive/ — Search: the browse hub AND the site's keyword search, on one
- * page (search-hub design, 2026-09-09; masthead label "Search", route
- * unchanged — see Masthead.astro's intro for why the URL stays /archive/).
+ * /archive/ — Archive: the browse hub AND the site's keyword search, on one
+ * page (axis-chip redesign, 2026-09-09 — supersedes the 2026-09-09
+ * search-hub design this file already carried; masthead label reverts to
+ * "Archive", route unchanged — see Masthead.astro's intro).
  *
- * THE REDESIGN, IN ONE SENTENCE: dropping the Reviews/Notes presets (both
- * already duplicate a masthead tab) surfaced the bigger request behind it —
- * search wanted to exist, as "a feature of the archive" rather than a page of
- * its own. This site ships with JS OFF as a first-class mode
- * (browser.flows.spec.ts builds every page with `javaScriptEnabled: false`),
- * and a search box that fetches a JSON index cannot work there. Turning the
- * relationship around removes the problem instead of working around it:
- * THE HUB IS THE INDEX. Every article renders here, server-side, exactly as
- * /archive/reviews/ or /artists/ already render their own lists (the "All"
- * section below); the query box only HIDES rows a typed string does not
- * match, in place, with the `hidden` attribute — no fetch, no separate index
- * file, no state the page did not already have. With JS off the box sits
- * inert and every row stays visible, which is to say the page falls back to
- * being exactly what it already was: an archive.
+ * THE REDESIGN, IN ONE SENTENCE: the previous round turned the four axes
+ * (Year/Genre/Tags, Artists as a separate page) into LINKS, each opening its
+ * own listing page. The decision-maker asked for the opposite shape — every
+ * axis value as a pressable chip that filters the list IN PLACE, "비슷한
+ * 느낌" to the query box that already sits above them — so a click and a
+ * typed word now do the exact same thing: fill the box, run the one filter.
+ * lib/derive/archive.ts#deriveHubIndex's `haystack` is still the single
+ * definition of "matches" (data-s on each row); a chip's `data-axis-value`
+ * is nothing more than a pre-written query into that same string.
  *
- * WHAT LEFT: the Reviews and Notes PRESETS (not the pages — /archive/reviews/
- * and /archive/stories/ are unchanged and still the masthead's Reviews/Notes
- * targets). Artists stays a preset, unlike the two format tabs: it has no
- * masthead slot of its own to fall back to, and turning it into an AXIS here
- * (linking every artist individually) would recreate the exact duplication —
- * two full artist lists on one site — the 2026-09-07 move below spent itself
- * removing.
+ * FOUR AXES NOW, NOT THREE-PLUS-A-PRESET: Year · Genre · Artist · Tag. Artist
+ * was a standalone page (`/artists/`, 2026-09-07) and is folded back in as a
+ * chip axis — its rows come straight from `artistIndex` (name order, same
+ * data the old page rendered), so nothing about "which artists exist" is
+ * recomputed here. `/artists/{slug}/` ITSELF IS NOT TOUCHED: a review's
+ * artist byline still links there ("아티스트 소개 페이지" — a real page with
+ * its own intro prose, not a filtered list), only the axis LISTING of every
+ * artist moved from its own route into this page's chip row. The two format
+ * presets, /archive/reviews/ and /archive/stories/, are UNCHANGED — they are
+ * not axes of the archive, they are the two things this magazine publishes
+ * (masthead's Reviews/Notes targets), and stay their own full pages.
  *
- * MATCHING, DEFINED ONCE: lib/derive/archive.ts#deriveHubIndex builds one
- * `haystack` string per article (title, artist name(s), publication year,
- * genre bucket label(s), tag label(s), format label) and this page prints it
- * verbatim as each row's `data-s` attribute — enhance.js does a plain
- * case-insensitive substring test against it and nothing else. Server and
- * client read the SAME string; neither recomputes what "matches" means.
+ * PAGES THAT NO LONGER EXIST, AS OF THIS EDIT: `/archive/{year}/`,
+ * `/archive/genre/{bucket}/`, `/archive/tag/{tag}/`, `/artists/` (the list —
+ * not `/artists/{slug}/`). Every static link this codebase had to any of
+ * them was migrated to a chip or to a `/archive/?q=` link (SpecMeta's
+ * Genre/Tags/Release rows) — see 08-impl-notes/frontend.md for the audit.
  *
- * Axes: Year(발행 기준) / Genre(버킷 — bold labels) / Tags(muted chips — the
- * tab itself disappears while the registry is empty). Axis titles are set as
- * structural LABELS, not headings: an axis name is scaffolding, the values
- * are the content. They stay exactly what they were — a bundle of links, not
- * wired to the query box — and read as the QUERY BOX'S OWN SHORTCUTS: typing
- * is one way to narrow the list below, clicking a year/genre/tag is another.
- * Empty axis values simply don't exist (R-4). No scores anywhere (D2) — this
- * is a browsing surface, and showScore is never passed to ArticleCard here.
+ * CHIPS ARE BUTTONS, NOT LINKS (WAI-ARIA: an in-page action, not navigation),
+ * so with JS OFF they simply sit there — inert, but not broken, because the
+ * page under them is already the full, unfiltered archive server-rendered in
+ * full (see the ORIGINAL search-hub reasoning below, which still holds:
+ * "the hub is the index"). `aria-pressed` carries the selected state — never
+ * colour alone (WCAG 1.4.1); enhance.js flips it in the same pass that runs
+ * the filter, comparing each chip's own value against the query, so a chip
+ * clicked, a value typed by hand, or a value arriving via `?q=` all leave
+ * the row of chips in a consistent state.
  *
- * ARTISTS MOVED (2026-09-07). It used to be a fourth axis enumerating every
- * artist here, and /artists/ now does that with counts and its own nav item.
- * Two identical lists on one site is the duplication this round removed from
- * the footer, so only one of them may enumerate. The axis did not vanish
- * though — it became a PRESET, which is what it always was in kind: a
- * destination that holds a whole listing, not a vocabulary of values you
- * pick from. The hub keeps its job as the table of every way in.
+ * THE ORIGINAL SEARCH-HUB REASONING (2026-09-09, unchanged): this site ships
+ * with JS OFF as a first-class mode (browser.flows.spec.ts builds every page
+ * with `javaScriptEnabled: false`), and a search box that fetches a JSON
+ * index cannot work there. THE HUB IS THE INDEX — every article renders
+ * here, server-side, exactly as /archive/reviews/ or the old /artists/
+ * already rendered their own lists; the query box and the chips only HIDE
+ * rows a value does not match, in place, with the `hidden` attribute — no
+ * fetch, no separate index file. With JS off the controls sit inert and
+ * every row stays visible, which is to say the page falls back to being
+ * exactly what it already was: an archive.
+ *
+ * THE RESULT COUNT IS HIDDEN AT REST, VISIBLE ONLY WHILE FILTERING
+ * (2026-09-09, decision-maker: "SEARCH 입력창 옆의 '1개' — 없애도 될 것
+ * 같은데?"). Removing it outright would cost a screen-reader user the one
+ * thing `aria-live` gave them — how many rows a query just left standing —
+ * so it is not gone, only quiet when there is nothing to report: an empty
+ * query matches everything, and "all of them" is not a number worth
+ * announcing when the full list is already sitting there, visibly complete.
+ * It un-hides the instant a query (typed OR a chip) narrows anything, and
+ * with JS off it never un-hides at all — which is correct, not a gap: JS off
+ * means nothing is ever filtered, so "how many survived the filter" has no
+ * answer to give.
+ *
+ * THE MAGNIFYING-GLASS IS A `<label>`, NOT A `<button>`, AND SHIPS NO JS AT
+ * ALL (2026-09-09, decision-maker: "SEARCH 옆에 '1개' 대신 돋보기 버튼").
+ * Clicking OR tapping a `<label for="archive-q">` moves focus to the input
+ * it names — a native browser behaviour, not a script — which is exactly
+ * "시각 요소 + 포커스 이동" and nothing more: the brief was explicit that
+ * typing must keep filtering live (already true, unchanged) and that the
+ * icon must not turn this into a "press to search" control. A real
+ * `<button>` here would need a click LISTENER to do the same job — one this
+ * page does not have to spend any of its byte budget on. It is
+ * `aria-hidden` so a screen reader is not handed the same accessible name
+ * ("Search") twice from two different labels on one input; the visible
+ * "Search" text above the box remains the field's one spoken name.
  */
 import ArticleCard from '../../components/ArticleCard.astro';
 import Base from '../../layouts/Base.astro';
 import { bucketLabelMap, ETC_BUCKET_LABEL } from '../../lib/derive/archive.ts';
 import { getSiteData } from '../../lib/derive/site-data.ts';
-import { withBase } from '../../lib/paths.ts';
 
-const { archive, hubIndex, data } = getSiteData();
+const { archive, hubIndex, data, artistIndex } = getSiteData();
 
 const years = [...archive.by_year.keys()].sort().reverse();
 
@@ -70,39 +97,42 @@ const tagLabels = new Map((data.tags?.tags ?? []).map((t) => [t.slug, t.label]))
 const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tagLabels.get(slug) ?? slug }));
 ---
 
-<Base title="Search" description="제목·아티스트·연도·장르·태그로 찾는 전체 글." path="/archive/" current="archive">
+<Base title="Archive" description="제목·아티스트·연도·장르·태그로 찾는 전체 글." path="/archive/" current="archive">
   <main class="archive">
-    <h1 class="page-title">Search</h1>
+    <h1 class="page-title">Archive</h1>
 
     {
       /* R-4, same as every axis below: nothing to search is nothing to
-         render — an empty site has no query box and no "All" section either. */
+         render — an empty site has no query box and no chip either. */
       hubIndex.length > 0 && (
         <section class="search" aria-label="검색">
           <label for="archive-q" class="axis-title">Search</label>
           <div class="search-row">
-            <input
-              id="archive-q"
-              type="search"
-              class="search-input"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="제목·아티스트·연도·장르·태그"
-              aria-describedby="archive-n"
-            />
-            {/* Live region: states the count at rest (true with no query — every
-                row is shown) and updates it as enhance.js filters. aria-live
-                announces the change without moving focus, so the box stays
-                keyboard-operable end to end. */}
-            <p id="archive-n" class="search-count tnum" aria-live="polite">{hubIndex.length}개</p>
+            <div class="search-field">
+              <input
+                id="archive-q"
+                type="search"
+                class="search-input"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="제목·아티스트·연도·장르·태그"
+                aria-describedby="archive-n"
+              />
+              {/* Zero-JS focus shortcut — see the component intro. */}
+              <label for="archive-q" class="search-icon-btn" aria-hidden="true">
+                <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false">
+                  <circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="2" />
+                  <line x1="13.2" y1="13.2" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </label>
+            </div>
+            {/* Live region: hidden at rest, un-hidden by enhance.js the moment
+                a query (typed or a chip) narrows the list — see the intro. */}
+            <p id="archive-n" class="search-count tnum" aria-live="polite" hidden>{hubIndex.length}개</p>
           </div>
         </section>
       )
     }
-
-    <ul class="presets">
-      <li><a href={withBase('/artists/')}>Artists</a></li>
-    </ul>
 
     {
       years.length > 0 && (
@@ -111,7 +141,7 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
           <ul class="values">
             {years.map((year) => (
               <li>
-                <a class="value-strong tnum" href={withBase(`/archive/${year}/`)}>{year}</a>
+                <button type="button" class="chip tnum" data-axis-value={year} aria-pressed="false">{year}</button>
               </li>
             ))}
           </ul>
@@ -126,7 +156,25 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
           <ul class="values">
             {buckets.map((bucket) => (
               <li>
-                <a class="value-strong" href={withBase(`/archive/genre/${bucket.id}/`)}>{bucket.label}</a>
+                <button type="button" class="chip" data-axis-value={bucket.label} aria-pressed="false">{bucket.label}</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      /* Artist axis (2026-09-09, folded back in from the retired /artists/
+         list page) — same rows, same name order, as a chip row instead of a
+         full page of links. */
+      artistIndex.length > 0 && (
+        <section class="axis">
+          <h2 class="axis-title">Artist</h2>
+          <ul class="values">
+            {artistIndex.map((artist) => (
+              <li>
+                <button type="button" class="chip" data-axis-value={artist.name} aria-pressed="false">{artist.name}</button>
               </li>
             ))}
           </ul>
@@ -138,11 +186,11 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
       /* Tag tab hidden entirely while no tags exist (ui-spec §6). */
       tags.length > 0 && (
         <section class="axis">
-          <h2 class="axis-title">Tags</h2>
+          <h2 class="axis-title">Tag</h2>
           <ul class="values">
             {tags.map((tag) => (
               <li>
-                <a class="chip" href={withBase(`/archive/tag/${tag.slug}/`)}>{tag.label}</a>
+                <button type="button" class="chip" data-axis-value={tag.label} aria-pressed="false">{tag.label}</button>
               </li>
             ))}
           </ul>
@@ -151,17 +199,17 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
     }
 
     {
-      /* The listing search filters — every article, server-rendered, mixed
-         types (showFormat's default stays on, same as /archive/{year}/). */
+      /* The listing itself — every article, server-rendered, mixed types,
+         no section heading (2026-09-09: "ALL 부분은 없어도 되지 않을까?" —
+         removed; the list needs no label of its own once it is the page's
+         only remaining unlabelled content, immediately below four named
+         axes). */
       hubIndex.length > 0 && (
-        <section class="all">
-          <h2 class="axis-title">All</h2>
-          <ul class="all-cards" id="archive-list">
-            {hubIndex.map((hub) => (
-              <ArticleCard item={hub.item} searchKey={hub.haystack} />
-            ))}
-          </ul>
-        </section>
+        <ul class="all-cards" id="archive-list">
+          {hubIndex.map((hub) => (
+            <ArticleCard item={hub.item} searchKey={hub.haystack} />
+          ))}
+        </ul>
       )
     }
   </main>
@@ -177,22 +225,9 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
     gap: var(--s-32);
   }
   /* TITLE→CONTENT IS THE SITE'S ONE SHARED GAP, --s-24, NOT THIS PAGE'S OWN
-     --s-32 (2026-09-08). `.archive`'s 32px `gap` above spaces every pair of
-     its own sections — search to presets, presets to Year, Year to Genre,
-     Genre to Tags, Tags to All — and that IS this page's own editorial
-     rhythm, unrelated to the title. But the title itself is the FIRST item
-     in that same flex column, so before this rule it inherited the
-     section-to-section number too, and measured 32px from its first section
-     even though nothing about "how far a title sits from what follows it"
-     was meant to differ between tabs (see the 24px pages' `.cards`/`.rows`
-     for the shared answer). Margins on a flex item never collapse with the
-     container's `gap` (spec, not a quirk), so they stack: 32px gap + this
-     rule's −8px = 24px, for THIS ONE pair only — every later gap in the
-     column keeps its full 32px untouched. Scoped to this page (Astro's
-     per-component style scoping), so global.css's shared `.page-title` rule
-     is not touched. This still nets 24px after the 2026-09-09 reshuffle
-     because the trick is pinned to "h1, then the flex column's next item" —
-     whichever section that is — not to any one section's identity. */
+     --s-32 — see archive/index.astro's git history (2026-09-08) for the full
+     derivation; the trick is pinned to "h1, then the flex column's next
+     item", so it survives axes being added/removed/reordered around it. */
   .page-title {
     margin-bottom: calc(var(--s-24) - var(--s-32));
   }
@@ -207,19 +242,26 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
     flex-wrap: wrap;
     gap: var(--s-16);
   }
+  .search-field {
+    position: relative;
+    flex: 1 1 280px;
+    min-width: 0;
+  }
   /* Square corners (--r-0, matching every other surface here) and native
      appearance reset: Safari/Chromium give type=search its own rounded pill
      chrome and internal padding that no other control on this site carries.
-     min-width: 0 lets the flex item actually SHRINK below its content's
-     intrinsic minimum at 360px, where a fixed-basis input plus the count
-     text would otherwise force horizontal scroll instead of wrapping. */
+     Right padding clears the icon label sitting inside the field. */
   .search-input {
     appearance: none;
     -webkit-appearance: none;
-    flex: 1 1 280px;
-    min-width: 0;
+    width: 100%;
     min-height: 44px;
-    padding: 0 var(--s-12);
+    /* Right padding matches .search-icon-btn's own 44px box exactly, not a
+       spacing-scale token — the two numbers describe the same geometry
+       (clearing the icon), the same way .thumb-score's dimensions elsewhere
+       on this site are sized to the object they sit on rather than to the
+       spacing scale. */
+    padding: 0 44px 0 var(--s-12);
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-0);
@@ -230,6 +272,25 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
   .search-input::placeholder {
     color: var(--muted);
   }
+  /* A native <label>, styled to read as a button — clicking/tapping it moves
+     focus to the input via the browser's own for= behaviour, no JS (see the
+     component intro). Positioned inside the field's right edge like an
+     ordinary search-icon affordance. */
+  .search-icon-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .search-field:focus-within .search-icon-btn {
+    color: var(--accent-2-ink);
+  }
   .search-count {
     font-family: var(--mono);
     font-size: var(--fs-12);
@@ -237,34 +298,6 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
     font-weight: 500;
     color: var(--muted);
     white-space: nowrap;
-  }
-  .presets {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    gap: var(--s-16);
-    flex-wrap: wrap;
-  }
-  /* Filled chips: the preset is a destination, the axis values below are a
-     vocabulary — the fill separates the two without adding a colour. */
-  .presets a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding: 0 var(--s-12);
-    background: var(--surface-2);
-    color: var(--ink);
-    font-family: var(--mono);
-    font-size: var(--fs-13);
-    line-height: 16px;
-    letter-spacing: 0.08em;
-    font-weight: 700;
-    text-transform: uppercase;
-    transition: color var(--t-micro);
-  }
-  .presets a:hover {
-    color: var(--accent-2-ink);
   }
   .axis-title {
     font-family: var(--mono);
@@ -281,49 +314,65 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s-8) var(--s-16);
+    gap: var(--s-8) var(--s-12);
   }
-  /* Buckets/years: bold ink labels — tags: quiet chips.
-     The visual split IS the two-tier genre statement (ADR-0007). */
-  .value-strong {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    font-size: var(--fs-16);
-    line-height: 22px;
-    font-weight: 700;
-    color: var(--ink);
-  }
-  .value-strong:hover {
-    color: var(--accent-2-ink);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
+  /* Every axis value is the SAME button shape now (2026-09-09 — supersedes
+     the two-tier bold/muted split this page used to draw between buckets and
+     tags, ADR-0007; that split stays everywhere ELSE the two appear, e.g.
+     SpecMeta's own Genre/Tags rows — this page alone was asked to unify).
+     Bordered rather than filled at rest so a page of forty chips does not
+     read as forty solid blocks before a single one is pressed. */
   .chip {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
     padding: 0 var(--s-12);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-0);
     font-family: var(--mono);
-    font-size: var(--fs-12);
+    font-size: var(--fs-13);
     line-height: 16px;
     letter-spacing: 0.04em;
-    font-weight: 500;
-    color: var(--muted);
-    background: var(--surface-3);
-    border-radius: var(--r-0);
-    transition: color var(--t-micro), background var(--t-micro);
+    font-weight: 700;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background var(--t-micro), border-color var(--t-micro), color var(--t-micro);
   }
   .chip:hover {
+    border-color: var(--line-strong);
     color: var(--accent-2-ink);
-    background: var(--surface-2);
   }
-  /* Same rhythm as the axis value lists (.values' 8px), not the 24px a
-     top-level listing page's h1 uses — "All" is an axis-title-styled <h2>,
-     not this page's own h1. */
+  /* Pressed state: fill + ink swap, never colour alone — aria-pressed is the
+     programmatic half (screen readers announce "pressed"), the fill/border
+     swap is the visual half. --accent-2 (not --accent): --accent is reserved
+     for "whatever the score made" (D2, §2.3) and this is a browsing surface
+     with no score in sight, exactly the rule the rest of this page already
+     follows for ArticleCard's showScore. */
+  .chip[aria-pressed='true'] {
+    background: var(--accent-2);
+    border-color: var(--accent-2);
+    color: var(--on-accent-2);
+  }
+  /* NO outline-color OVERRIDE HERE, ON PURPOSE (measured, not assumed —
+     2026-09-09). The global focus ring sits `outline-offset: 2px` OUTSIDE
+     the element's border box (global.css), so on a chip — an ordinary
+     inline-flex box with no extra padding around it — the ring lands on the
+     PAGE's own background, not on the chip's `--accent-2` fill underneath
+     it. `--on-accent-2` is tuned for text painted ON that fill (8.72:1,
+     tokens.css) and reads at only ~1.1:1 against the page background the
+     ring actually sits over — verified by browser.contrast.spec.ts's own
+     ring probe, which is what caught this rather than the pattern below
+     being trusted on sight. `.plate`'s matching override (global.css) is
+     NOT the same situation: `.plate :focus-visible` targets a DESCENDANT
+     focused inside a plate's own padding, where the offset ring can still
+     land on the plate's fill — this chip has no such descendant, it is the
+     focus target itself. The default mint ring against the page background
+     is what every other unpressed chip and every other control on this page
+     already uses, and it clears the same 3:1 floor here too. */
   .all-cards {
     list-style: none;
-    margin: var(--s-8) 0 0;
+    margin: 0;
     padding: 0;
   }
   @media (max-width: 640px) {

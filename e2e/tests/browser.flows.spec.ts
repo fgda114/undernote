@@ -38,7 +38,10 @@ test('US-4 — 이야기 AlbumBox "평론 읽기" 클릭 → 평론 / 미등록�
 });
 
 test('US-8 — About 도달 + 필자 소개 지면 성립', async ({ page }) => {
-  await page.goto(u('/archive/2026/'));
+  // Was /archive/2026/ — retired in the 2026-09-09 axis-chip redesign (the
+  // per-year archive page no longer exists; the hub itself still does and
+  // serves the same "any page with the masthead + footer" purpose here).
+  await page.goto(u('/archive/'));
   await page.getByRole('link', { name: 'About' }).first().click();
   await expect(page).toHaveURL(/\/about\/$/);
   // WHAT THIS TEST NO LONGER VERIFIES (2026-09-07). It used to pin the three
@@ -140,20 +143,27 @@ test('NFR — 주요 흐름 전체에서 외부 JS 요청 0 (인라인만 허용
 });
 
 /**
- * Archive search — JS OFF (search-hub design, 2026-09-09). "The hub is the
- * index": every article is already server-rendered under /archive/, so a
- * reader without JavaScript is not missing a feature, only the FILTER on top
- * of it — see archive/index.astro's and Base.astro's own intros for why
- * there is deliberately no <noscript> fallback text for that. This is the
- * axis the team lead's brief asked to be measured, not assumed.
+ * Archive search + chips — JS OFF (axis-chip redesign, 2026-09-09, building
+ * on the 2026-09-09 search-hub design). "The hub is the index": every
+ * article is already server-rendered under /archive/, so a reader without
+ * JavaScript is not missing a feature, only the FILTER on top of it — see
+ * archive/index.astro's and Base.astro's own intros for why there is
+ * deliberately no <noscript> fallback text for that. Chips are BUTTONS
+ * (in-page action, not navigation — WAI-ARIA), so with no click listener to
+ * run they are exactly what the brief asked for: they "그냥 앉아 있다".
  */
-test('아카이브 검색 — 스크립트 비활성 상태에서 전체 목록이 온전하고 입력창은 그냥 앉아있다', async ({ browser }) => {
+test('아카이브 검색+칩 — 스크립트 비활성 상태에서 전체 목록이 온전하고 입력창·칩은 그냥 앉아있다', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   await page.goto(u('/archive/'));
 
-  // A real, visible label — not sr-only decoration a JS-off reader loses.
-  await expect(page.locator('label[for="archive-q"]')).toBeVisible();
+  // A real, visible TEXT label — not sr-only decoration a JS-off reader
+  // loses. (The input has a SECOND `<label for="archive-q">`, the
+  // magnifying-glass icon — see archive/index.astro's intro — so the
+  // selector is scoped to the text one specifically; a bare
+  // `label[for="archive-q"]` resolves to both and Playwright's strict mode
+  // refuses to guess which.)
+  await expect(page.locator('.search .axis-title[for="archive-q"]')).toBeVisible();
   const input = page.locator('#archive-q');
   await expect(input).toBeVisible();
 
@@ -161,9 +171,24 @@ test('아카이브 검색 — 스크립트 비활성 상태에서 전체 목록�
   const total = await rows.count();
   expect(total, '리치 세트 = 평론 8 + 이야기 1').toBe(9);
 
+  // The live count exists (a screen reader can still reach it once a query
+  // narrows something) but starts hidden — see the "완전 무결" note in
+  // archive/index.astro's intro on why hidden-at-rest is correct here, not
+  // a gap: with no listener, a query never narrows anything, so it never
+  // un-hides either.
+  await expect(page.locator('#archive-n')).toBeHidden();
+
   // Typing does nothing without the listener that would hide non-matches —
   // every row stays exactly as rendered, which is the honest JS-off answer.
   await input.fill('이문자열과일치하는글은세상에없다');
+  await expect(rows).toHaveCount(total);
+  await expect(page.locator('#archive-list [data-s][hidden]')).toHaveCount(0);
+
+  // Chips render and are visible, but a click reaches no listener — same
+  // "sits there" answer as the query box, and the row count proves it.
+  const genreChip = page.locator('.chip[data-axis-value="Pop"]');
+  await expect(genreChip).toBeVisible();
+  await genreChip.click();
   await expect(rows).toHaveCount(total);
   await expect(page.locator('#archive-list [data-s][hidden]')).toHaveCount(0);
 
@@ -171,32 +196,99 @@ test('아카이브 검색 — 스크립트 비활성 상태에서 전체 목록�
 });
 
 /**
- * Archive search — JS ON: the filter actually filters, the live count
- * actually updates, and a zero-match query says so explicitly (the three
- * behaviours the brief's AC named). Rows a query misses are `hidden`, not
- * removed — matches stay in the DOM (still 9), only their visibility flips.
+ * Archive search — JS ON: typing filters, the live count is hidden at rest
+ * and appears only while a query narrows the list (2026-09-09 revision —
+ * see archive/index.astro's intro for why an always-visible count was
+ * withdrawn), and a zero-match query says so explicitly. Rows a query
+ * misses are `hidden`, not removed — matches stay in the DOM (still 9),
+ * only their visibility flips.
  */
-test('아카이브 검색 — 스크립트 활성 상태에서 실제로 걸러지고 결과 수를 알린다', async ({ page }) => {
+test('아카이브 검색 — 스크립트 활성 상태에서 실제로 걸러지고, 결과 수는 걸러지는 동안만 보인다', async ({ page }) => {
   await page.goto(u('/archive/'));
   const rows = page.locator('#archive-list [data-s]');
   const total = await rows.count();
   expect(total).toBe(9);
   const count = page.locator('#archive-n');
-  await expect(count).toHaveText(`${total}개`);
+
+  // Hidden at rest — nothing has narrowed the list yet.
+  await expect(count).toBeHidden();
 
   // One known title from the rich set (aurora-line-first-light) — exactly one match.
   await page.fill('#archive-q', '퍼스트 라이트');
+  await expect(count).toBeVisible();
   await expect(rows).toHaveCount(total); // still in the DOM…
   await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(1); // …only one shown
   await expect(count).toHaveText('1개');
 
-  // Zero matches says so, explicitly.
+  // Zero matches says so, explicitly, and the count stays visible to say it.
   await page.fill('#archive-q', '이문자열과일치하는글은세상에없다');
   await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(0);
+  await expect(count).toBeVisible();
   await expect(count).toHaveText('일치하는 글이 없습니다.');
 
-  // Clearing the query restores the full list.
+  // Clearing the query restores the full list AND re-hides the count.
   await page.fill('#archive-q', '');
   await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(total);
-  await expect(count).toHaveText(`${total}개`);
+  await expect(count).toBeHidden();
+});
+
+/**
+ * Axis chips — JS ON: a chip fills the query box with its own label and
+ * runs the SAME filter typing does (archive/index.astro's intro: "a chip is
+ * a pre-written query", not a second matching rule). Covers a second click
+ * toggling the filter back off, and `aria-pressed` tracking selection
+ * without colour alone (WCAG 1.4.1).
+ */
+test('아카이브 칩 — 클릭하면 그 값으로 필터링되고, 다시 누르면 해제된다', async ({ page }) => {
+  await page.goto(u('/archive/'));
+  const input = page.locator('#archive-q');
+  const count = page.locator('#archive-n');
+  const genreChip = page.locator('.chip[data-axis-value="Pop"]');
+
+  await expect(genreChip).toHaveAttribute('aria-pressed', 'false');
+  await genreChip.click();
+
+  // Clicking a chip is "the same as typing" — the box shows the query.
+  await expect(input).toHaveValue('Pop');
+  await expect(genreChip).toHaveAttribute('aria-pressed', 'true');
+  await expect(count).toBeVisible();
+  // Rich set: 6 pop reviews (RICH_SET) + the base fixture (also pop) = 7 —
+  // publishing and archiving are unaffected by the board's top-5 cut.
+  await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(7);
+
+  // A DIFFERENT axis's chip does not need the first one released first —
+  // clicking it simply replaces the query (single query box, single source
+  // of truth), and the first chip's pressed state follows.
+  const tagChip = page.locator('.chip[data-axis-value="시티팝"]');
+  await tagChip.click();
+  await expect(input).toHaveValue('시티팝');
+  await expect(genreChip).toHaveAttribute('aria-pressed', 'false');
+  await expect(tagChip).toHaveAttribute('aria-pressed', 'true');
+
+  // Clicking the SAME chip again clears the query — the toggle-off path.
+  await tagChip.click();
+  await expect(input).toHaveValue('');
+  await expect(tagChip).toHaveAttribute('aria-pressed', 'false');
+  await expect(count).toBeHidden();
+  await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(9);
+});
+
+/**
+ * `?q=` landing param — the mechanism SpecMeta's Release/Genre/Tags links
+ * rely on to reach a PRE-FILTERED hub with no server: a plain static link
+ * (works with JS off, lands on the unfiltered hub) that enhance.js reads on
+ * load when JS is on. Genre and Release both point here in real content —
+ * this test exercises Release's own value (a release year) end to end.
+ */
+test('아카이브 — ?q= 로 도착하면 로드 시점에 그 값으로 미리 걸러진다', async ({ page }) => {
+  // aurora-line-first-light released 2026-03-20 — SpecMeta's Release row on
+  // that review links to /archive/?q=2026.
+  await page.goto(u('/archive/?q=2026'));
+  const input = page.locator('#archive-q');
+  const count = page.locator('#archive-n');
+  await expect(input).toHaveValue('2026');
+  await expect(count).toBeVisible();
+  // Every rich-set item is dated 2026 (published) and every review not
+  // otherwise noted also released in 2026 — the query matches all 9.
+  await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(9);
 });

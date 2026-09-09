@@ -9,9 +9,9 @@
  *
  * CLIENT JS: "zero" became "a budget" on 2026-09-07 (lead decision). Exactly
  * ONE inline module ships, from this file, under the ceiling in
- * build.dist-matrix.spec.ts (2560B; the block measures 2544B), and it does
- * three things — two decorative, one functional (the archive search filter,
- * 2026-09-09). What replaced the old zero as the guard is measured, not
+ * build.dist-matrix.spec.ts (3072B; the block measures 3020B), and it does
+ * three things — two decorative, one functional (the archive search + axis
+ * chips, 2026-09-09). What replaced the old zero as the guard is measured, not
  * assumed — build.dist-matrix.spec.ts fails the build if any page carries
  * more than one script tag, if any script has a src, or if the inline body
  * exceeds the byte budget; browser.flows.spec.ts still proves that no
@@ -137,30 +137,45 @@ const csp = cspContent(goatcounter);
         are DEPLOY BYTES (nothing minifies them), which is why the long-form
         reasoning stays here where it costs nothing and the file itself
         carries one pointer line. Ship budget: that file is the whole of it —
-        2544B against 2560B. The ceiling has moved four times — 1KB → 2KB
+        3020B against 3072B. The ceiling has moved FIVE times — 1KB → 2KB
         when the pager arrived, 2048B → 2304B when the tracking grew from one
         reader to three, back DOWN to 2048B when two of those three readers
-        were withdrawn, and 2048B → 2560B when the search filter arrived (a
+        were withdrawn, 2048B → 2560B when the search filter arrived (a
         third, FUNCTIONAL reader of the budget, decided at the lead level
-        rather than shaved to fit) — and each move is recorded with its
-        reason in build.dist-matrix.spec.ts, which holds the number and fails
-        the build when a feature outgrows it. A ceiling left standing above a
-        payload that shrank is not a budget.
+        rather than shaved to fit), and 2560B → 3072B when the archive's four
+        axes (Year/Genre/Artist/Tag) became chips that drive the SAME filter
+        (also a lead decision) — the chip loop, the click handler, and the
+        `?q=` landing-param reader added roughly 480B on top of the existing
+        480-odd-byte search block. Each move is recorded with its reason in
+        build.dist-matrix.spec.ts, which holds the number and fails the build
+        when a feature outgrows it. A ceiling left standing above a payload
+        that shrank is not a budget.
 
-        THE ARCHIVE SEARCH reads `data-s` off every row already in the DOM
-        (lib/derive/archive.ts#deriveHubIndex builds that string once, at
-        build time — the ONE definition of "matches" this feature has) and
-        does a plain case-insensitive substring test against the query box's
-        value on every `input` event. No debounce: the rich sandbox's row
-        count is small enough that a naive full-list scan on every keystroke
-        is imperceptible, and adding one would be a second thing to get
-        wrong for a cost that has not been measured as real. Matching rows
-        stay in the DOM and get `hidden = false`; the rest get `hidden =
-        true`, which is a real UA-level display:none — a screen reader and
-        the tab order both skip them, not just sighted scrolling. The live
-        count (`aria-live="polite"`) is the only other thing the listener
-        touches, so the whole feature is one element read, one event
-        listener, and two writes per row.
+        THE ARCHIVE SEARCH+CHIPS are ONE filter with THREE triggers. `data-s`
+        on every row already in the DOM (lib/derive/archive.ts#deriveHubIndex
+        builds that string once, at build time — the ONE definition of
+        "matches" this feature has) is matched, case-insensitively, as a
+        plain substring, against whatever the query box's VALUE currently is
+        — and three different things can set that value: the reader typing
+        (the `input` listener), clicking a chip (`data-axis-value` on each
+        one is nothing more than a pre-written query — see archive/index.
+        astro's intro for why a chip is "the same as typing" by design, not
+        a second matching rule), or a static link landing on `?q=` (SpecMeta's
+        Genre/Tags/Release rows point here, since the per-axis pages those
+        rows used to link to were retired the same round). All three funnel
+        into one `run()` that does the actual filtering — hide/show `data-s`
+        rows, update the live count, and set every chip's `aria-pressed` by
+        comparing its own value against the current query — so there is
+        exactly one place "does this row match, and which chip (if any) says
+        so" is decided, matching the one-haystack rule the derive layer
+        itself already keeps. No debounce: the rich sandbox's row count is
+        small enough that a full scan on every keystroke is imperceptible.
+        Matching rows get `hidden = false`; the rest get `hidden = true`, a
+        real UA-level display:none — a screen reader and the tab order both
+        skip them. The live count (`aria-live="polite"`) starts `hidden` on
+        the server and is un-hidden only while a query is active — see
+        archive/index.astro's intro for why an always-visible count was
+        withdrawn.
 
         THE PAGER never creates a control. The arrows are anchors in the
         HTML, so a reader without JavaScript gets "jump to the start / to the
