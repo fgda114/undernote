@@ -77,21 +77,49 @@ test('D2-R2 — 점수를 보이는 탐색 지면은 명시된 목록뿐', () =>
   }
 });
 
-test('D2-R2 — 리스트 지면 점수 표시·정렬 / 홈 보드 top5 컷 / 최신 리뷰 표시·이야기 무점수', () => {
+test('D2-R2 — 리스트 지면 점수 표시·정렬 / 홈 보드 캐러셀(최대 10장·랭크순) / 최신 리뷰 표시·이야기 무점수', () => {
   const home = readPage(dir, '/');
-  // Board shows top-5 scores…
-  for (const s of ['9.1', '8.8', '8.3', '7.9', '7.5', '8.0']) expect(home).toContain(scoreToken(s));
-  // …but never the two below the cut (US-2 AC — top 5 only).
-  expect(home).not.toContain(scoreToken('7.2'));
-  expect(home).not.toContain(scoreToken('6.8'));
   // D2-R2 reversal on the home, asserted section by section. The explicit
   // index checks matter: indexOf(-1) would make slice() return the last
   // character and the loops below would pass on nothing at all — that is how
   // this assertion used to die quietly when an anchor moved.
+  const boardAt = home.indexOf('aria-label="올해의 앨범"');
   const reviewsAt = home.indexOf('aria-label="최신 리뷰"');
   const notesAt = home.indexOf('aria-label="음악 이야기"');
-  expect(reviewsAt, '홈 최신 리뷰 섹션 앵커 부재').toBeGreaterThan(-1);
+  expect(boardAt, '홈 올해의 앨범 섹션 앵커 부재').toBeGreaterThan(-1);
+  expect(reviewsAt, '홈 최신 리뷰 섹션 앵커 부재').toBeGreaterThan(boardAt);
   expect(notesAt, '홈 음악 이야기 섹션 앵커 부재').toBeGreaterThan(reviewsAt);
+
+  // Board is a one-card-at-a-time CAROUSEL now (2026-09-10 rebuild — see
+  // index.astro's intro for the round trip through a same-day misreading
+  // that briefly cut this to a single un-navigable card). All ten reachable
+  // candidates render into the DOM in year-rank order, not just the leader:
+  // stepping the carousel with no script (native scroll-snap) or with the
+  // arrow buttons has to have somewhere to go. The rich fixture holds
+  // exactly SCORES.length (8) reviews, under the ten-card cap, so every
+  // score in SCORES appears here — SCORES is already sorted high → low,
+  // the same order deriveTop10/deriveHomeSections produce, so checking each
+  // token's index only ever increases doubles as a rank-order check.
+  const board = home.slice(boardAt, reviewsAt);
+  // `<li class="chart-card…` specifically — a bare `class="chart-card` regex
+  // would also match the wrapping `<ol class="chart-cards…` (the plural is a
+  // substring match away), silently counting the LIST as an extra card.
+  expect((board.match(/<li class="chart-card/g) ?? []).length, `홈 보드 카드 수 ≠ ${SCORES.length}`).toBe(SCORES.length);
+  let cursor = -1;
+  for (const s of SCORES) {
+    const at = board.indexOf(scoreToken(s), cursor + 1);
+    expect(at, `홈 보드에 점수 ${s} 부재이거나 랭크 순서가 어긋남`).toBeGreaterThan(cursor);
+    cursor = at;
+  }
+  // Two arrow buttons ship because the rich fixture's 8 candidates clear the
+  // R-4 floor (more than one, so a "next"/"prev" control points at something
+  // real). The carousel always opens on card 0, so `prev` renders `disabled`
+  // server-side rather than waiting on the inline module to compute it
+  // (index.astro's markup comment) — checked here as a static HTML property,
+  // not a runtime one, since this file reads dist output rather than driving
+  // a browser.
+  expect((board.match(/class="carousel-btn prev"[^>]*\bdisabled\b/g) ?? []).length, '홈 보드 이전 버튼이 초기 disabled 상태가 아님').toBe(1);
+  expect((board.match(/class="carousel-btn next"/g) ?? []).length, '홈 보드 다음 버튼 부재').toBe(1);
 
   // 최신 리뷰 SHOWS figures now (it is one of the two reversed surfaces)…
   const latest = home.slice(reviewsAt, notesAt);
@@ -436,11 +464,42 @@ test('아카이브 허브 — Year·Genre·Artist·Tag 칩 개수 + ALL 제목 �
  * chip click or a `?q=` landing param in addition to typing. What it costs:
  * a chip click-handler loop, an `aria-pressed` sync pass inside `run()`
  * itself, and the `URLSearchParams` read on load — none of it decorative.
- * The block measures 3020B against 3072B. Documented in full in Base.astro
- * (search under "The site's ONE script"), not repeated here: this file only
- * ever needs to carry the NUMBER and why it moved.
+ * The block measured 3020B against 3072B at that point.
+ *
+ * 3072 → 2176 on 2026-09-10 (sixth move, and the first DOWN since the
+ * 2304 → 2048 correction), when the home Charts pager was deleted outright
+ * rather than left unrendered — AN INTERMEDIATE PASS misread the
+ * decision-maker's request as "one card total" rather than "restore the
+ * single-card SHAPE" (index.astro's intro has the full account of the
+ * misreading and its correction), and a control that scrolls a row of cards
+ * that no longer exists is not a feature waiting to come back, it is dead
+ * code — which is what this move was against, at the time it was made.
+ * Removing the scroll handler, its two listeners and the sync/click closures
+ * took the block from 3020B to 2123B — an 897B drop, by far the largest
+ * single move this budget had made up to that point. The ceiling followed it
+ * down to 2176 (53B headroom, matching the 2048 ceiling's own standard).
+ *
+ * 2176 → 2836, HOURS LATER THE SAME DAY (seventh move — a reversal, not a
+ * new feature). The misreading above was caught and corrected: the
+ * decision-maker's request asked for the carousel BACK, with arrow buttons
+ * flanking a single visible card, not for the arrows to stay gone
+ * (index.astro's intro, "CHARTS IS A ONE-CARD-AT-A-TIME CAROUSEL"). The
+ * rebuilt version is not a byte-for-byte revert of what was deleted — it
+ * steps exactly one card (`box.clientWidth * 1`, matching the new
+ * `flex: 0 0 100%` single-card row) rather than the old pager's `* 0.8`
+ * screenful across a multi-card grid, and it marks its ends with a real
+ * `<button>`'s native `disabled` rather than an anchor's `aria-disabled` —
+ * so it is SMALLER than what was removed, not merely restored: the block
+ * measured 2783B against the new 2836B ceiling (53B headroom again),
+ * against 3020B for the original pager. NET ACROSS BOTH MOVES: 3072 → 2836,
+ * −236B, because the rebuilt control does the same job in less code, not
+ * because it does less of the job. Two decorative readers ship again — the
+ * cover-zoom pointer tracking and the Charts carousel arrows — alongside the
+ * one functional reader, the archive search + axis chips. Documented in full
+ * in Base.astro (search under "The site's ONE script"), not repeated here:
+ * this file only ever needs to carry the NUMBER and why it moved.
  */
-const INLINE_JS_BUDGET_BYTES = 3072;
+const INLINE_JS_BUDGET_BYTES = 2836;
 
 test('NFR — 클라이언트 JS 예산: 지면당 인라인 1개 · 외부 JS 0 · 상한 이하', () => {
   for (const p of pages) {

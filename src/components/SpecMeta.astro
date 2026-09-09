@@ -63,11 +63,34 @@
  * rather than a design: the row's value takes the same weight and size as
  * every other row's value (`dd`'s ordinary sans/14px), never the h1's
  * display face — it reads as data, not as a second headline. Subtitle
- * (album schema's optional `subtitle`, 2026-09-09) appends in parentheses
- * when present, mirroring the "Album (qualifier)" shape the decision-maker
- * asked for; the row shows the title alone when it is absent, per the same
- * R-4 "omit the part with nothing to say" rule the whole block already
- * follows for Label/Tags.
+ * (album schema's optional `subtitle`, 2026-09-09) appends in parentheses on
+ * its OWN LINE when present (2026-09-10, decision-maker request: "제목 하고
+ * 부제 사이에 줄바꿈 했으면좋겠어" — the title and its qualifier used to run
+ * together on one line, "Lost Weekend (The 3rd Studio Album)", which read as
+ * one long title rather than a title plus a qualifier). The row shows the
+ * title alone, one line, when subtitle is absent — per the same R-4 "omit
+ * the part with nothing to say" rule the whole block already follows for
+ * Label/Tags, and the reason the line break below is INSIDE the
+ * `subtitle &&` guard rather than always printed: a title with no subtitle
+ * must stay a single line, never a title line followed by an empty one.
+ *
+ * THE PARENTHESES STAY (left open by the decision-maker, resolved here).
+ * Breaking the line already tells a SIGHTED reader "the second line
+ * qualifies the first" — but a screen reader reads the two `dd` lines as one
+ * run of text with no pause encoded in a `<br>`, so without the parentheses
+ * "Lost Weekend The 3rd Studio Album" would sound like one title. Keeping
+ * them costs nothing visually (the line break already carries the visual
+ * separation) and keeps the two readings — by eye and by ear — in agreement.
+ *
+ * THE SUBTITLE LINE IS VISUALLY WEAKER THAN THE TITLE (`.subtitle` below,
+ * `--muted` in place of `--ink`, size UNCHANGED). Colour rather than a
+ * second size step is the same choice ArticleCard's own `.subtitle` already
+ * made for its title/subtitle pair — reusing it here keeps "how a subtitle
+ * is de-emphasised" one rule on the site, not two. Reusing `--muted` on this
+ * block's own `--surface-2` background is also deliberate, not incidental —
+ * that exact pair already carries the block's `dt` labels at 4.5:1+
+ * (browser.contrast.spec.ts), so this new line introduces no colour
+ * combination the contrast suite has not already passed.
  *
  * THE RELEASE ROW LINKS TO THE ARCHIVE, PRE-FILTERED TO ITS YEAR
  * (2026-09-09, decision-maker request). The per-year archive page
@@ -115,7 +138,16 @@ const searchLink = (value: string) => withBase(`/archive/?q=${encodeURIComponent
 <dl class="spec" aria-label="앨범 정보">
   <div class="row">
     <dt>Title</dt>
-    <dd>{title}{subtitle && ` (${subtitle})`}</dd>
+    {/* Kept on one line, unlike most of this file's markup: Astro preserves
+        template whitespace as literal text, and build.dist-matrix.spec.ts
+        matches this row by its EXACT text content (`<dd>제목</dd>`, no
+        subtitle) — a line break between `{title}` and the closing tag would
+        turn that into a false negative on a suite this repo has been burned
+        by before ("A와 B를 서로 비교하는 검사는 A와 B가 같이 틀린 걸 못 본다" —
+        see other files' notes on the same failure shape). `{subtitle && <br />}`
+        and the span below are both skipped entirely when there is no
+        subtitle, so the no-subtitle row is untouched by this change. */}
+    <dd>{title}{subtitle && <br />}{subtitle && <span class="subtitle">({subtitle})</span>}</dd>
   </div>
   <div class="row">
     <dt>Artist</dt>
@@ -230,6 +262,13 @@ const searchLink = (value: string) => withBase(`/archive/?q=${encodeURIComponent
     color: var(--ink);
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+  /* Title row's optional second line (2026-09-10) — same size as the title
+     above it, `--muted` in place of `--ink` is the whole weakening. See the
+     intro for why colour alone (not a smaller size) matches how every other
+     title/subtitle pair on the site is already de-emphasised. */
+  .subtitle {
+    color: var(--muted);
   }
   /* Links inside a value are inline text, so the 44px target rule does not
      apply (WCAG 2.5.8 inline exception) — they get color + underline. */

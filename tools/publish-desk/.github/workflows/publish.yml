@@ -169,20 +169,40 @@ jobs:
       # doc comment) — it MAY read (never write) public/'s git history for
       # MODE=update/takedown.
       #
-      # COVER_FETCH_TOKEN (2026-09-09, PD-COVER-FETCH-FAILED, real
-      # submission `fgda114/undernote-desk#3`): `github.token` — THIS repo's
-      # own default GITHUB_TOKEN, already scoped by `permissions:` above —
-      # not `secrets.PUBLISH_PAT`. A cover attachment lives on THIS (private)
-      # repo, so it is THIS repo's own token that authorizes reading it;
-      # PUBLISH_PAT is deliberately scoped to the PUBLIC repo only (§2.3)
-      # and cannot read this repo's attachments at all (least-privilege
-      # split from the security audit — the two tokens are not
-      # interchangeable and must not be mixed). Given its own explicit name
-      # rather than reused as `GH_TOKEN` (already set workflow-wide, for the
-      # `gh` CLI) so a future change to how `gh` calls authenticate can never
-      # silently also change what downloadImage sends — see cover.mjs
-      # #downloadImage for the redirect-safety rule this token is subject
-      # to.
+      # COVER_FETCH_TOKEN — `secrets.COVER_PAT`, falling back to
+      # `github.token`.
+      #
+      # WHY NOT github.token ALONE (2026-09-10, measured). The 2026-09-09
+      # round wired this to the workflow's own GITHUB_TOKEN on the reasoning
+      # that a cover attachment lives on THIS repo, so THIS repo's token
+      # should authorize reading it. Two real submissions later
+      # (`undernote-desk#3`, `#4`) it was still HTTP 404, with the token
+      # demonstrably being passed. The reasoning was wrong: a drag-and-drop
+      # attachment is not a repository resource. It lives under
+      # github.com/user-attachments/assets/<uuid> — a USER upload — and an
+      # installation token scoped to a repository does not reach it, no
+      # matter what `permissions:` grants.
+      #
+      # Measured against the very URL that failed:
+      #   installation token (github.token)      404
+      #   user token with repo scope             200 · image/jpeg · 183,783B
+      #
+      # So a user-issued PAT is required. COVER_PAT is fine-grained on THIS
+      # repo with Contents: Read only — the narrowest thing that could
+      # plausibly work; if it cannot read user-attachments either, the
+      # failure is loud (PD-COVER-FETCH-FAILED) and the fallback below keeps
+      # today's behaviour rather than breaking the workflow.
+      #
+      # PUBLISH_PAT is still NOT usable here — it is scoped to the PUBLIC
+      # repo only (§2.3). Three tokens now, each minimal: gh CLI on this
+      # repo, push on the public repo, attachment read on this repo. The
+      # security audit's least-privilege split holds; it just needed a
+      # third slot rather than a wider second one.
+      #
+      # Named separately from GH_TOKEN so a future change to how `gh`
+      # authenticates can never silently change what downloadImage sends —
+      # see cover.mjs#downloadImage for the redirect-safety rule this token
+      # is subject to.
       - name: Resolve + write/update/delete content
         id: publish
         if: steps.mode.outputs.mode != 'skip'
@@ -194,7 +214,7 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           PUBLISH_RESULT_PATH: ${{ github.workspace }}/publish-result.json
-          COVER_FETCH_TOKEN: ${{ github.token }}
+          COVER_FETCH_TOKEN: ${{ secrets.COVER_PAT || github.token }}
         run: node scripts/publish.mjs
 
       - name: Read publish result

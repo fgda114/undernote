@@ -443,15 +443,33 @@ export interface HomeSections {
  * is visibly full of reviews, which reads as a fault rather than as
  * restraint. The genuinely empty case is handled by the page.
  */
-export function deriveHomeSections(board: Board, allArticles: ArticleItem[], limit = 4): HomeSections {
-  const charts = board.buckets.flatMap((bucket) =>
-    bucket.entries.map((entry, i) => ({
-      ...entry,
-      bucketLabel: bucket.label,
-      rank: i + 1,
-      bucketCount: bucket.entries.length,
-    })),
-  );
+export function deriveHomeSections(board: Board, top10: Top10Progressive, allArticles: ArticleItem[], limit = 4): HomeSections {
+  // THE HOME CARD IS THE YEAR'S #1, NOT A BUCKET'S (2026-09-10).
+  //
+  // This used to flatten `board.buckets` and take the first entry, which is
+  // the leader of whichever bucket `config/genres.yaml` happened to list
+  // FIRST — not the best-scoring album of the year. Measured on the rich
+  // fixture: pop held a 9.1 but sits at order 5, hiphop held an 8.0 at
+  // order 1, and the home showed the 8.0 under the heading "올해의 앨범".
+  //
+  // Harmless while the page below it also showed per-bucket boards, because
+  // the card was then visibly the first of several bucket sections. Those
+  // boards were removed on 2026-09-09 — /list/{year}/ now shows one overall
+  // top 10 and the review badge counts overall rank — so a bucket-relative
+  // pick became the odd one out and started reading as a claim it does not
+  // support.
+  //
+  // `top10` is the same derivation the list page and the badge already use.
+  // `bucketLabel` stays on the item because ChartCard still names the genre;
+  // it comes from the album's own buckets now rather than from which board
+  // the entry was found on.
+  const bucketOf = new Map(board.buckets.flatMap((b) => b.entries.map((e) => [e.album, b.label] as const)));
+  const charts = top10.entries.map((entry, i) => ({
+    ...entry,
+    bucketLabel: bucketOf.get(entry.album) ?? '',
+    rank: i + 1,
+    bucketCount: top10.entries.length,
+  }));
   return {
     charts,
     latestReviews: allArticles.filter((a) => a.type === 'review').slice(0, limit),

@@ -104,8 +104,37 @@ export function extractImageUrl(fieldText) {
  */
 const ALLOWED_COVER_HOST_SUFFIXES = ['github.com', 'githubusercontent.com'];
 
+/**
+ * Where an authenticated attachment request actually ENDS UP (2026-09-10,
+ * measured on a real submission — `undernote-desk#4`).
+ *
+ * `github.com/user-attachments/assets/<uuid>` does not serve bytes. Given a
+ * token it can accept, it answers 302 to a SIGNED object-storage URL on a
+ * host like `github-production-user-asset-6210df.s3.amazonaws.com`. The
+ * allowlist above rejected that hop, so the fetch failed at the last step
+ * with the token finally working — the error text changed from HTTP 404 to
+ * "허용되지 않은 호스트", which is how we learned this at all.
+ *
+ * WHY THIS IS NARROW AND STAYS NARROW. `.s3.amazonaws.com` alone would
+ * open every bucket on S3 to a URL a writer can put in an issue — the
+ * exact SSRF this allowlist exists to prevent. The prefix is required too,
+ * and even then this host is reachable only as a REDIRECT TARGET: the
+ * chain still has to START on the GitHub allowlist above, because that is
+ * the URL parsed out of the issue body. A writer cannot name this host
+ * directly and be fetched.
+ *
+ * The token is NOT sent on this hop — downloadImage strips Authorization on
+ * any cross-host redirect, and it does not need it: the S3 URL carries its
+ * own signature. That rule is what makes widening this list safe rather
+ * than merely convenient.
+ */
+const ALLOWED_COVER_REDIRECT_HOST = /^github-production-user-asset-[a-z0-9-]+\.s3\.amazonaws\.com$/i;
+
 function isAllowedCoverHost(hostname) {
-  return ALLOWED_COVER_HOST_SUFFIXES.some((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`));
+  return (
+    ALLOWED_COVER_HOST_SUFFIXES.some((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`)) ||
+    ALLOWED_COVER_REDIRECT_HOST.test(hostname)
+  );
 }
 
 /** 640px JPEG covers do not need more than a few hundred KB — 10MB is a

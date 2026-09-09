@@ -189,7 +189,10 @@ const focus = await page.evaluate(() => {
     ['홈 카드 링크', 'section[aria-label="최신 리뷰"] .card-link'],
     ['차트 행 링크', '.chart-card a.row-link'],
     ['푸터 About', '.footer-about'],
-    ['페이저 버튼', '.pager-btn'],
+    // 캐러셀 버튼 (2026-09-10 재구성) — `:not(:disabled)`인 이유는 위 파일의
+    // 동일 probe 주석 참고: `prev`는 카드 0에서 시작하므로 초기 disabled라
+    // 포커스를 받을 수 없다.
+    ['캐러셀 버튼', '.carousel-btn:not(:disabled)'],
   ];
   for (const [label, sel] of targets) {
     const el = document.querySelector(sel);

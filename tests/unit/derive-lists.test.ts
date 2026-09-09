@@ -325,10 +325,9 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
     const joined = joinReviews(repo);
     const board = deriveBoard(joined, genres, 2026);
     const articles = deriveLatestArticles(repo, joined, excerptFrom, Number.MAX_SAFE_INTEGER);
-    return deriveHomeSections(board, articles, limit);
+    return deriveHomeSections(board, deriveTop10(joined, 2026), articles, limit);
   };
-
-  it('charts = 보드를 버킷 순서 → 순위 순으로 평탄화하고 버킷 라벨·버킷 내 순위를 싣는다', () => {
+  it('charts = 그 해 전체 10선을 점수 순으로 싣는다 (버킷 순서가 아니라)', () => {
     const repo = repoOf({
       albums: [albumOf('pop-hi'), albumOf('pop-lo'), albumOf('hip', { buckets: ['hiphop-rnb'] })],
       reviews: [
@@ -338,20 +337,27 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
       ],
     });
     const { charts } = sectionsFor(repo);
-    // genres.yaml order is hiphop-rnb(1) → pop(2) → rock(3), and rank is the
-    // position INSIDE the bucket, so both buckets start again at 1.
-    expect(charts.map((c) => [c.album, c.bucketLabel, c.rank])).toEqual([
-      ['hip', '힙합/R&B', 1],
-      ['pop-hi', '팝', 1],
-      ['pop-lo', '팝', 2],
+    // REVERSED 2026-09-10. This used to assert the OPPOSITE ordering — the
+    // board flattened by BUCKET order, so `hip` (8.0) came first purely
+    // because hiphop-rnb sits at genres.yaml order 1, ahead of a 9.0.
+    //
+    // Defensible while the home card was visibly the first of several
+    // bucket sections. Those boards were removed on 2026-09-09 and the home
+    // now shows ONE card under the heading "올해의 앨범" — at which point
+    // "leader of the first-listed genre" reads as a claim about the year
+    // that it cannot support.
+    //
+    // The property protected is unchanged in kind: the home card must agree
+    // with the list it names. Only the list it names changed, and it is now
+    // the same top 10 that /list/{year}/ and the review badge use.
+    expect(charts.map((c) => [c.album, c.rank])).toEqual([
+      ['pop-hi', 1],
+      ['hip', 2],
+      ['pop-lo', 3],
     ]);
-    // bucketCount travels with the rank (2026-09-07). The card prints the
-    // ordinal only from two entries up, because the home flattens the
-    // buckets into one row and a "1위" out of one album orders nothing —
-    // which is a judgment the CARD makes and the derive layer only supplies
-    // the fact for. Both cases are present here on purpose: the lone
-    // hiphop-rnb entry and the two-deep pop bucket.
-    expect(charts.map((c) => c.bucketCount)).toEqual([1, 2, 2]);
+    // The genre label still travels with the card — ChartCard names it — but
+    // it comes from the album now, not from which board it was found on.
+    expect(charts.map((c) => c.bucketLabel)).toEqual(['팝', '힙합/R&B', '팝']);
   });
 
   it('빈 버킷은 charts에 아무것도 기여하지 않는다 (R-4 — 홈은 미출력, 구조는 /list/{year}/가 보인다)', () => {
@@ -387,13 +393,22 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
   });
 
   it('차트 밖 평론이 하나라도 있으면 최신 리뷰가 발행일 내림차순으로 나온다 (중복 허용)', () => {
-    // 6 pop albums: the board keeps 5, so 'sixth' can never be in charts.
+    // 6 pop albums. The board kept 5 per bucket; the home's chart list now
+    // comes from the year's top 10, so all six are in it — the cap moved
+    // from 5-per-bucket to 10-overall (2026-09-10).
     const albums = ['a', 'b', 'c', 'd', 'e', 'f'].map((k) => albumOf(`pop-${k}`));
     const reviews = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) =>
       reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`),
     );
     const { charts, latestReviews } = sectionsFor(repoOf({ albums, reviews }));
-    expect(charts).toHaveLength(5); // top-5 cut
+    // RELOCATED, not deleted (2026-09-10). This asserted the BOARD's
+    // per-bucket top-5 cut. `deriveHomeSections` now takes the overall
+    // top 10 instead, so the number that bounds this list is 10 — and
+    // with six albums none are cut. What the assertion protects is
+    // unchanged: the home's chart list is BOUNDED and ordered by score,
+    // never an unbounded dump in config order.
+    expect(charts).toHaveLength(6);
+    expect(charts.map((c) => c.album)).toEqual(['pop-a', 'pop-b', 'pop-c', 'pop-d', 'pop-e', 'pop-f']);
     // Newest first; the lowest-scored album is the newest review here. The
     // DEFAULT limit dropped 6 → 4 on 2026-09-07 when the home's browsing
     // grids became a fixed four-column row — six cards would have left two

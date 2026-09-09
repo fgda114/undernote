@@ -25,8 +25,21 @@ for (const path of ['/', '/reviews/aurora-line-first-light/']) {
       seen.push(info);
     }
     expect(seen.length).toBeGreaterThan(5);
-    // JS 0 sites have exactly one interactive primitive: the anchor.
-    expect([...new Set(seen.map((s) => s.tag))]).toEqual(['A']);
+    // JS-0 destinations are anchors all the way down — EXCEPT the home's
+    // Charts carousel (2026-09-10), whose two arrow buttons are real
+    // `<button>`s rather than anchors on purpose: a native `disabled` state
+    // at either end needs one (index.astro's markup comment). Checked as a
+    // SUBSET, not exact equality: a 120-keystroke Tab-press loop is a timing
+    // race under parallel test load by nature (one dropped/coalesced
+    // keystroke skips whatever element was next), and this file's own job is
+    // "every tag we DID land on is an expected primitive, and outlines paint
+    // on all of them" — not "we are guaranteed to land on every one of
+    // them". The carousel button's own keyboard-focusability and outline are
+    // both checked deterministically (a direct `.focus()`, no Tab-mashing)
+    // in browser.contrast.spec.ts's focus-ring test, which is the right
+    // place to require it be reachable.
+    const allowed = path === '/' ? ['A', 'BUTTON'] : ['A'];
+    for (const s of seen) expect(allowed, `${path}에서 예상 밖 태그 ${s.tag}`).toContain(s.tag);
     // :focus-visible must paint an outline on keyboard focus.
     for (const s of seen) expect(s.outline).not.toBe('none');
   });
@@ -69,19 +82,32 @@ test('커버 hover 줌 — reduced-motion에서 변형 제거 실측', async ({ 
   const cover = page.locator('.board .cover-frame > .cover').first();
   await expect(cover).toBeVisible();
 
-  const scaleOf = async () => {
-    // Hover the anchor, not the image: the rule is `a:hover .cover-frame`.
+  // POLLED, NOT READ ONCE (2026-09-10). `hover()` scrolls the target into
+  // view first, and the chart card now lives in a horizontal scroll
+  // container with `scroll-behavior: smooth` (the carousel). Reading the
+  // transform immediately after can catch the card mid-scroll, and this
+  // test failed exactly once that way in a full-suite run while passing
+  // alone — a flake, which in this repo is worse than a failure because it
+  // teaches people to re-run instead of to look.
+  //
+  // The assertion is unchanged: the zoom must exist without reduced-motion
+  // and must be gone with it. Polling only removes the race — if the zoom
+  // genuinely broke, the poll times out and still fails.
+  const hoverCard = async () => {
     await page.locator('.board a.row-link').first().hover();
-    return cover.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).a);
   };
-  expect(await scaleOf()).toBeGreaterThan(1); // baseline: the zoom exists
+  const scaleOf = () => cover.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).a);
+
+  await hoverCard();
+  await expect.poll(scaleOf, { message: '커버 hover 줌 부재' }).toBeGreaterThan(1);
   // The frame clips it — the art never grows outside its own box.
   expect(await page.locator('.board .cover-frame').first().evaluate((el) => getComputedStyle(el).overflow)).toBe(
     'hidden',
   );
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  expect(await scaleOf()).toBe(1);
+  await hoverCard();
+  await expect.poll(scaleOf, { message: 'reduced-motion인데 변형 잔존' }).toBe(1);
 });
 
 test('reduced-motion — 보드 스태거 애니메이션 제거 실측', async ({ page }) => {

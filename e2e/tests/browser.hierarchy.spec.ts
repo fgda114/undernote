@@ -15,18 +15,17 @@
  * WHAT IS MEASURED, AND WHAT IS NOT.
  *   · Ten viewport widths, chosen as the CSS's own step edges and the two
  *     sides of each (see WIDTHS): every breakpoint in index.astro and the
- *     gutter curve in tokens.css is crossed at least once. Two of the three
- *     historical breaks were width-dependent at a fixed card count, which is
- *     exactly this axis.
- *   · Three Charts card-count layouts (n-1 / n-2 / n-3+). The third is what
- *     the rich sandbox actually renders; the other two are produced by
- *     TRIMMING the rendered <ol> and re-labelling it, which is honest for the
- *     property under test — the count classes select a grid rule, and the
- *     rule is measured on the real markup with the real stylesheet. The one
- *     thing the trim does not reproduce is ChartCard's `feature` INTERNALS at
- *     n-1 (bigger cover, bigger title); those do not change the card's outer
- *     width, which is what the invariant is about. Stated so nobody reads
- *     more into a green run than it earned.
+ *     gutter curve in tokens.css is crossed at least once.
+ *   · Charts renders up to ten cards now (2026-09-10, a one-card-at-a-time
+ *     CAROUSEL — see index.astro's intro), but exactly ONE is ever visible:
+ *     `.chart-cards` clips to the first card's width and scrolls the rest
+ *     offscreen, so `document.querySelector('.chart-card')` below always
+ *     measures the one a reader actually sees, regardless of how many
+ *     `charts` holds. No DOM surgery, same as the previous (single-card)
+ *     version of this file: what changed is the SOURCE of the guarantee —
+ *     the earlier version measured the section's only card; this one
+ *     measures the section's only VISIBLE card, both by construction rather
+ *     than a rule this file has to simulate.
  *   · Browsing card width no longer depends on card count at all (the `n-*`
  *     variants were deleted on 2026-09-07), so that axis has one value.
  *
@@ -63,42 +62,44 @@ const B = basePathOf(join(SANDBOX_ROOT, 'rich'));
 const WIDTHS = [360, 430, 600, 640, 641, 768, 839, 840, 1024, 1159, 1160, 1440, 1680, 1920, 2560];
 
 const EPS = 0.5; // sub-pixel grid track rounding
+// `.carousel-btn` is a fixed 44px circle, `.chart-carousel`'s gap is
+// `var(--s-8)` = 8px (index.astro) — the exact, deliberate distance the
+// carousel's leading arrow button reserves before the visible card, on
+// every width the carousel renders at all (charts.length > 1, which the
+// rich fixture's 8 candidates always satisfy). Named here so a change to
+// either value in index.astro is a change to ONE number in this file too,
+// not a silently-adjusted tolerance.
+const BTN_INSET = 44 + 8;
+/** Below this the buttons sit UNDER the card, so it is flush again.
+    Mirrors index.astro's `@media (max-width: 640px)` — the layout has one
+    breakpoint and the test reads it from the same number, not from a
+    guess about which widths "look mobile". */
+const BTN_FLANK_MIN_WIDTH = 641;
+const expectedInset = (width: number) => (width >= BTN_FLANK_MIN_WIDTH ? BTN_INSET : 0);
 
-test('위계 불변식 — 13폭 × 3 차트 레이아웃: 차트 카드 ≥ 탐색 카드 (실측)', async ({ page }) => {
+test('위계 불변식 — 13폭: 차트 카드(캐러셀의 보이는 한 장, feature) ≥ 탐색 카드 (실측)', async ({ page }) => {
+  // No DOM surgery: the rich fixture's Charts section holds up to ten cards
+  // (2026-09-10 carousel — see the file intro), but `.chart-card` below
+  // matches the first one in document order, which is the one card ever
+  // visible without scrolling the row — so the shipped page IS the one
+  // layout worth measuring, same as before this rebuild.
   await page.goto(`${B}/`);
-
-  // The n-1 / n-2 layouts are produced in-page. `restore` puts the list back
-  // so the next width measures the shipped state again.
-  const setChartCount = (n: number | null) =>
-    page.evaluate((count) => {
-      const ol = document.querySelector('.chart-cards') as HTMLElement;
-      const w = window as unknown as { __chartBackup?: string; __chartClass?: string };
-      if (w.__chartBackup === undefined) {
-        w.__chartBackup = ol.innerHTML;
-        w.__chartClass = ol.className;
-      }
-      if (count === null) {
-        ol.innerHTML = w.__chartBackup;
-        ol.className = w.__chartClass!;
-        return;
-      }
-      ol.innerHTML = w.__chartBackup;
-      ol.className = `chart-cards stagger n-${Math.min(count, 3)}`;
-      while (ol.children.length > count) ol.lastElementChild!.remove();
-    }, n);
 
   const measure = () =>
     page.evaluate(() => {
+      const carousel = document.querySelector('.chart-carousel') as HTMLElement;
       const chart = document.querySelector('.chart-card') as HTMLElement;
       const browse = document.querySelector(
         'section[aria-label="최신 리뷰"] .article-card',
       ) as HTMLElement;
       const c = chart.getBoundingClientRect();
+      const car = carousel.getBoundingClientRect();
       const b = browse.getBoundingClientRect();
       return {
         chartW: c.width,
         browseW: b.width,
-        chartX: c.x,
+        carouselX: car.x,
+        cardInset: c.x - car.x,
         browseX: b.x,
         scrollW: document.documentElement.scrollWidth,
         clientW: document.documentElement.clientWidth,
@@ -112,38 +113,77 @@ test('위계 불변식 — 13폭 × 3 차트 레이아웃: 차트 카드 ≥ 탐
 
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
-    for (const count of [1, 2, 8]) {
-      await setChartCount(count);
-      const m = await measure();
-      const label = `c${count === 8 ? '3+' : count} @${width}`;
-      rows.push(`${label}: chart ${m.chartW.toFixed(1)} / browse ${m.browseW.toFixed(1)}`);
-      if (m.chartW < m.browseW - EPS) {
-        violations.push(`${label} — 차트 ${m.chartW.toFixed(1)} < 탐색 ${m.browseW.toFixed(1)}`);
-      }
-      // The two grids share the page's left edge; a track rule that indents
-      // one of them is a layout defect even when the widths still order.
-      if (Math.abs(m.chartX - m.browseX) > EPS) {
-        misaligned.push(`${label} — 차트 x=${m.chartX.toFixed(1)} vs 탐색 x=${m.browseX.toFixed(1)}`);
-      }
-      if (m.scrollW > m.clientW) overflow.push(`${label} — ${m.scrollW}>${m.clientW}`);
+    const m = await measure();
+    const label = `@${width}`;
+    rows.push(`${label}: chart ${m.chartW.toFixed(1)} / browse ${m.browseW.toFixed(1)} · inset ${m.cardInset.toFixed(1)}`);
+    if (m.chartW < m.browseW - EPS) {
+      violations.push(`${label} — 차트 ${m.chartW.toFixed(1)} < 탐색 ${m.browseW.toFixed(1)}`);
     }
-    await setChartCount(null);
+    // WHAT "SHARES THE LEFT EDGE" MEANS NOW (2026-09-10). The two grids used
+    // to share it at the CARD's own edge. From 641px up the carousel's
+    // leading arrow button is new structural content with nothing on the
+    // browsing side to match, so the card it precedes sits one button plus
+    // one gap in — index.astro's intro documents that as the affordance's
+    // honest cost.
+    //
+    // BELOW 641px THE BUTTONS MOVE UNDER THE CARD and the inset returns to
+    // zero. That is not an exception bolted onto this test: a fixed 2 x 44px
+    // of flanking circles takes a growing share of a shrinking viewport, and
+    // at 390px it left the card 63% of the width when "one card taking the
+    // full width" is this section's entire brief. Measured before the fix:
+    // 1200px gave 78%, 390px gave 63%; after, 390px gives 90%.
+    //
+    // What is still a defect, and still caught here: the CAROUSEL's own
+    // outer box drifting from the shared edge (an accidental margin creeping
+    // into `.chart-carousel` or an ancestor), and the inset drifting from
+    // whichever value the breakpoint says it should be — either would mean
+    // something OTHER than the documented layout is pushing the card around.
+    if (Math.abs(m.carouselX - m.browseX) > EPS) {
+      misaligned.push(`${label} — 캐러셀 x=${m.carouselX.toFixed(1)} vs 탐색 x=${m.browseX.toFixed(1)}`);
+    }
+    const inset = expectedInset(width);
+    if (Math.abs(m.cardInset - inset) > EPS) {
+      misaligned.push(`${label} — 카드 들여쓰기 ${m.cardInset.toFixed(1)}px ≠ 기대 ${inset}px`);
+    }
+    if (m.scrollW > m.clientW) overflow.push(`${label} — ${m.scrollW}>${m.clientW}`);
   }
 
   console.log(`위계 실측 ${rows.length}건:\n  ${rows.join('\n  ')}`);
   expect(violations, `위계 역전:\n${violations.join('\n')}`).toEqual([]);
-  expect(misaligned, `좌측 정렬 어긋남:\n${misaligned.join('\n')}`).toEqual([]);
+  expect(misaligned, `정렬 어긋남:\n${misaligned.join('\n')}`).toEqual([]);
   expect(overflow, `가로 스크롤:\n${overflow.join('\n')}`).toEqual([]);
 });
 
 /**
  * The invariant's CSS expression, asserted directly so a failure names the
  * rule that broke rather than the pixel that moved. `minmax(0, 320px)` on the
- * browsing track and a fixed 336px chart card are the two halves; a `1fr`
- * creeping back into either is the specific edit that inverted the hierarchy
- * in W5, and it is invisible in a screenshot at most widths.
+ * browsing track is still the half that can invert the hierarchy at a wide
+ * viewport — a `1fr` creeping back in is the specific edit that inverted it
+ * once already in W5, and it is invisible in a screenshot at most widths.
+ *
+ * THE CHART SIDE OF THIS TEST CHANGED SHAPE TWICE, NOT JUST NUMBER
+ * (2026-09-10, first to a single always-block card, then to the carousel
+ * this file now measures — index.astro's intro has the full round trip).
+ * "Fixed 336px" was the pre-2026-09-07 scroller card's own promise; neither
+ * shape since has one, and pinning a literal pixel width on a card that is
+ * supposed to fill its row would pin the WRONG property — a full-width card
+ * that happened to render at exactly 336px on one viewport would pass that
+ * assertion while failing the actual invariant everywhere else. What is
+ * asserted instead is the structural facts that make the chart card win by
+ * construction rather than by coincidence: `.chart-carousel` is a flex row
+ * (not a grid the browsing side's 320px cap could apply to), its two arrow
+ * buttons are a FIXED 44px each regardless of viewport (so the margin they
+ * cost only widens as the frame grows, never shrinks it further), and the
+ * feature layout's own cover column stays fixed at 440px rather than growing
+ * or shrinking with the frame — all three are asserted directly against
+ * index.astro's and ChartCard's own rules, not inferred from a single
+ * measured number. The REAL cross-check — does the chart card actually stay
+ * wider than the browsing card at every one of these widths — is the first
+ * test above, which measures the shipped page rather than these rules in
+ * isolation; this test exists so a failure here names the STRUCTURAL rule
+ * that broke, not just the pixel.
  */
-test('위계 불변식 — 탐색 트랙 상한 320px · 차트 카드 고정 336px (CSS 규칙)', async ({ page }) => {
+test('위계 불변식 — 탐색 트랙 상한 320px · 차트 캐러셀은 플렉스(고정폭 버튼, 트랙 없음) (CSS 규칙)', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 900 });
   await page.goto(`${B}/`);
 
@@ -156,8 +196,26 @@ test('위계 불변식 — 탐색 트랙 상한 320px · 차트 카드 고정 33
   expect(tracks.length, '1920에서 탐색 그리드가 4열이 아님').toBe(4);
   for (const t of tracks) expect(t, `탐색 트랙 ${t}px가 320 상한 초과`).toBeLessThanOrEqual(320 + EPS);
 
-  const chartW = await page.locator('.chart-card').first().evaluate((el) => el.getBoundingClientRect().width);
-  expect(chartW, '차트 카드가 336px 고정에서 벗어남').toBeCloseTo(336, 0);
+  // `.chart-carousel` has to stay a flex row with no `minmax(0, 320px)` cap
+  // of its own — the moment the browsing grid's own track system leaks into
+  // it, the visible card can shrink below the browsing grid's cap the same
+  // way the old n-2/n-3 rules once did.
+  const carousel = await page.evaluate(() => {
+    const el = document.querySelector('.chart-carousel') as HTMLElement;
+    const btn = document.querySelector('.carousel-btn') as HTMLElement;
+    return { display: getComputedStyle(el).display, btnWidth: getComputedStyle(btn).width };
+  });
+  expect(carousel.display, '.chart-carousel이 flex가 아님 — 트랙 시스템이 되돌아옴').toBe('flex');
+  expect(carousel.btnWidth, '캐러셀 버튼이 44px 고정에서 벗어남 (뷰포트에 비례하면 위계가 흔들릴 수 있음)').toBe('44px');
+
+  // ChartCard's `feature` grid: `440px minmax(0, var(--column))`. Only the
+  // fixed first value is asserted — the second track's resolved px is a
+  // function of the viewport by design (index.astro's intro).
+  const featureFirstColumn = await page.evaluate(() => {
+    const link = document.querySelector('.chart-card.feature .row-link') as HTMLElement;
+    return getComputedStyle(link).gridTemplateColumns.split(/\s+/)[0];
+  });
+  expect(featureFirstColumn, '피처 카드 커버 열이 440px 고정에서 벗어남').toBe('440px');
 });
 
 /**

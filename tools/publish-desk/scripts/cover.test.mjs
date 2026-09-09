@@ -138,6 +138,38 @@ test('downloadImage rejects an internal/metadata-shaped host the same way as any
   );
 });
 
+// ── The redirect target GitHub actually sends us to (2026-09-10, measured
+// on real submission `fgda114/undernote-desk#4`). `github.com/user-
+// attachments/assets/<uuid>` does not serve bytes: with a token it accepts,
+// it 302s to a SIGNED object-storage URL. The allowlist rejected that hop,
+// which is how the failure text changed from HTTP 404 to "허용되지 않은
+// 호스트" the moment the token finally worked. ──
+
+test('downloadImage accepts GitHub의 서명 저장소 호스트 (실제 리다이렉트 대상)', async () => {
+  const bytes = await sharp({ create: { width: 4, height: 4, channels: 3, background: { r: 9, g: 9, b: 9 } } })
+    .jpeg()
+    .toBuffer();
+  const fakeFetch = async () => new Response(bytes, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+  const out = await downloadImage('https://github-production-user-asset-6210df.s3.amazonaws.com/1/2/3?X-Amz-Signature=abc', fakeFetch);
+  assert.ok(out.length > 0);
+});
+
+test('downloadImage rejects any OTHER S3 bucket — 접두어 없이는 안 된다', async () => {
+  let called = false;
+  const fakeFetch = async () => {
+    called = true;
+    return new Response('should never get here', { status: 200 });
+  };
+  // Without the prefix requirement this would open every bucket on S3 to a
+  // URL a writer can put in an issue — the exact SSRF the allowlist exists
+  // to prevent. Three shapes: a bare bucket, the apex, and a suffix that
+  // merely CONTAINS the allowed host inside an attacker-owned domain.
+  for (const host of ['evil.s3.amazonaws.com', 's3.amazonaws.com', 'github-production-user-asset-x.s3.amazonaws.com.evil.example']) {
+    await assert.rejects(() => downloadImage(`https://${host}/x.jpg`, fakeFetch), /허용되지 않은 호스트/, host);
+  }
+  assert.equal(called, false);
+});
+
 // The actual host observed in a real submission (2026-09-09,
 // `fgda114/undernote-desk#2`) is the bare `github.com` apex — NOT a
 // `githubusercontent.com` subdomain, which is what §3.1's two original
