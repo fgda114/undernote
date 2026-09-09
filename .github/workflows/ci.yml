@@ -125,6 +125,25 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: verify
     runs-on: ubuntu-latest
+    # ONE PAGES DEPLOYMENT AT A TIME (2026-09-09). GitHub Pages refuses a
+    # deployment while another is in flight, with a 400 and this text:
+    #   "Deployment request failed ... due to in progress deployment.
+    #    Please cancel <sha> first or wait for it to complete."
+    # That is exactly what happened when PR #6 and #7 were merged seconds
+    # apart: #6's deploy was still running, #7's was rejected, and the run
+    # went red on main even though every gate had passed. Nothing was
+    # actually broken and the next merge shipped both — which is the bad
+    # part, because a red main that means nothing teaches people to ignore
+    # a red main.
+    #
+    # `cancel-in-progress: true` is right for a deploy of the CURRENT tip:
+    # if two merges land in quick succession, the older deployment is
+    # superseded by the newer one anyway, so cancelling it loses nothing.
+    # The `verify` job is deliberately NOT in this group — every commit's
+    # gates must run to completion, whether or not a newer commit exists.
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: true
     permissions:
       contents: read # checkout for the fixture-content gate
       pages: write
