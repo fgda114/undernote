@@ -138,3 +138,65 @@ test('NFR — 주요 흐름 전체에서 외부 JS 요청 0 (인라인만 허용
   }
   expect(jsRequests).toEqual([]);
 });
+
+/**
+ * Archive search — JS OFF (search-hub design, 2026-09-09). "The hub is the
+ * index": every article is already server-rendered under /archive/, so a
+ * reader without JavaScript is not missing a feature, only the FILTER on top
+ * of it — see archive/index.astro's and Base.astro's own intros for why
+ * there is deliberately no <noscript> fallback text for that. This is the
+ * axis the team lead's brief asked to be measured, not assumed.
+ */
+test('아카이브 검색 — 스크립트 비활성 상태에서 전체 목록이 온전하고 입력창은 그냥 앉아있다', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto(u('/archive/'));
+
+  // A real, visible label — not sr-only decoration a JS-off reader loses.
+  await expect(page.locator('label[for="archive-q"]')).toBeVisible();
+  const input = page.locator('#archive-q');
+  await expect(input).toBeVisible();
+
+  const rows = page.locator('#archive-list [data-s]');
+  const total = await rows.count();
+  expect(total, '리치 세트 = 평론 8 + 이야기 1').toBe(9);
+
+  // Typing does nothing without the listener that would hide non-matches —
+  // every row stays exactly as rendered, which is the honest JS-off answer.
+  await input.fill('이문자열과일치하는글은세상에없다');
+  await expect(rows).toHaveCount(total);
+  await expect(page.locator('#archive-list [data-s][hidden]')).toHaveCount(0);
+
+  await context.close();
+});
+
+/**
+ * Archive search — JS ON: the filter actually filters, the live count
+ * actually updates, and a zero-match query says so explicitly (the three
+ * behaviours the brief's AC named). Rows a query misses are `hidden`, not
+ * removed — matches stay in the DOM (still 9), only their visibility flips.
+ */
+test('아카이브 검색 — 스크립트 활성 상태에서 실제로 걸러지고 결과 수를 알린다', async ({ page }) => {
+  await page.goto(u('/archive/'));
+  const rows = page.locator('#archive-list [data-s]');
+  const total = await rows.count();
+  expect(total).toBe(9);
+  const count = page.locator('#archive-n');
+  await expect(count).toHaveText(`${total}개`);
+
+  // One known title from the rich set (aurora-line-first-light) — exactly one match.
+  await page.fill('#archive-q', '퍼스트 라이트');
+  await expect(rows).toHaveCount(total); // still in the DOM…
+  await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(1); // …only one shown
+  await expect(count).toHaveText('1개');
+
+  // Zero matches says so, explicitly.
+  await page.fill('#archive-q', '이문자열과일치하는글은세상에없다');
+  await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(0);
+  await expect(count).toHaveText('일치하는 글이 없습니다.');
+
+  // Clearing the query restores the full list.
+  await page.fill('#archive-q', '');
+  await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(total);
+  await expect(count).toHaveText(`${total}개`);
+});

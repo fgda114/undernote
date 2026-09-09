@@ -9,8 +9,9 @@
  *
  * CLIENT JS: "zero" became "a budget" on 2026-09-07 (lead decision). Exactly
  * ONE inline module ships, from this file, under the ceiling in
- * build.dist-matrix.spec.ts (2048B; the block measures 1970B), and it does
- * two decorative things. What replaced the old zero as the guard is measured, not
+ * build.dist-matrix.spec.ts (2560B; the block measures 2544B), and it does
+ * three things — two decorative, one functional (the archive search filter,
+ * 2026-09-09). What replaced the old zero as the guard is measured, not
  * assumed — build.dist-matrix.spec.ts fails the build if any page carries
  * more than one script tag, if any script has a src, or if the inline body
  * exceeds the byte budget; browser.flows.spec.ts still proves that no
@@ -115,23 +116,51 @@ const csp = cspContent(goatcounter);
     <Masthead current={current} />
     <slot />
     <Footer current={current} />
-    {/* The site's ONE script. Two decorations, both progressive enhancement
-        in the strict sense: everything they touch already works without them
-        — the chart pager arrows are in-page links to the first and last card,
-        and the cover hover zoom is pure CSS. Nothing here creates, moves, focuses or
-        labels anything, so a reader without JavaScript is missing an effect,
-        not a feature — which is why there is no <noscript> counterpart to
-        write. Its text is src/scripts/enhance.js, emitted verbatim below;
-        that file's comments are DEPLOY BYTES (nothing minifies them), which
-        is why the long-form reasoning stays here where it costs nothing and
-        the file itself carries one pointer line. Ship budget: that file is
-        the whole of it — 1970B against 2048B. The ceiling has
-        moved three times — 1KB → 2KB when the pager arrived, 2048B → 2304B
-        when the tracking grew from one reader to three, and back DOWN to
-        2048B when two of those three readers were withdrawn — and each move
-        is recorded with its reason in build.dist-matrix.spec.ts, which holds
-        the number and fails the build when a feature outgrows it. A ceiling
-        left standing above a payload that shrank is not a budget.
+    {/* The site's ONE script. Two decorations plus one functional feature
+        (archive search, 2026-09-09). The two decorations are progressive
+        enhancement in the strict sense: everything they touch already works
+        without them — the chart pager arrows are in-page links to the first
+        and last card, and the cover hover zoom is pure CSS. Search is
+        DIFFERENT IN KIND, and said so plainly rather than squeezed into the
+        old claim: it DOES hide rows and relabel a live count, so a reader
+        without JavaScript is not merely missing an effect there — they are
+        missing the FILTER. What they are not missing is the FEATURE the
+        filter narrows: /archive/ already renders every article server-side
+        (see that page's own intro for why "the hub is the index" removes the
+        need for a fetched search index), so JS off leaves the full, real
+        archive — nothing is stubbed out waiting for a script, there is just
+        one fewer way to narrow it. That is also why there is still no
+        <noscript> counterpart: a query box with nothing to say when it
+        cannot run would be exactly the self-narrating sentence this site's
+        empty states already gave up (SectionEmpty's intro). Its text is
+        src/scripts/enhance.js, emitted verbatim below; that file's comments
+        are DEPLOY BYTES (nothing minifies them), which is why the long-form
+        reasoning stays here where it costs nothing and the file itself
+        carries one pointer line. Ship budget: that file is the whole of it —
+        2544B against 2560B. The ceiling has moved four times — 1KB → 2KB
+        when the pager arrived, 2048B → 2304B when the tracking grew from one
+        reader to three, back DOWN to 2048B when two of those three readers
+        were withdrawn, and 2048B → 2560B when the search filter arrived (a
+        third, FUNCTIONAL reader of the budget, decided at the lead level
+        rather than shaved to fit) — and each move is recorded with its
+        reason in build.dist-matrix.spec.ts, which holds the number and fails
+        the build when a feature outgrows it. A ceiling left standing above a
+        payload that shrank is not a budget.
+
+        THE ARCHIVE SEARCH reads `data-s` off every row already in the DOM
+        (lib/derive/archive.ts#deriveHubIndex builds that string once, at
+        build time — the ONE definition of "matches" this feature has) and
+        does a plain case-insensitive substring test against the query box's
+        value on every `input` event. No debounce: the rich sandbox's row
+        count is small enough that a naive full-list scan on every keystroke
+        is imperceptible, and adding one would be a second thing to get
+        wrong for a cost that has not been measured as real. Matching rows
+        stay in the DOM and get `hidden = false`; the rest get `hidden =
+        true`, which is a real UA-level display:none — a screen reader and
+        the tab order both skip them, not just sighted scrolling. The live
+        count (`aria-live="polite"`) is the only other thing the listener
+        touches, so the whole feature is one element read, one event
+        listener, and two writes per row.
 
         THE PAGER never creates a control. The arrows are anchors in the
         HTML, so a reader without JavaScript gets "jump to the start / to the

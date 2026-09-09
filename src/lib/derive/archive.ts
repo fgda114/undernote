@@ -20,6 +20,7 @@
  */
 import type { RepoData } from '../checker/load.ts';
 import type { Finding } from '../checker/types.ts';
+import type { ArticleItem } from './lists.ts';
 
 /** api-contracts §4.4 — score deliberately absent. */
 export interface ArchiveItem {
@@ -94,6 +95,18 @@ export function deriveArchiveIndex(data: RepoData): ArchiveIndex {
 /** Fixed display label for the reserved bucket (never configured — E-109). */
 export const ETC_BUCKET_LABEL = '그 외';
 
+/** Bucket id -> display label, first block that defines an id wins (a bucket
+ * can repeat across years' config blocks; the first label seen is the one
+ * shown everywhere). Shared by the hub below and by every /archive/genre/{id}/
+ * page, which each used to carry their own copy of this loop. */
+export function bucketLabelMap(data: RepoData): Map<string, string> {
+  const labels = new Map<string, string>();
+  for (const block of data.genres?.years ?? []) {
+    for (const bucket of block.buckets) if (!labels.has(bucket.id)) labels.set(bucket.id, bucket.label);
+  }
+  return labels;
+}
+
 /** One row of /artists/ — display name plus what this publication has
  * written about them, split by format because the two are different work. */
 export interface ArtistIndexEntry {
@@ -136,6 +149,61 @@ export function deriveArtistIndex(data: RepoData, index: ArchiveIndex): ArtistIn
     });
   }
   return entries.sort((a, b) => cp(a.name, b.name) || cp(a.slug, b.slug));
+}
+
+/**
+ * One row of the /archive/ hub (search-hub design, 2026-09-09: "검색 지면이
+ * 곧 아카이브다" — the hub renders every article server-side and a client
+ * script only hides the ones a typed query misses, so there is no separate
+ * search index to fetch or fall out of sync with the page). `haystack` is the
+ * SINGLE definition of what a query can match — both the page (as the
+ * `data-s` attribute enhance.js reads) and this function agree on it, so
+ * there is exactly one place that answers "does this row match?".
+ *
+ * FIELDS, DELIBERATELY: title, artist name(s), publication year, genre
+ * bucket label(s), tag label(s), format label — the same five facets
+ * /archive/{year,genre,tag}/ and /artists/ already index by. A story's gist
+ * paragraph (ArticleItem#subtitle) is left OUT on purpose: matching on prose
+ * would make "what did this short query just match" unpredictable, where
+ * matching on the axes a reader can already see taught them keeps the hub's
+ * idea of "found it" the one the rest of the site already uses.
+ */
+export interface HubItem {
+  item: ArticleItem;
+  year: string;
+  genres: string[];
+  tags: string[];
+  artists: string[];
+  haystack: string;
+}
+
+export function deriveHubIndex(data: RepoData, index: ArchiveIndex, allArticles: ArticleItem[]): HubItem[] {
+  const labels = bucketLabelMap(data);
+  const tagLabels = new Map((data.tags?.tags ?? []).map((t) => [t.slug, t.label]));
+  const artistNames = new Map(data.artists.map((a) => [a.slug, a.data.name]));
+
+  // Each axis maps id/slug -> items; the hub needs the opposite direction
+  // (url -> labels), because it filters by ARTICLE, not by axis value.
+  const reverse = (axis: Map<string, ArchiveItem[]>, label: (key: string) => string): Map<string, string[]> => {
+    const out = new Map<string, string[]>();
+    for (const [key, items] of axis) {
+      const l = label(key);
+      for (const it of items) (out.get(it.url) ?? out.set(it.url, []).get(it.url)!).push(l);
+    }
+    return out;
+  };
+  const genresByUrl = reverse(index.by_bucket, (id) => (id === 'etc' ? ETC_BUCKET_LABEL : (labels.get(id) ?? id)));
+  const tagsByUrl = reverse(index.by_tag, (slug) => tagLabels.get(slug) ?? slug);
+  const artistsByUrl = reverse(index.by_artist, (slug) => artistNames.get(slug) ?? slug);
+
+  return allArticles.map((item) => {
+    const year = item.date.slice(0, 4);
+    const genres = genresByUrl.get(item.url) ?? [];
+    const tags = tagsByUrl.get(item.url) ?? [];
+    const artists = artistsByUrl.get(item.url) ?? [];
+    const haystack = [item.title, ...artists, year, ...genres, ...tags, item.formatLabel].join(' ').toLowerCase();
+    return { item, year, genres, tags, artists, haystack };
+  });
 }
 
 /** Code-point compare — never localeCompare (see deriveArtistIndex). */

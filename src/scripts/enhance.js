@@ -47,3 +47,20 @@ if (q('(hover:hover) and (pointer:fine)') && !still) {
     if (!r) r = requestAnimationFrame(write);
   }, { passive: true });
 }
+
+// Archive search — data-s is each row's match text; hide misses, live-count.
+const si = document.getElementById('archive-q');
+if (si) {
+  const rows = document.querySelectorAll('#archive-list [data-s]');
+  const out = document.getElementById('archive-n');
+  si.addEventListener('input', () => {
+    const v = si.value.trim().toLowerCase();
+    let n = 0;
+    for (const row of rows) {
+      const hit = !v || row.dataset.s.includes(v);
+      row.hidden = !hit;
+      if (hit) n++;
+    }
+    out.textContent = n ? `${n}개` : '일치하는 글이 없습니다.';
+  });
+}

@@ -6,7 +6,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Entry, RepoData } from '../../src/lib/checker/load';
-import { deriveArchiveIndex, deriveArtistIndex, detectOrphans, ETC_BUCKET_LABEL } from '../../src/lib/derive/archive';
+import { bucketLabelMap, deriveArchiveIndex, deriveArtistIndex, deriveHubIndex, detectOrphans, ETC_BUCKET_LABEL } from '../../src/lib/derive/archive';
+import type { ArticleItem } from '../../src/lib/derive/lists';
 import type { Album, Artist, ReviewFrontmatter, SiteConfig, Story } from '../../src/lib/schema';
 
 function entry<T>(slug: string, data: T, body = '본문'): Entry<T> {
@@ -129,6 +130,60 @@ describe('deriveArtistIndex — /artists/ 인덱스 (2026-09-07)', () => {
     };
     const idx = { ...index, by_artist: new Map(['zz', 'aa'].map((k) => [k, index.by_artist.get('artist-b')!])) };
     expect(deriveArtistIndex(dupes, idx).map((e) => e.slug)).toEqual(['aa', 'zz']);
+  });
+});
+
+describe('bucketLabelMap — 버킷 id → 라벨 (연도 축 아카이브·검색 허브 공용, 2026-09-09)', () => {
+  it('설정된 버킷 id는 라벨로 조회된다', () => {
+    expect(bucketLabelMap(repo).get('pop')).toBe('팝');
+  });
+
+  it('etc처럼 config에 없는 id는 매핑에 없다 (호출부가 ETC_BUCKET_LABEL로 따로 처리)', () => {
+    expect(bucketLabelMap(repo).has('etc')).toBe(false);
+  });
+});
+
+describe('deriveHubIndex — /archive/ 검색 허브 (search-hub design, 2026-09-09)', () => {
+  // Hand-built ArticleItem[] rather than deriveLatestArticles' full pipeline
+  // — this function only needs url/title/date/formatLabel to attach facets
+  // and build the haystack, so the fixture stays minimal and isolated.
+  const allArticles: ArticleItem[] = [
+    { type: 'story', url: '/stories/duo-story/', title: '듀오 이야기', subtitle: '', date: '2026-04-01', formatLabel: 'Notes' },
+    { type: 'review', url: '/reviews/solo-album/', title: '솔로 앨범', subtitle: 'A', date: '2026-03-01', formatLabel: 'Reviews' },
+    { type: 'review', url: '/reviews/duo-album/', title: '듀오 앨범', subtitle: 'A · B', date: '2026-02-01', formatLabel: 'Reviews' },
+  ];
+  const hub = deriveHubIndex(repo, index, allArticles);
+
+  it('행 수 = allArticles 그대로 — 허브가 곧 색인이라 별도 필터링이 없다', () => {
+    expect(hub).toHaveLength(3);
+  });
+
+  it('리뷰 행에 발행 연도·장르(버킷)·태그·아티스트 라벨이 붙는다', () => {
+    const duo = hub.find((h) => h.item.url === '/reviews/duo-album/')!;
+    expect(duo.year).toBe('2026');
+    expect(duo.genres).toEqual([ETC_BUCKET_LABEL]); // duo-album의 버킷은 'etc'
+    expect(duo.tags).toEqual(['시티팝']);
+    expect(duo.artists.sort()).toEqual(['A', 'B']); // 복수 아티스트 전원
+
+    const solo = hub.find((h) => h.item.url === '/reviews/solo-album/')!;
+    expect(solo.genres).toEqual(['팝']); // 'pop' 버킷 라벨
+    expect(solo.tags).toEqual([]); // solo-album은 태그 없음
+  });
+
+  it('이야기 행은 장르 축이 없고(버킷은 리뷰만 가짐) 참조 앨범 경유로 아티스트를 얻는다', () => {
+    const story = hub.find((h) => h.item.url === '/stories/duo-story/')!;
+    expect(story.genres).toEqual([]);
+    expect(story.artists.sort()).toEqual(['A', 'B']);
+    expect(story.tags).toEqual(['시티팝']);
+  });
+
+  it('haystack은 제목·아티스트·연도·장르·태그·형식을 소문자로 이어붙인 것', () => {
+    const duo = hub.find((h) => h.item.url === '/reviews/duo-album/')!;
+    for (const part of ['듀오 앨범', 'a', 'b', '2026', ETC_BUCKET_LABEL, '시티팝', 'reviews']) {
+      expect(duo.haystack, `haystack에 "${part}" 없음: ${duo.haystack}`).toContain(part);
+    }
+    // 원래 대소문자('Reviews')는 haystack에 남지 않는다 — 대소문자 무관 매치의 전제.
+    expect(duo.haystack).not.toContain('Reviews');
   });
 });
 

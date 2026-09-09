@@ -1,50 +1,106 @@
 ---
 /**
- * /archive/ — the browse hub (ui-spec §6), replacing the W5.2 shell.
+ * /archive/ — Search: the browse hub AND the site's keyword search, on one
+ * page (search-hub design, 2026-09-09; masthead label "Search", route
+ * unchanged — see Masthead.astro's intro for why the URL stays /archive/).
+ *
+ * THE REDESIGN, IN ONE SENTENCE: dropping the Reviews/Notes presets (both
+ * already duplicate a masthead tab) surfaced the bigger request behind it —
+ * search wanted to exist, as "a feature of the archive" rather than a page of
+ * its own. This site ships with JS OFF as a first-class mode
+ * (browser.flows.spec.ts builds every page with `javaScriptEnabled: false`),
+ * and a search box that fetches a JSON index cannot work there. Turning the
+ * relationship around removes the problem instead of working around it:
+ * THE HUB IS THE INDEX. Every article renders here, server-side, exactly as
+ * /archive/reviews/ or /artists/ already render their own lists (the "All"
+ * section below); the query box only HIDES rows a typed string does not
+ * match, in place, with the `hidden` attribute — no fetch, no separate index
+ * file, no state the page did not already have. With JS off the box sits
+ * inert and every row stays visible, which is to say the page falls back to
+ * being exactly what it already was: an archive.
+ *
+ * WHAT LEFT: the Reviews and Notes PRESETS (not the pages — /archive/reviews/
+ * and /archive/stories/ are unchanged and still the masthead's Reviews/Notes
+ * targets). Artists stays a preset, unlike the two format tabs: it has no
+ * masthead slot of its own to fall back to, and turning it into an AXIS here
+ * (linking every artist individually) would recreate the exact duplication —
+ * two full artist lists on one site — the 2026-09-07 move below spent itself
+ * removing.
+ *
+ * MATCHING, DEFINED ONCE: lib/derive/archive.ts#deriveHubIndex builds one
+ * `haystack` string per article (title, artist name(s), publication year,
+ * genre bucket label(s), tag label(s), format label) and this page prints it
+ * verbatim as each row's `data-s` attribute — enhance.js does a plain
+ * case-insensitive substring test against it and nothing else. Server and
+ * client read the SAME string; neither recomputes what "matches" means.
+ *
  * Axes: Year(발행 기준) / Genre(버킷 — bold labels) / Tags(muted chips — the
  * tab itself disappears while the registry is empty). Axis titles are set as
  * structural LABELS, not headings: an axis name is scaffolding, the values
- * are the content. Presets sit on top — the global nav lands there. Empty
- * axis values simply don't exist (R-4). No scores anywhere (D2).
+ * are the content. They stay exactly what they were — a bundle of links, not
+ * wired to the query box — and read as the QUERY BOX'S OWN SHORTCUTS: typing
+ * is one way to narrow the list below, clicking a year/genre/tag is another.
+ * Empty axis values simply don't exist (R-4). No scores anywhere (D2) — this
+ * is a browsing surface, and showScore is never passed to ArticleCard here.
  *
  * ARTISTS MOVED (2026-09-07). It used to be a fourth axis enumerating every
  * artist here, and /artists/ now does that with counts and its own nav item.
  * Two identical lists on one site is the duplication this round removed from
  * the footer, so only one of them may enumerate. The axis did not vanish
- * though — it became a PRESET, next to Reviews and Notes, which is what it
- * always was in kind: a destination that holds a whole listing, not a
- * vocabulary of values you pick from. The hub keeps its job as the table of
- * every way in.
+ * though — it became a PRESET, which is what it always was in kind: a
+ * destination that holds a whole listing, not a vocabulary of values you
+ * pick from. The hub keeps its job as the table of every way in.
  */
+import ArticleCard from '../../components/ArticleCard.astro';
 import Base from '../../layouts/Base.astro';
-import { ETC_BUCKET_LABEL } from '../../lib/derive/archive.ts';
+import { bucketLabelMap, ETC_BUCKET_LABEL } from '../../lib/derive/archive.ts';
 import { getSiteData } from '../../lib/derive/site-data.ts';
 import { withBase } from '../../lib/paths.ts';
 
-const { archive, data } = getSiteData();
+const { archive, hubIndex, data } = getSiteData();
 
 const years = [...archive.by_year.keys()].sort().reverse();
 
-const bucketLabels = new Map<string, string>();
-for (const block of data.genres?.years ?? []) {
-  for (const bucket of block.buckets) if (!bucketLabels.has(bucket.id)) bucketLabels.set(bucket.id, bucket.label);
-}
+const bucketLabels = bucketLabelMap(data);
 const buckets = [...archive.by_bucket.keys()]
   .sort()
   .map((id) => ({ id, label: id === 'etc' ? ETC_BUCKET_LABEL : (bucketLabels.get(id) ?? id) }));
 
 const tagLabels = new Map((data.tags?.tags ?? []).map((t) => [t.slug, t.label]));
 const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tagLabels.get(slug) ?? slug }));
-
 ---
 
-<Base title="Archive" description="연도·장르·태그·아티스트로 찾아보는 전체 글." path="/archive/" current="archive">
+<Base title="Search" description="제목·아티스트·연도·장르·태그로 찾는 전체 글." path="/archive/" current="archive">
   <main class="archive">
-    <h1 class="page-title">Archive</h1>
+    <h1 class="page-title">Search</h1>
+
+    {
+      /* R-4, same as every axis below: nothing to search is nothing to
+         render — an empty site has no query box and no "All" section either. */
+      hubIndex.length > 0 && (
+        <section class="search" aria-label="검색">
+          <label for="archive-q" class="axis-title">Search</label>
+          <div class="search-row">
+            <input
+              id="archive-q"
+              type="search"
+              class="search-input"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="제목·아티스트·연도·장르·태그"
+              aria-describedby="archive-n"
+            />
+            {/* Live region: states the count at rest (true with no query — every
+                row is shown) and updates it as enhance.js filters. aria-live
+                announces the change without moving focus, so the box stays
+                keyboard-operable end to end. */}
+            <p id="archive-n" class="search-count tnum" aria-live="polite">{hubIndex.length}개</p>
+          </div>
+        </section>
+      )
+    }
 
     <ul class="presets">
-      <li><a href={withBase('/archive/reviews/')}>Reviews</a></li>
-      <li><a href={withBase('/archive/stories/')}>Notes</a></li>
       <li><a href={withBase('/artists/')}>Artists</a></li>
     </ul>
 
@@ -94,6 +150,20 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
       )
     }
 
+    {
+      /* The listing search filters — every article, server-rendered, mixed
+         types (showFormat's default stays on, same as /archive/{year}/). */
+      hubIndex.length > 0 && (
+        <section class="all">
+          <h2 class="axis-title">All</h2>
+          <ul class="all-cards" id="archive-list">
+            {hubIndex.map((hub) => (
+              <ArticleCard item={hub.item} searchKey={hub.haystack} />
+            ))}
+          </ul>
+        </section>
+      )
+    }
   </main>
 </Base>
 
@@ -108,20 +178,65 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
   }
   /* TITLE→CONTENT IS THE SITE'S ONE SHARED GAP, --s-24, NOT THIS PAGE'S OWN
      --s-32 (2026-09-08). `.archive`'s 32px `gap` above spaces every pair of
-     its own sections — presets to Year, Year to Genre, Genre to Tags — and
-     that IS this page's own editorial rhythm, unrelated to the title. But
-     the title itself is the FIRST item in that same flex column, so before
-     this rule it inherited the section-to-section number too, and measured
-     32px from the reviews/notes/artists tabs' 24px even though nothing about
-     "how far a title sits from what follows it" was meant to differ between
-     tabs (see the 24px pages' `.cards`/`.rows` for the shared answer).
-     Margins on a flex item never collapse with the container's `gap`
-     (spec, not a quirk), so they stack: 32px gap + this rule's −8px = 24px,
-     for THIS ONE pair only — every later gap in the column keeps its full
-     32px untouched. Scoped to this page (Astro's per-component style
-     scoping), so global.css's shared `.page-title` rule is not touched. */
+     its own sections — search to presets, presets to Year, Year to Genre,
+     Genre to Tags, Tags to All — and that IS this page's own editorial
+     rhythm, unrelated to the title. But the title itself is the FIRST item
+     in that same flex column, so before this rule it inherited the
+     section-to-section number too, and measured 32px from its first section
+     even though nothing about "how far a title sits from what follows it"
+     was meant to differ between tabs (see the 24px pages' `.cards`/`.rows`
+     for the shared answer). Margins on a flex item never collapse with the
+     container's `gap` (spec, not a quirk), so they stack: 32px gap + this
+     rule's −8px = 24px, for THIS ONE pair only — every later gap in the
+     column keeps its full 32px untouched. Scoped to this page (Astro's
+     per-component style scoping), so global.css's shared `.page-title` rule
+     is not touched. This still nets 24px after the 2026-09-09 reshuffle
+     because the trick is pinned to "h1, then the flex column's next item" —
+     whichever section that is — not to any one section's identity. */
   .page-title {
     margin-bottom: calc(var(--s-24) - var(--s-32));
+  }
+  .search {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-8);
+  }
+  .search-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s-16);
+  }
+  /* Square corners (--r-0, matching every other surface here) and native
+     appearance reset: Safari/Chromium give type=search its own rounded pill
+     chrome and internal padding that no other control on this site carries.
+     min-width: 0 lets the flex item actually SHRINK below its content's
+     intrinsic minimum at 360px, where a fixed-basis input plus the count
+     text would otherwise force horizontal scroll instead of wrapping. */
+  .search-input {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 1 1 280px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 var(--s-12);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-0);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: var(--fs-16);
+  }
+  .search-input::placeholder {
+    color: var(--muted);
+  }
+  .search-count {
+    font-family: var(--mono);
+    font-size: var(--fs-12);
+    letter-spacing: 0.04em;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
   }
   .presets {
     list-style: none;
@@ -168,7 +283,7 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
     flex-wrap: wrap;
     gap: var(--s-8) var(--s-16);
   }
-  /* Buckets/years/artists: bold ink labels — tags: quiet chips.
+  /* Buckets/years: bold ink labels — tags: quiet chips.
      The visual split IS the two-tier genre statement (ADR-0007). */
   .value-strong {
     display: inline-flex;
@@ -202,6 +317,14 @@ const tags = [...archive.by_tag.keys()].sort().map((slug) => ({ slug, label: tag
   .chip:hover {
     color: var(--accent-2-ink);
     background: var(--surface-2);
+  }
+  /* Same rhythm as the axis value lists (.values' 8px), not the 24px a
+     top-level listing page's h1 uses — "All" is an axis-title-styled <h2>,
+     not this page's own h1. */
+  .all-cards {
+    list-style: none;
+    margin: var(--s-8) 0 0;
+    padding: 0;
   }
   @media (max-width: 640px) {
     .archive {
