@@ -1,7 +1,7 @@
 /**
  * US-12 AC1 · US-13 · SS-6 — finalize year transition + snapshot immutability,
  * measured with the real CLI + real builds on the rich content set (7 pop +
- * 1 hiphop-rnb reviews). Also captures the home 'post-finalize' state
+ * 1 hiphop reviews). Also captures the home 'post-finalize' state
  * (4-state coverage, state 4).
  */
 import { expect, test } from '@playwright/test';
@@ -28,7 +28,7 @@ test('finalize CLI — 스냅샷 동결 + active_year 전이 + 이듬해 버킷 
   const snapshot = readFileSync(join(dir, 'content/snapshots/2026.md'), 'utf8');
   expect(snapshot).toContain('year: 2026');
   // Bucket publish rule (US-13 AC3): pop has 7 reviews (≥3) → published,
-  // hiphop-rnb has 1 (<3) → withheld this year.
+  // hiphop has 1 (<3) → withheld this year.
   expect(snapshot).toMatch(/published: true/);
   expect(snapshot).toMatch(/published: false/);
 
@@ -99,10 +99,20 @@ test('확정 빌드 — 동결 리스트 지면 + 홈 post-finalize 상태', () 
   // are simply no longer nominees. An empty chart above a full review list is
   // exactly the post-finalize shape.
   expect(home).toContain('class="article-card');
-  // The bucket structure itself did not disappear — it moved to where a
-  // reader goes for it. 2027's list page still declares all three buckets.
+  // Genre boards were removed from /list/{year}/ entirely (2026-09-09,
+  // list/[year]/index.astro's own intro) — the per-bucket "아직 이 장르의
+  // 후보가 없습니다" placeholder this used to count (3 buckets: pop, hiphop,
+  // rock) no longer renders anywhere, for a brand-new all-empty year same as
+  // any other. Proven both ways so a page that silently dropped ALL its
+  // content (not just the genre boards) would not slip past a one-sided
+  // absence check: the old placeholder text is gone, AND the page still
+  // renders something real for a reader who just finalized last year — the
+  // link back to it.
   const newYearList = readPage(dir, '/list/2027/');
-  expect(newYearList.match(/아직 이 장르의 후보가 없습니다/g)?.length).toBe(3);
+  expect(newYearList).not.toContain('아직 이 장르의 후보가 없습니다');
+  expect(newYearList).not.toContain('aria-label="Genre Nominees"');
+  expect(newYearList).toContain('지난해 확정 리스트');
+  expect(newYearList).toContain(`href="${B}/list/2026/"`);
 });
 
 test('점수 수정 → 평론은 반영, 확정 스냅샷 지면은 불변 (US-12 AC1)', () => {

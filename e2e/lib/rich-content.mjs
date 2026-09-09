@@ -23,7 +23,7 @@ export const RICH_SET = [
   { slug: 'quiet-harbor-tide',        title: '조수',            artists: ['quiet-harbor'],               bucket: 'pop',        score: '7.5', reviewDate: '2026-06-05', release: '2026-04-11', cover: true,  tags: [] },
   { slug: 'paper-crane-fold',         title: '접힌 학',         artists: ['paper-crane'],                bucket: 'pop',        score: '7.2', reviewDate: '2026-05-15', release: '2026-05-01', cover: true,  tags: [], noListen: true },
   { slug: 'ember-field-ash',          title: '재의 들판',       artists: ['ember-field'],                bucket: 'pop',        score: '6.8', reviewDate: '2026-04-02', release: '2026-03-01', cover: false, tags: [] },
-  { slug: 'low-orbit-signal',         title: '낮은 궤도 신호',  artists: ['low-orbit'],                  bucket: 'hiphop-rnb', score: '8.0', reviewDate: '2026-08-01', release: '2026-06-15', cover: true,  tags: [] },
+  { slug: 'low-orbit-signal',         title: '낮은 궤도 신호',  artists: ['low-orbit'],                  bucket: 'hiphop', score: '8.0', reviewDate: '2026-08-01', release: '2026-06-15', cover: true,  tags: [] },
 ];
 
 const ARTIST_NAMES = {
@@ -162,7 +162,7 @@ export async function writeRichContent(dir) {
 /** Scale content for the 300-doc build-time NFR: counts are IN ADDITION to
  * whatever the sandbox already contains. Coverless (placeholder path). */
 export function writeScaleContent(dir, { albums = 100, artists = 50, stories = 50 } = {}) {
-  const buckets = ['pop', 'hiphop-rnb', 'rock'];
+  const buckets = ['pop', 'hiphop', 'rock'];
   mkdirSync(join(dir, 'content', 'stories'), { recursive: true });
   for (let i = 0; i < artists; i++) {
     writeFileSync(join(dir, 'content', 'artists', `scale-artist-${i}.md`), `---\nname: 스케일 아티스트 ${i}\n---\n`, 'utf8');

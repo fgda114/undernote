@@ -188,10 +188,15 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
       </div>
       {
         charts.length > 0 ? (
-          /* <ol>, because markup order IS rank order within each bucket.
-             Empty buckets contribute nothing here — the complete annual
-             structure, empty buckets included, is one click away on
-             /list/{year}/. */
+          /* <ol>, because markup order IS rank order within each bucket
+             (deriveHomeSections flattens board.buckets in bucket → rank
+             order, lib/derive/lists.ts#ChartCardEntry). Empty buckets
+             contribute nothing here. The full per-bucket board itself — the
+             thing this grid is flattened FROM — used to be one click away
+             on /list/{year}/ too; as of 2026-09-09 that page dropped its own
+             Genre Nominees board and shows only the flat top10 ranking (see
+             that page's own intro) — this home grid remains the one place a
+             reader still sees albums grouped by bucket. */
           <ol class:list={['chart-cards', 'stagger', chartClass(charts.length)]}>
             {charts.map((entry, i) => (
               /* Only the first row is eager: three covers is the whole
@@ -209,8 +214,10 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
         )
       }
       {/* Charts keeps its tail link even with no cards: /list/{year}/ always
-          exists and always renders every bucket, empty ones included. That
-          page IS the annual structure this section summarises, so an empty
+          exists for active_year, whatever it currently shows (an empty top10
+          section renders nothing there either, R-4 — see that page's own
+          intro for the 2026-09-09 cut of its old always-there bucket board).
+          That page IS the ranked list this section summarises, so an empty
           Charts section can still point at something real — which is what
           "let the structure speak" means here. */}
       <a class="section-more" href={withBase(`/list/${site.active_year}/`)}>올해의 앨범 전체 보기 →</a>

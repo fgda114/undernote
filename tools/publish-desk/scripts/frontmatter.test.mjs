@@ -64,6 +64,20 @@ test('albumFile: subtitle is written when present, omitted entirely when absent 
   assert.doesNotMatch(withoutSubtitle, /subtitle:/);
 });
 
+test('albumFile: duration is written UNQUOTED when present, omitted entirely when absent (2026-09-09)', () => {
+  const withDuration = albumFile({
+    title: 'Lost Weekend',
+    artistSlugs: ['phoebe-bridgers'],
+    releaseDate: '2026',
+    buckets: ['rock'],
+    duration: '52:26',
+  });
+  assert.match(withDuration, /\nduration: 52:26\n/);
+
+  const withoutDuration = albumFile({ title: 'Lost Weekend', artistSlugs: ['phoebe-bridgers'], releaseDate: '2026', buckets: ['rock'] });
+  assert.doesNotMatch(withoutDuration, /duration:/);
+});
+
 test('artistFile: empty body, quoted name', () => {
   assert.equal(artistFile({ name: 'Phoebe Bridgers' }), '---\nname: "Phoebe Bridgers"\n---\n');
 });

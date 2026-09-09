@@ -73,9 +73,15 @@ const { Content } = await render(review);
 const description = excerptFrom(review.body ?? '');
 
 // Nominate badge (SS-4 derive): present only while this album sits on the
-// active board — the hero hides the row otherwise (R-4).
+// active board — the hero hides the row otherwise (R-4). Only rank/year make
+// it into the prop object below — `badge.bucketLabel` (BadgeInfo,
+// lib/derive/lists.ts) is still computed by deriveBadgeMap but has no
+// consumer left on this page since the badge's copy stopped naming a genre
+// (NominateBadge.astro's own intro, 2026-09-09); that field is now dead from
+// this call site's point of view, reported rather than removed at its
+// source (lists.ts is outside this package's owned paths).
 const badge = siteData.badgeMap.get(review.id) ?? null;
-const nominate = badge ? { bucketLabel: badge.bucketLabel, rank: badge.rank, year: badge.year } : null;
+const nominate = badge ? { rank: badge.rank, year: badge.year } : null;
 
 // Follow blocks (§2.5 fixed order): ① the ladder ② "{artist}'s other work".
 const backlinks = deriveBacklinks(
@@ -120,13 +126,25 @@ const { prev, next } = siteData.adjacent.get(`/reviews/${review.id}/`) ?? { prev
       <header class="hero">
         <FormatLabel text="Reviews" variant="chip" />
         <h1 class="hero-title">{page.title}</h1>
+        {/* Third segment is the release YEAR only, not the full date
+            (2026-09-09, decision-maker request) — this line is the
+            at-a-glance byline, and the exact day already lives one column
+            over in the spec block's own Release row (SpecMeta), directly
+            above Reviewed so the two dates can be compared. Repeating the
+            full date here duplicated that row for free; the year alone still
+            places the record in time without pre-empting it. `releaseYear`
+            (ReviewPageData) is the same already-parsed 4-digit string
+            SpecMeta's Release row links from — not a re-slice of
+            `releaseDateText` here, which would silently drift the day that
+            field's own format changes (see releaseYear's own doc). First
+            bucket only (`page.bucketLabel`) — unchanged, see that field's doc. */}
         <p class="hero-sub">
           {page.artistLinks.map((artist, i) => (
             <>
               {i > 0 && ', '}
               <a class="artist-link" href={withBase(`/artists/${artist.slug}/`)}>{artist.name}</a>
             </>
-          ))} · {page.bucketLabel} · {page.releaseDateText}
+          ))} · {page.bucketLabel} · {page.releaseYear}
         </p>
       </header>
       </div>
@@ -156,6 +174,7 @@ const { prev, next } = siteData.adjacent.get(`/reviews/${review.id}/`) ?? { prev
             bucketLabels={page.bucketLabels}
             reviewDate={page.reviewDate}
             label={page.label}
+            duration={page.duration}
             tags={page.tags}
           />
           {/* THE BADGE MOVED HERE from the hero (2026-09-07), below the spec
@@ -170,7 +189,7 @@ const { prev, next } = siteData.adjacent.get(`/reviews/${review.id}/`) ?? { prev
               unaffected. */}
           {nominate && (
             <div class="rail-badge">
-              <NominateBadge bucketLabel={nominate.bucketLabel} rank={nominate.rank} year={nominate.year} />
+              <NominateBadge rank={nominate.rank} year={nominate.year} />
             </div>
           )}
         </aside>

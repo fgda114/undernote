@@ -9,11 +9,19 @@
 #
 # Two tokens, two privilege levels (least privilege — mirrors the public
 # repo's own ci.yml "unlisted scopes default to none" convention):
-#   GITHUB_TOKEN (default, THIS repo only, issues:write) — comment on,
-#     close, and label the issue that triggered the run.
+#   GITHUB_TOKEN (default, THIS repo only, issues:write + contents:read) —
+#     comment on, close, and label the issue that triggered the run (as
+#     `GH_TOKEN`, for the `gh` CLI), AND (as `COVER_FETCH_TOKEN`, "Resolve +
+#     write/update/delete content" step below) authorize downloading a
+#     cover image the writer dropped into THIS repo's own issue — that
+#     attachment lives here, not on the public repo, so this is the token
+#     that can read it (2026-09-09, PD-COVER-FETCH-FAILED — see
+#     cover.mjs#downloadImage).
 #   secrets.PUBLISH_PAT (fine-grained, scoped to ONLY the public repo,
 #     Contents: Read and write) — the one thing that ever touches the
 #     public repo: checking it out and pushing the new commit (or deletion).
+#     Cannot read this repo's own attachments at all — never used for cover
+#     downloads.
 # See docs/publishing.md for exactly which PAT scopes to enable and why
 # neither token needs more than this.
 name: Publish
@@ -160,6 +168,21 @@ jobs:
       # never runs the build and never commits/pushes (see publish.mjs's own
       # doc comment) — it MAY read (never write) public/'s git history for
       # MODE=update/takedown.
+      #
+      # COVER_FETCH_TOKEN (2026-09-09, PD-COVER-FETCH-FAILED, real
+      # submission `fgda114/undernote-desk#3`): `github.token` — THIS repo's
+      # own default GITHUB_TOKEN, already scoped by `permissions:` above —
+      # not `secrets.PUBLISH_PAT`. A cover attachment lives on THIS (private)
+      # repo, so it is THIS repo's own token that authorizes reading it;
+      # PUBLISH_PAT is deliberately scoped to the PUBLIC repo only (§2.3)
+      # and cannot read this repo's attachments at all (least-privilege
+      # split from the security audit — the two tokens are not
+      # interchangeable and must not be mixed). Given its own explicit name
+      # rather than reused as `GH_TOKEN` (already set workflow-wide, for the
+      # `gh` CLI) so a future change to how `gh` calls authenticate can never
+      # silently also change what downloadImage sends — see cover.mjs
+      # #downloadImage for the redirect-safety rule this token is subject
+      # to.
       - name: Resolve + write/update/delete content
         id: publish
         if: steps.mode.outputs.mode != 'skip'
@@ -171,6 +194,7 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           PUBLISH_RESULT_PATH: ${{ github.workspace }}/publish-result.json
+          COVER_FETCH_TOKEN: ${{ github.token }}
         run: node scripts/publish.mjs
 
       - name: Read publish result

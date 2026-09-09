@@ -191,6 +191,129 @@ test('publishReview: reuses an existing album, leaves its file untouched, and no
   assert.doesNotMatch(tagsYaml, /dream-pop/);
 });
 
+// 2026-09-09, decision-maker request ("(선택) 앨범 길이") — same "new album
+// only" scope as subtitle/tags above (mirrors the existing test at line 166
+// for the ignored-on-an-existing-album half of this rule).
+test('publishReview: "(선택) 앨범 길이" is written verbatim to a brand new album', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const body = fixtureBody('review-form-body.txt').replace('### 발매일', '### (선택) 앨범 길이\n\n52:26\n\n### 발매일');
+
+  const result = await publishReview({ issueBody: body, publicRepoDir: root, fetchImpl: stubFetch });
+  assert.equal(result.ok, true);
+  const albumYaml = readFileSync(join(root, 'content', 'albums', `${result.slug}.yaml`), 'utf8');
+  assert.match(albumYaml, /\nduration: 52:26\n/);
+});
+
+test('publishReview: "(선택) 앨범 길이" on an EXISTING album is ignored and noted, same as subtitle/tags', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(join(root, 'content', 'artists', 'phoebe-bridgers.md'), '---\nname: 피비 브리저스\n---\n', 'utf8');
+  writeFileSync(
+    join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'),
+    'title: Lost Weekend\nartists: [phoebe-bridgers]\nrelease_date: "2026"\nbuckets: [rock]\n',
+    'utf8',
+  );
+  const body = fixtureBody('review-form-body.txt').replace('### 발매일', '### (선택) 앨범 길이\n\n52:26\n\n### 발매일');
+
+  const result = await publishReview({ issueBody: body, publicRepoDir: root, fetchImpl: stubFetch });
+  assert.equal(result.ok, true);
+  const albumYaml = readFileSync(join(root, 'content', 'albums', 'phoebe-bridgers-lost-weekend.yaml'), 'utf8');
+  assert.doesNotMatch(albumYaml, /duration:/, 'the "52:26" duration must NOT be applied to an existing album');
+  assert.match(result.notes.join(' '), /이번에 적은 앨범 길이는 반영되지 않았습니다/);
+});
+
+// ── Genre form/config drift diagnostic (2026-09-09, real incident:
+// config/genres.yaml split "Hip-Hop / R&B" into 8 buckets while review.yml's
+// checkboxes stayed at the old 4 — a decision-maker had only "그 외" left to
+// pick for Digicore/Rage albums, no PD-* ever fired). `genreTemplatePath` is
+// deliberately NOT defaulted inside publishReview itself (see its own doc
+// comment) — every test ABOVE this point that publishes a new album never
+// passes it, so none of them are affected by whatever the REAL review.yml
+// happens to contain; these tests exercise the wiring explicitly instead. ──
+
+/** A minimal Issue Form template shaped exactly enough for
+ * loadGenreFormOptionLabels to read: one `checkboxes` field with id "genre"
+ * and the given option labels (`그 외` is added automatically, matching
+ * every real template — see review.yml). */
+function writeGenreTemplate(root, optionLabels) {
+  const path = join(root, 'template.yml');
+  const options = [...optionLabels, '그 외'].map((label) => `        - label: "${label}"`).join('\n');
+  writeFileSync(path, `body:\n  - type: checkboxes\n    id: genre\n    attributes:\n      options:\n${options}\n`, 'utf8');
+  return path;
+}
+
+test('publishReview: notes a genre configured in genres.yaml but missing from the form template', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  // makeFixtureRepo's own config/genres.yaml has "Hip-Hop / R&B", "Pop", "Rock"
+  // (see its definition above) — a template offering only "Pop"/"Rock" is
+  // missing "Hip-Hop / R&B", reproducing the real incident's shape.
+  const templatePath = writeGenreTemplate(root, ['Pop', 'Rock']);
+
+  const result = await publishReview({ issueBody: fixtureBody('review-form-body.txt'), publicRepoDir: root, fetchImpl: stubFetch, genreTemplatePath: templatePath });
+  assert.equal(result.ok, true);
+  assert.match(result.notes.join(' '), /config\/genres\.yaml에는 있지만.*장르 체크박스에는 없는 장르.*Hip-Hop \/ R&B/);
+});
+
+test('publishReview: no note when the form template already offers every configured genre', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const templatePath = writeGenreTemplate(root, ['Hip-Hop / R&B', 'Pop', 'Rock']);
+
+  const result = await publishReview({ issueBody: fixtureBody('review-form-body.txt'), publicRepoDir: root, fetchImpl: stubFetch, genreTemplatePath: templatePath });
+  assert.equal(result.ok, true);
+  assert.doesNotMatch(result.notes.join(' '), /장르 체크박스에는 없는 장르/);
+});
+
+test('publishReview: the drift check is OPT-IN — omitting genreTemplatePath never adds a note, whatever the real template contains', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  // No genreTemplatePath passed — same call shape as every OTHER test in
+  // this file. makeFixtureRepo's "Hip-Hop / R&B" would NOT match ANY single
+  // option in the real, current review.yml (which now splits it into
+  // "Hip-Hop"/"R&B" — see the ISSUE_TEMPLATE file itself) if the check ran
+  // by default here; it must not run at all.
+  const result = await publishReview({ issueBody: fixtureBody('review-form-body.txt'), publicRepoDir: root, fetchImpl: stubFetch });
+  assert.equal(result.ok, true);
+  assert.doesNotMatch(result.notes.join(' '), /장르 체크박스에는 없는 장르/);
+});
+
+// End-to-end proof the REAL review.yml is self-consistent with a genres.yaml
+// that mirrors its current option set (the state this repo should be in
+// right after any genre-config edit) — uses the actual file main() points
+// at, not a synthetic stand-in like the tests above.
+test('publishReview: the REAL review.yml template has no drift against a genres.yaml offering the same labels', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(
+    join(root, 'config', 'genres.yaml'),
+    [
+      'years:',
+      '  - year: 2026',
+      '    buckets:',
+      '      - { id: "hiphop", label: "Hip-Hop", order: 1 }',
+      '      - { id: "rnb", label: "R&B", order: 2 }',
+      '      - { id: "digicore", label: "Digicore", order: 3 }',
+      '      - { id: "rage", label: "Rage", order: 4 }',
+      '      - { id: "pop", label: "Pop", order: 5 }',
+      '      - { id: "indie-pop", label: "Indie Pop", order: 6 }',
+      '      - { id: "rock", label: "Rock", order: 7 }',
+      '      - { id: "indie-folk", label: "Indie Folk", order: 8 }',
+      '    min_reviews_to_publish: 3',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  const realTemplatePath = join(here, '..', '.github', 'ISSUE_TEMPLATE', 'review.yml');
+  const body = fixtureBody('review-form-body.txt').replace('- [X] Hip-Hop / R&B', '- [X] Hip-Hop\n- [X] R&B');
+
+  const result = await publishReview({ issueBody: body, publicRepoDir: root, fetchImpl: stubFetch, genreTemplatePath: realTemplatePath });
+  assert.equal(result.ok, true);
+  assert.doesNotMatch(result.notes.join(' '), /장르 체크박스에는 없는 장르/);
+});
+
 test('publishReview: refuses to overwrite when a review already exists for the album (1 album = 1 review)', async (t) => {
   const root = makeFixtureRepo();
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -251,6 +374,57 @@ test('publishReview: a cover download failure fails with PD-COVER-FETCH-FAILED a
   await rejectsWithCode(
     () => publishReview({ issueBody: fixtureBody('review-form-body.txt'), publicRepoDir: root, fetchImpl: failingFetch }),
     'PD-COVER-FETCH-FAILED',
+  );
+  assert.equal(existsSync(join(root, 'content', 'artists', 'phoebe-bridgers.md')), false);
+});
+
+// 2026-09-09, PD-COVER-FETCH-FAILED, real submission `fgda114/undernote-
+// desk#3`: cover.mjs#downloadImage now sends `coverAuthToken` (this repo's
+// own GITHUB_TOKEN, wired through main() -> COVER_FETCH_TOKEN — see
+// publish.mjs's own module doc and publish.yml's "Resolve +
+// write/update/delete content" step) as an Authorization header. This test
+// proves that wiring reaches all the way from publishReview's own
+// parameter down to the actual fetch call, not just that cover.mjs's unit
+// tests pass it correctly in isolation.
+test('publishReview: coverAuthToken reaches the actual fetch call as an Authorization header', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  let seenAuth;
+  const authCapturingFetch = async (_url, init) => {
+    seenAuth = init?.headers?.Authorization;
+    const bytes = await sharp({ create: { width: 4, height: 4, channels: 3, background: { r: 1, g: 1, b: 1 } } })
+      .jpeg()
+      .toBuffer();
+    return new Response(bytes, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+  };
+
+  await publishReview({
+    issueBody: fixtureBody('review-form-body.txt'),
+    publicRepoDir: root,
+    fetchImpl: authCapturingFetch,
+    coverAuthToken: 'a-real-token',
+  });
+  assert.equal(seenAuth, 'Bearer a-real-token');
+});
+
+// A CoverAuthError (401/403 — this workflow's OWN token, not the writer's
+// photo, is at fault) must NOT become PD-COVER-FETCH-FAILED: there is no
+// field a writer can fix, so it must propagate uncaught into the same
+// "infrastructure failure, developer-only" bucket main() already gives any
+// other unexpected fault (this file's own module doc). Exercised through
+// publishReview directly (not main()) since main() only reads env vars —
+// the propagation behavior itself lives entirely in fetchAndResizeCover.
+test('publishReview: an auth-rejected cover download (401/403) propagates UNCAUGHT, not as PD-COVER-FETCH-FAILED', async (t) => {
+  const root = makeFixtureRepo();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const authRejectingFetch = async () => new Response('nope', { status: 401 });
+
+  await assert.rejects(
+    () => publishReview({ issueBody: fixtureBody('review-form-body.txt'), publicRepoDir: root, fetchImpl: authRejectingFetch, coverAuthToken: 'bad-token' }),
+    (err) => {
+      assert.equal(err.code, undefined, 'must NOT carry a PD-* code');
+      return true;
+    },
   );
   assert.equal(existsSync(join(root, 'content', 'artists', 'phoebe-bridgers.md')), false);
 });

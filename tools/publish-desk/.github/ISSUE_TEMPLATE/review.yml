@@ -61,6 +61,17 @@ body:
       required: false
 
   - type: input
+    id: album_duration
+    attributes:
+      label: "(선택) 앨범 길이"
+      description: |
+        앨범 전체 재생 시간을 "분:초"로 적어주세요 (예: "52:26"). 1시간이 넘으면 "92:15"처럼 분을
+        60 넘게 적으면 됩니다 — "1:32:15"처럼 시:분:초로 나누지 마세요. 없으면 비워두면 됩니다.
+      placeholder: "예) 52:26"
+    validations:
+      required: false
+
+  - type: input
     id: release_date
     attributes:
       label: 발매일
@@ -86,12 +97,31 @@ body:
       # 저장소)의 .agent-team/08-impl-notes/backend.md를 참고하세요. 옵션
       # label 문자열은
       # parse-form.mjs의 파싱과 resolve-content.mjs의 config 매칭 양쪽이
-      # 그대로 쓰므로, 여기 바꾸면 두 곳 다 맞춰야 합니다. 2026-09-08 기준
-      # 최신 값:
+      # 그대로 쓰므로, 여기 바꾸면 두 곳 다 맞춰야 합니다.
+      #
+      # 이 동기화가 실제로 어긋난 적이 있습니다(2026-09-09): config/genres.yaml이
+      # "Hip-Hop / R&B" 하나였던 버킷을 8개(Hip-Hop·R&B·Digicore·Rage·Pop·
+      # Indie Pop·Rock·Indie Folk)로 재편했는데, 이 폼은 옛 4개 옵션 그대로
+      # 남아 있어서 결정권자가 Digicore/Rage 앨범에 실제 장르를 고를 수 없고
+      # "그 외"만 남았습니다(PD-GENRE-UNKNOWN으로도 안 걸림 — "그 외"는 항상
+      # config 조회 없이 통과하므로, 이 동기화 누락은 빌드 실패가 아니라
+      # 조용한 오분류로 드러났습니다). 이 문서화가 이미 있었는데도 실제로
+      # 막았다는 뜻이므로, 다음에 config/genres.yaml을 바꿀 때는 이 옵션
+      # 목록도 **같은 커밋에서** 반드시 같이 바꾸세요 — 자동 감지가 이제
+      # 있습니다(publish.mjs의 noteGenreFormDrift / resolve-content.mjs의
+      # missingGenreFormOptions, docs/publishing.md §2.10): 이 목록을
+      # 안 고쳐도 발행 자체는 막히지 않지만(그건 여전히 사람이 할 일), 매
+      # 새 앨범 발행마다 이슈 댓글의 "참고"에 "config에는 있지만 폼에는 없는
+      # 장르"가 자동으로 나열됩니다. 2026-09-09 기준 최신 값:
       options:
-        - label: "Hip-Hop / R&B"
+        - label: "Hip-Hop"
+        - label: "R&B"
+        - label: "Digicore"
+        - label: "Rage"
         - label: "Pop"
+        - label: "Indie Pop"
         - label: "Rock"
+        - label: "Indie Folk"
         - label: "그 외"
     validations:
       required: false

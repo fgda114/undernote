@@ -53,10 +53,17 @@ describe('listen-links (SS-13)', () => {
   });
 });
 
-describe('formatReleaseDate — Date 객체 없이 문자열 연산만 (결정성)', () => {
+// 2026-09-09 (decision-maker request): ISO verbatim, not a Korean-style
+// dotted date — Release and Reviewed now render the exact same format so
+// the two sit-side-by-side dates in SpecMeta are directly comparable (see
+// formatReleaseDate's own doc comment in review-page.ts). Still an identity
+// transform test, not a Date/locale one: every granularity release_date can
+// actually store (YYYY / YYYY-MM / YYYY-MM-DD) must survive unchanged, with
+// nothing invented for a missing month/day.
+describe('formatReleaseDate — ISO 그대로, Reviewed와 표기 통일 (결정성)', () => {
   it.each([
-    ['2026-05-01', '2026. 5. 1.'],
-    ['2026-11', '2026. 11.'],
+    ['2026-05-01', '2026-05-01'],
+    ['2026-11', '2026-11'],
     ['2026', '2026'],
   ])('%s → %s', (input, expected) => {
     expect(formatReleaseDate(input)).toBe(expected);
@@ -117,6 +124,32 @@ describe('buildReviewPageData — subtitle pass-through (2026-09-09, 앨범 스�
   it('subtitle이 없으면 undefined — 지면이 그 줄 자체를 생략할 수 있다', () => {
     const data = buildReviewPageData({ slug: 'lost-weekend', review, album: baseAlbum, artists, genres, site });
     expect(data.subtitle).toBeUndefined();
+  });
+});
+
+describe('buildReviewPageData — duration pass-through (2026-09-09, 앨범 스키마 §7 추가 필드)', () => {
+  const genres: GenresConfig = {
+    years: [{ year: 2026, buckets: [{ id: 'rock', label: '록', order: 1 }], min_reviews_to_publish: 3 }],
+  };
+  const site = { site_name: 'undernote', base_url: 'https://example.com', active_year: 2026, og_use_cover: true, early_stage_threshold: 6 } as SiteConfig;
+  const review: ReviewFrontmatter = { album: 'lost-weekend', score: '8.4', date: '2026-05-01', editorial_check: true };
+  const artists = new Map<string, Artist>([['phoebe-bridgers', { name: 'Phoebe Bridgers' }]]);
+  const baseAlbum: Album = {
+    title: 'Lost Weekend',
+    artists: ['phoebe-bridgers'],
+    release_date: '2026-05-01',
+    buckets: ['rock'],
+    tags: [],
+  };
+
+  it('duration이 있으면 그대로(포맷 재가공 없이) 전달된다', () => {
+    const data = buildReviewPageData({ slug: 'lost-weekend', review, album: { ...baseAlbum, duration: '52:26' }, artists, genres, site });
+    expect(data.duration).toBe('52:26');
+  });
+
+  it('duration이 없으면 undefined — 지면이 그 줄 자체를 생략할 수 있다', () => {
+    const data = buildReviewPageData({ slug: 'lost-weekend', review, album: baseAlbum, artists, genres, site });
+    expect(data.duration).toBeUndefined();
   });
 });
 

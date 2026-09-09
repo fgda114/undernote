@@ -3,23 +3,34 @@
  * SpecMeta (components.md §7) — the review rail's spec block.
  *
  * Every row below maps to a field that already exists in the content model.
- * The reference mockup also showed a tracklist, BPM, runtime and a staff
- * credit; none of those exist here, so none of them are here. An optional
- * field with no value removes its ROW — it never renders a dash or a blank,
- * because a spec sheet full of placeholders reads as a broken page (R-4).
+ * The reference mockup also showed a tracklist, BPM and a staff credit; none
+ * of those exist here, so none of them are here. Runtime WAS on that list
+ * too, but joined the row set 2026-09-09 once the album schema grew a
+ * `duration` field (see the Runtime row below) — a tracklist and BPM still
+ * have no backing data, so they remain absent. An optional field with no
+ * value removes its ROW — it never renders a dash or a blank, because a spec
+ * sheet full of placeholders reads as a broken page (R-4).
  *
  * `mbid` is deliberately not surfaced: it is an internal identifier and
  * means nothing to a reader.
  *
  * ROW SET AND ORDER (2026-09-09, decision-maker request): Title / Artist /
- * Genre / Label / Tags / Release / Reviewed — three groups, each internally
- * ordered by how directly it identifies the record:
+ * Genre / Label / Runtime / Tags / Release / Reviewed — three groups, each
+ * internally ordered by how directly it identifies the record:
  *   1. IDENTITY  — Title, Artist: what the record is and who made it.
- *   2. CATEGORY  — Genre, Label, Tags: how it is classified. Genre sits
- *      right under Artist because it is an album property exactly like
- *      Artist is (both describe the RECORD, not this magazine's relationship
- *      to it) — the same reasoning that used to put Genre near the bottom
- *      is reversed here on the decision-maker's explicit instruction.
+ *   2. CATEGORY  — Genre, Label, Runtime, Tags: how it is classified (Genre,
+ *      Tags) or a plain fact about it (Label, Runtime). Genre sits right
+ *      under Artist because it is an album property exactly like Artist is
+ *      (both describe the RECORD, not this magazine's relationship to it) —
+ *      the same reasoning that used to put Genre near the bottom is reversed
+ *      here on the decision-maker's explicit instruction. Runtime (added
+ *      2026-09-09, once the album schema grew a `duration` field) sits right
+ *      after Label rather than at either end of this group: like Label, it
+ *      is a single plain fact with no link out to the archive (unlike Genre
+ *      and Tags, which both wrap their value in `searchLink` below) — the
+ *      two unlinked facts sit together, and the two linked/classifying
+ *      fields (Genre above them, Tags after) bracket the pair rather than
+ *      interleaving with it.
  *   3. DATES     — Release, Reviewed: adjacent, on purpose. They used to sit
  *      apart (Release up top, Reviewed at the foot) with Genre/Label/Tags
  *      between them, which hid the one relationship a reader most wants from
@@ -33,11 +44,14 @@
  * THE TITLE ROW DUPLICATES THE PAGE'S OWN <h1>, DELIBERATELY. The reader
  * already has the album's name from the hero two lines above the rail — so
  * on its face this row repeats itself for free. It stays for the same reason
- * Release already repeated the hero's own date and Genre already repeated
- * the hero's own bucket label before this row existed at all (see
+ * Release already (partially) repeats the hero's own date and Genre already
+ * repeats the hero's own bucket label before this row existed at all (see
  * reviews/[slug].astro's hero-sub, which has always carried
- * "{artists} · {bucket} · {release date}" alongside this block): the spec
- * block was never a set of facts the hero omits, it is a COMPLETE, SELF-
+ * "{artists} · {bucket} · {release YEAR}" alongside this block — YEAR only
+ * since 2026-09-09, this row's own Release value keeps the full date, so the
+ * two no longer say exactly the same thing, but they still describe the same
+ * fact at different granularities): the spec block was never a set of facts
+ * the hero omits, it is a COMPLETE, SELF-
  * CONTAINED fact sheet a reader can scan without having read the hero at
  * all — a rail is exactly the kind of surface a reader's eye can land on
  * first (it is visually first on narrow screens, per the reskin's
@@ -82,10 +96,15 @@ interface Props {
   bucketLabels: { id: string; label: string }[];
   reviewDate: string;
   label?: string;
+  /** Running time, e.g. "52:26" (album schema's optional `duration`,
+   * 2026-09-09) — already display-ready (ReviewPageData#duration's own doc:
+   * validated MM:SS by common.ts#durationSchema, no reformatting here).
+   * undefined ⇒ the row is omitted, same R-4 rule as Label/Tags above. */
+  duration?: string;
   tags: { slug: string; label: string }[];
 }
 
-const { title, subtitle, artistLinks, releaseDateText, releaseYear, bucketLabels, reviewDate, label, tags } = Astro.props;
+const { title, subtitle, artistLinks, releaseDateText, releaseYear, bucketLabels, reviewDate, label, duration, tags } = Astro.props;
 
 /** `/archive/?q=<value>` — the one place a static link reaches a pre-filtered
  * search hub (see the intro above). Centralised so Genre and Tags below
@@ -140,6 +159,14 @@ const searchLink = (value: string) => withBase(`/archive/?q=${encodeURIComponent
       <div class="row">
         <dt>Label</dt>
         <dd>{label}</dd>
+      </div>
+    )
+  }
+  {
+    duration && (
+      <div class="row">
+        <dt>Runtime</dt>
+        <dd class="tnum">{duration}</dd>
       </div>
     )
   }

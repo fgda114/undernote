@@ -105,7 +105,7 @@ export function getSiteData(): SiteData {
     board,
     top10: deriveTop10(joined, data.site.active_year),
     recaps: deriveMonthlyRecaps(joined, currentYearMonthSeoul()),
-    badgeMap: deriveBadgeMap(board),
+    badgeMap: deriveBadgeMap(deriveTop10(joined, data.site.active_year)),
     allArticles,
     articleByUrl: new Map(allArticles.map((a) => [a.url, a])),
     homeSections: deriveHomeSections(board, allArticles),

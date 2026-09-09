@@ -7,7 +7,7 @@
  * (P6 — content must outlive the tooling).
  */
 import { z } from 'astro/zod';
-import { releaseDateSchema, slugSchema } from './common.ts';
+import { durationSchema, releaseDateSchema, slugSchema } from './common.ts';
 
 export const listenLinkSchema = z
   .object({
@@ -106,6 +106,21 @@ export const albumSchema = z
     listen_links: z.array(listenLinkSchema).optional(),
     mbid: z.string().optional(),
     label: z.string().optional(),
+    // Running time (2026-09-09, decision-maker request — e.g. "52:26").
+    // Optional/additive like `subtitle` above (api-contracts §7 additive
+    // procedure): an album file written before this field existed parses
+    // exactly as before. Stored EXACTLY as the writer typed it (validated,
+    // display-ready) rather than as an integer seconds count reformatted at
+    // render time — unlike `score`, nothing in this project today compares,
+    // sorts, or sums durations (that would only start to matter if a future
+    // per-track tracklist feature summed track lengths into this field —
+    // deliberately not built; see docs/publishing.md and
+    // .agent-team/08-impl-notes/backend.md for that separate, undecided
+    // feature), so a raw-seconds integer would buy nothing here that a
+    // validated display string doesn't already, while adding a parse/format
+    // round trip for zero benefit. See common.ts#durationSchema for the
+    // exact MM:SS format and why "H:MM:SS" was rejected.
+    duration: durationSchema.optional(),
   })
   .strict();
 

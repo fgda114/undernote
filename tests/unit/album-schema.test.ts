@@ -77,3 +77,44 @@ describe('Album 스키마 — subtitle (선택 필드, 2026-09-09 추가, 하위
     expect(result.success).toBe(false);
   });
 });
+
+describe('Album 스키마 — duration (선택 필드, 2026-09-09 추가, 하위호환)', () => {
+  const valid = {
+    title: 'Lost Weekend',
+    artists: ['phoebe-bridgers'],
+    release_date: '2026',
+    buckets: ['rock'],
+  };
+
+  it('duration이 없어도 통과한다 (기존 앨범 파일과의 하위호환)', () => {
+    const result = albumSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.duration).toBeUndefined();
+  });
+
+  it('"52:26"처럼 총 분:초 형식이면 통과한다', () => {
+    const result = albumSchema.safeParse({ ...valid, duration: '52:26' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.duration).toBe('52:26');
+  });
+
+  it('1시간을 넘는 앨범도 "H:MM:SS"가 아니라 분이 60을 넘는 형태로 통과한다', () => {
+    const result = albumSchema.safeParse({ ...valid, duration: '92:15' });
+    expect(result.success).toBe(true);
+  });
+
+  it('초가 60 이상이면 거부된다', () => {
+    const result = albumSchema.safeParse({ ...valid, duration: '52:60' });
+    expect(result.success).toBe(false);
+  });
+
+  it('"H:MM:SS" 형식(콜론 2개)은 거부된다 — 총 분:초 형식만 받는다', () => {
+    const result = albumSchema.safeParse({ ...valid, duration: '1:32:15' });
+    expect(result.success).toBe(false);
+  });
+
+  it('빈 문자열은 거부된다', () => {
+    const result = albumSchema.safeParse({ ...valid, duration: '' });
+    expect(result.success).toBe(false);
+  });
+});

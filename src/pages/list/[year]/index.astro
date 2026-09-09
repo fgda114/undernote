@@ -8,8 +8,34 @@
  *    config or score edits cannot reach this page, R-8). Preface (editor's
  *    markdown) above the list (US-1 AC3). Title never hardcodes a count —
  *    the caption carries "{n}장의 앨범" automatically (R-6).
- *  - PROGRESSIVE: {year} is the active year → live top10 + bucket boards.
+ *  - PROGRESSIVE: {year} is the active year (or any other not-yet-finalized
+ *    year, R-8) → live top10 only.
  * Covers are display-time lookups by slug (covers aren't frozen data).
+ *
+ * GENRE SECTIONS WERE REMOVED FROM BOTH FACES (2026-09-09, decision-maker
+ * request, made the moment `config/genres.yaml` grew from 3 buckets to 8):
+ * a finalized year no longer prints its "Genre Selections" section and a
+ * progressive year no longer prints its per-bucket "Genre Nominees" board
+ * grid — eight tiny sections, several permanently empty for any given year,
+ * read as clutter under the one list a reader actually came for. This is a
+ * RENDER-ONLY cut: `snapshot.data.buckets` (the frozen per-bucket
+ * winner/nominees the finalize CLI writes) and `board` (this page's own
+ * per-request `deriveBoard` call for a progressive year) both still carried
+ * that data before this cut and — for `snapshot.data.buckets` — still do;
+ * see below for which of the two this page still computes. Deleting the
+ * SNAPSHOT'S data instead of just not rendering it was never on the table:
+ * E-119 diffs a finalized year's `config/genres.yaml` block against its
+ * snapshot's buckets to enforce the freeze (R-8), and an empty array would
+ * make that comparison meaningless. `min_reviews_to_publish` (config/
+ * genres.yaml) and the `published` flag it produces on each snapshot bucket
+ * therefore still exist and still do real work (gating what the finalize
+ * CLI writes, which the E-119 diff still needs) even though neither has any
+ * effect on what a reader sees here any more — reported upstream rather than
+ * touched, since config/genres.yaml's own comment describing that field is
+ * outside this package's owned paths. BoardPanel/BoardRow (components) lost
+ * their only caller in the same cut and were removed as dead code rather
+ * than left importable-but-unused; ChartCard (home page top10 cards) is
+ * unrelated and untouched.
  *
  * TITLE (2026-09-07): both faces carry the SAME single-line h1, "Charts
  * {year}", and NO overline. Every other tab on this site names itself in one
@@ -31,22 +57,22 @@
  * on the immutability sentence directly below it.
  */
 import { getEntry, render } from 'astro:content';
-import BoardPanel from '../../../components/BoardPanel.astro';
 import ListRankRow from '../../../components/ListRankRow.astro';
 import Base from '../../../layouts/Base.astro';
 import { coverSetFor } from '../../../lib/covers.ts';
-import { deriveBoard, deriveTop10 } from '../../../lib/derive/lists.ts';
+import { deriveTop10 } from '../../../lib/derive/lists.ts';
 import { getSiteData } from '../../../lib/derive/site-data.ts';
 import { withBase } from '../../../lib/paths.ts';
-import { hasNonAscii } from '../../../lib/typography.ts';
 
 // listYears (site-data.ts) is the one definition of "which years exist" —
 // every year with a genres.yaml block, a snapshot, or that is active_year.
 // A year with a block but zero reviews still gets a page here, rendered the
-// same empty-progressive way active_year does on day one (SectionEmpty-style
-// bucket panels) — that IS the retroactive-chart workflow (R-8, 2026-09-08):
-// stand up a past year's block, accumulate reviews against it build by
-// build, watch it here, finalize whenever it is complete.
+// same empty-progressive way active_year does on day one (an empty top10
+// section, or — since the genre-boards cut above — no section at all when
+// there is nothing to rank yet) — that IS the retroactive-chart workflow
+// (R-8, 2026-09-08): stand up a past year's block, accumulate reviews
+// against it build by build, watch it here, finalize whenever it is
+// complete.
 export async function getStaticPaths() {
   const { listYears } = getSiteData();
   return listYears.map((year) => ({ params: { year: String(year) } }));
@@ -58,11 +84,15 @@ const snapshot = data.snapshots.find((s) => s.data.year === year);
 // Progressive years are derived PER PAGE, not read off the getSiteData()
 // singleton — that singleton is deliberately locked to active_year alone
 // (the home board's contract, ADR-0005), while this page now also renders
-// any other not-yet-finalized year. deriveBoard/deriveTop10 are pure
-// functions of (joined reviews, year), so recomputing here for a year other
-// than active_year is just calling them with a different argument, not a
-// second implementation (same doctrine as finalize.ts §intro).
-const board = snapshot ? null : deriveBoard(joined, data.genres!, year);
+// any other not-yet-finalized year. deriveTop10 is a pure function of
+// (joined reviews, year), so recomputing here for a year other than
+// active_year is just calling it with a different argument, not a second
+// implementation (same doctrine as finalize.ts §intro). deriveBoard is NOT
+// called here any more (2026-09-09) — its per-bucket board was this page's
+// only caller for a progressive year, and the genre-boards cut above (see
+// the file intro) removed the section that rendered it. `data.genres` is
+// therefore also unused on this page now, left untouched at its source
+// (getSiteData) since other pages still read it.
 const top10 = snapshot ? null : deriveTop10(joined, year);
 
 const albumCovers = new Map(data.albums.map((a) => [a.slug, a.data.cover]));
@@ -77,7 +107,13 @@ if (snapshot) {
     Preface = (await render(entry)).Content;
   }
 }
-const publishedBuckets = snapshot ? snapshot.data.buckets.filter((b) => b.published) : [];
+// `snapshot.data.buckets` (winner/nominees per genre, plus the `published`
+// flag min_reviews_to_publish produced) is READ NOWHERE on this page any
+// more (2026-09-09, see the file intro's GENRE SECTIONS paragraph) — it is
+// not re-derived into a local const the way `top10` above is, because there
+// is no longer a render site left to feed. The field itself stays on the
+// snapshot's own schema/content untouched; this is one page choosing not to
+// look at it, not the data going away.
 const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
 
 // Year nav (2026-09-08): plain links, no client JS — listYears is already
@@ -141,9 +177,11 @@ const nextYear = yearIdx < listYears.length - 1 ? listYears[yearIdx + 1] : null;
            were cut for the same reason the home's progress strip was: they
            narrate the publication's own state instead of the year's records,
            and a reader who has just clicked Charts is here for the albums.
-           The chip above says whether the year is 확정, and the section
-           headings below say whether they are Nominees or Selections — the
-           page's structure carries what the sentence was carrying.
+           The chip above says whether the year is 확정 — the page's
+           structure carries what the sentence was carrying (the "Nominees"/
+           "Selections" section headings this comment used to also point to
+           are gone as of 2026-09-09, see the file intro's GENRE SECTIONS
+           paragraph; the chip alone still does the job for what remains).
            The finalized caption STAYS: it is not about progress, it is the
            immutability contract (R-8) plus the count R-6 forbids hardcoding
            into the title. */
@@ -178,37 +216,11 @@ const nextYear = yearIdx < listYears.length - 1 ? listYears[yearIdx + 1] : null;
               ))}
             </ol>
           </section>
-          {publishedBuckets.length > 0 && (
-            /* English section name, same rule the masthead and the home's
-               section heads follow. The accessible name is the same string
-               as the visible heading — a region announced with different
-               words than it prints is two names for one thing. */
-            <section class="buckets" aria-label="Genre Selections">
-              <h2 class="section-title">Genre Selections</h2>
-              {publishedBuckets.map((bucket) => (
-                <div class="bucket">
-                  <h3 class:list={['bucket-label', { ko: hasNonAscii(bucket.label) }]}>{bucket.label}</h3>
-                  <ol class="rows">
-                    {(bucket.nominees ?? []).map((n, i) => (
-                      <ListRankRow
-                        rank={i + 1}
-                        title={n.title}
-                        artistsLabel={n.artists_label}
-                        score={n.score}
-                        reviewUrl={`/reviews/${n.album}/`}
-                        cover={coverFor(n.album, n.title, n.artists_label)}
-                      />
-                    ))}
-                  </ol>
-                </div>
-              ))}
-            </section>
-          )}
         </>
       ) : (
-        // board/top10 are non-null here by construction (`snapshot ? null :
-        // derive…(...)` above) — the `!` just states that invariant to TS,
-        // which cannot see across the two separate `const`s on its own.
+        // top10 is non-null here by construction (`snapshot ? null :
+        // deriveTop10(...)` above) — the `!` just states that invariant to
+        // TS, which cannot see across the two separate branches on its own.
         <>
           {top10!.entries.length > 0 && (
             /* No visible heading (2026-09-07). "올해의 앨범 후보 — 현재 상위
@@ -234,14 +246,6 @@ const nextYear = yearIdx < listYears.length - 1 ? listYears[yearIdx + 1] : null;
               </ol>
             </section>
           )}
-          <section class="buckets" aria-label="Genre Nominees">
-            <h2 class="section-title">Genre Nominees</h2>
-            <div class="bucket-grid">
-              {board!.buckets.map((bucket) => (
-                <BoardPanel bucket={bucket} />
-              ))}
-            </div>
-          </section>
           {previousSnapshot && (
             <a class="tail-link" href={withBase(`/list/${year - 1}/`)}>지난해 확정 리스트 →</a>
           )}
@@ -302,15 +306,19 @@ const nextYear = yearIdx < listYears.length - 1 ? listYears[yearIdx + 1] : null;
   }
   /* TITLE→CONTENT IS THE SITE'S ONE SHARED GAP, --s-24, NOT THIS PAGE'S OWN
      --s-48 (2026-09-08). `.list-page`'s 48px `gap` above spaces its LATER
-     content sections apart (preface → top10 rows → bucket boards → the
-     prior-year link) — that is this page's own rhythm and stays untouched.
-     `.head` (the title block, plus the frozen-year chip and caption when
-     present) is that flex column's first item, so before this rule the gap
-     to whichever section renders next — preface, the finalized top10, the
-     progressive top10, or the buckets section when top10 is empty; all four
-     are covered because the rule targets `.head` itself, not any one of
-     them — inherited the 48px section-rhythm number instead of the 24px
-     every other tab uses between its title and its first content. Margins on
+     content sections apart (preface → top10 rows → the prior-year link —
+     the genre boards that used to sit in this rhythm too were cut
+     2026-09-09, see the file intro) — that is this page's own rhythm and
+     stays untouched. `.head` (the title block, plus the frozen-year chip
+     and caption when present) is that flex column's first item, so before
+     this rule the gap to whichever section renders next — preface, the
+     finalized top10, or the progressive top10 — inherited the 48px
+     section-rhythm number instead of the 24px every other tab uses between
+     its title and its first content. (A progressive year with zero reviews
+     and no prior-year link now renders nothing after `.head` at all, since
+     the genre boards that used to fill that gap are gone — this rule is a
+     no-op then, not a bug: there is no next sibling for it to space.)
+     Margins on
      a flex item stack with `gap` (never collapse into it), so 48px + this
      rule's −24px lands that one pair on 24px without touching any gap
      further down the column. This is the active year's own page — the one
@@ -358,45 +366,15 @@ const nextYear = yearIdx < listYears.length - 1 ? listYears[yearIdx + 1] : null;
   .preface :global(p) {
     margin: 0 0 var(--s-24);
   }
-  .section-title {
-    font-family: var(--display);
-    font-size: var(--fs-21);
-    line-height: 26px;
-    letter-spacing: -0.01em;
-    font-weight: 800;
-    margin-bottom: var(--s-16);
-  }
   .rows {
     list-style: none;
     margin: 0;
     padding: 0;
   }
-  .bucket {
-    margin-top: var(--s-24);
-  }
-  /* Genre labels are English since 2026-09-07 ("Pop", "Rock",
-     "Hip-Hop / R&B"), so the default is the wide Latin tracking. `.ko` is
-     not dead code: a FINALIZED year keeps the labels it was frozen with
-     (R-8), so a snapshot written while the config was Korean still renders
-     Korean here and must not be tracked out. */
-  .bucket-label {
-    font-family: var(--mono);
-    font-size: var(--fs-12);
-    line-height: 16px;
-    letter-spacing: var(--label-ls);
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--ink);
-    margin-bottom: var(--s-8);
-  }
-  .bucket-label.ko {
-    letter-spacing: var(--label-ls-ko);
-  }
-  .bucket-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--s-16);
-  }
+  /* `.section-title`, `.bucket`, `.bucket-label`(.ko), `.bucket-grid` were
+     removed 2026-09-09 along with the Genre Nominees/Selections markup they
+     styled (see the file intro's GENRE SECTIONS paragraph) — no other
+     element on this page used these classes. */
   .tail-link {
     display: inline-flex;
     align-items: center;

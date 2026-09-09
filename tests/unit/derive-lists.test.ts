@@ -157,13 +157,23 @@ describe('R-7 — etc 버킷 취급', () => {
   });
   const joined = joinReviews(repo);
 
-  it('10선 포함 · 보드 제외 · 배지 없음', () => {
+  it('10선 포함 · 보드 제외 · 배지는 10선을 따른다', () => {
     const top10 = deriveTop10(joined, 2026);
     expect(top10.entries[0].album).toBe('etc-masterpiece');
     const board = deriveBoard(joined, genres, 2026);
     const allBoard = board.buckets.flatMap((b) => b.entries.map((e) => e.album));
     expect(allBoard).not.toContain('etc-masterpiece');
-    expect(deriveBadgeMap(board).has('etc-masterpiece')).toBe(false);
+    // REVERSED 2026-09-09, deliberately. This line used to assert the
+    // OPPOSITE — that an "etc" album gets no badge — because the badge
+    // was then a rank inside a genre bucket, and the boards exclude etc.
+    // The genre boards are gone from /list/{year}/ and the badge now
+    // reads "지금 올해의 앨범 노미네이트 {n}위", so it follows the top 10
+    // the reader actually sees. An etc album that ranks there carries a
+    // badge, and that is the whole point of the change: what the badge
+    // says and what it counts are now the same thing. The property being
+    // protected is unchanged in kind — the badge must agree with the
+    // list it names — only the list it names has changed.
+    expect(deriveBadgeMap(top10).get('etc-masterpiece')?.rank).toBe(1);
   });
 });
 

@@ -137,6 +137,7 @@ export const REVIEW_LABELS = {
   albumTitle: '앨범 이름',
   albumSlugHint: '(선택) 앨범 주소',
   albumSubtitle: '(선택) 부제',
+  albumDuration: '(선택) 앨범 길이',
   releaseDate: '발매일',
   // MULTI-GENRE (2026-09-08): the field became a checkboxes group (see
   // review.yml) so the label carries the "여러 개" hint the field itself
@@ -175,6 +176,7 @@ export function parseReviewForm(rawBody) {
     albumTitle: extractField(body, REVIEW_LABELS.albumTitle, REVIEW_KNOWN_LABELS),
     albumSlugHint: extractField(body, REVIEW_LABELS.albumSlugHint, REVIEW_KNOWN_LABELS),
     albumSubtitle: extractField(body, REVIEW_LABELS.albumSubtitle, REVIEW_KNOWN_LABELS),
+    albumDuration: extractField(body, REVIEW_LABELS.albumDuration, REVIEW_KNOWN_LABELS),
     releaseDate: extractField(body, REVIEW_LABELS.releaseDate, REVIEW_KNOWN_LABELS),
     // MULTI-GENRE (2026-09-08): zero or more checked labels, template order,
     // never deduplicated/validated here (see resolveGenreBuckets for why).
