@@ -1,0 +1,6 @@
+# E-119 control fixture — the 2026 block matches content/snapshots/2026.md
+# exactly (untouched since finalize), so no E-119 finding should appear.
+site_name: "undernote"
+base_url: "https://fgda114.github.io/undernote"
+active_year: 2027
+og_use_cover: true

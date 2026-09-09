@@ -35,19 +35,35 @@ import BoardPanel from '../../../components/BoardPanel.astro';
 import ListRankRow from '../../../components/ListRankRow.astro';
 import Base from '../../../layouts/Base.astro';
 import { coverSetFor } from '../../../lib/covers.ts';
+import { deriveBoard, deriveTop10 } from '../../../lib/derive/lists.ts';
 import { getSiteData } from '../../../lib/derive/site-data.ts';
 import { withBase } from '../../../lib/paths.ts';
 import { hasNonAscii } from '../../../lib/typography.ts';
 
+// listYears (site-data.ts) is the one definition of "which years exist" —
+// every year with a genres.yaml block, a snapshot, or that is active_year.
+// A year with a block but zero reviews still gets a page here, rendered the
+// same empty-progressive way active_year does on day one (SectionEmpty-style
+// bucket panels) — that IS the retroactive-chart workflow (R-8, 2026-09-08):
+// stand up a past year's block, accumulate reviews against it build by
+// build, watch it here, finalize whenever it is complete.
 export async function getStaticPaths() {
-  const { site, snapshotYears } = getSiteData();
-  const years = [...new Set([site.active_year, ...snapshotYears])];
-  return years.map((year) => ({ params: { year: String(year) } }));
+  const { listYears } = getSiteData();
+  return listYears.map((year) => ({ params: { year: String(year) } }));
 }
 
 const year = Number(Astro.params.year);
-const { board, top10, data } = getSiteData();
+const { joined, data, listYears } = getSiteData();
 const snapshot = data.snapshots.find((s) => s.data.year === year);
+// Progressive years are derived PER PAGE, not read off the getSiteData()
+// singleton — that singleton is deliberately locked to active_year alone
+// (the home board's contract, ADR-0005), while this page now also renders
+// any other not-yet-finalized year. deriveBoard/deriveTop10 are pure
+// functions of (joined reviews, year), so recomputing here for a year other
+// than active_year is just calling them with a different argument, not a
+// second implementation (same doctrine as finalize.ts §intro).
+const board = snapshot ? null : deriveBoard(joined, data.genres!, year);
+const top10 = snapshot ? null : deriveTop10(joined, year);
 
 const albumCovers = new Map(data.albums.map((a) => [a.slug, a.data.cover]));
 const coverFor = (slug: string, title: string, artistsLabel: string) =>
@@ -63,6 +79,15 @@ if (snapshot) {
 }
 const publishedBuckets = snapshot ? snapshot.data.buckets.filter((b) => b.published) : [];
 const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
+
+// Year nav (2026-09-08): plain links, no client JS — listYears is already
+// sorted ascending, so stepping to the neighbouring index IS prev/next. At
+// either end there is no year to point at, so the control is simply absent
+// rather than rendered disabled — unlike the Charts pager (index.astro),
+// there is no real destination behind it to announce a state for.
+const yearIdx = listYears.indexOf(year);
+const prevYear = yearIdx > 0 ? listYears[yearIdx - 1] : null;
+const nextYear = yearIdx < listYears.length - 1 ? listYears[yearIdx + 1] : null;
 ---
 
 <Base
@@ -74,6 +99,30 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
   preloadSerif={Preface != null}
 >
   <main class="list-page">
+    {/* Prev/next year — plain anchors, no client JS (this site's one script
+        budget stays spent on the Charts pager and cover zoom, not this). Each
+        side is its own wrapper so `space-between` still pins the surviving
+        link to its edge when the other year does not exist (oldest year has
+        no prev, newest has no next) — see the intro for why an absent year
+        renders nothing rather than a disabled placeholder. */}
+    {(prevYear != null || nextYear != null) && (
+      <nav class="year-nav" aria-label="연도 이동">
+        <span>
+          {prevYear != null && (
+            <a class="year-nav-link" href={withBase(`/list/${prevYear}/`)}>
+              <span aria-hidden="true">←</span> {prevYear}
+            </a>
+          )}
+        </span>
+        <span>
+          {nextYear != null && (
+            <a class="year-nav-link" href={withBase(`/list/${nextYear}/`)}>
+              {nextYear} <span aria-hidden="true">→</span>
+            </a>
+          )}
+        </span>
+      </nav>
+    )}
     <header class="head">
       {/* No overline — see the intro. The row survives only to carry the
           frozen-year chip, so it renders only when there is one. */}
@@ -157,8 +206,11 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
           )}
         </>
       ) : (
+        // board/top10 are non-null here by construction (`snapshot ? null :
+        // derive…(...)` above) — the `!` just states that invariant to TS,
+        // which cannot see across the two separate `const`s on its own.
         <>
-          {top10.entries.length > 0 && (
+          {top10!.entries.length > 0 && (
             /* No visible heading (2026-09-07). "올해의 앨범 후보 — 현재 상위
                {n}" described the page's own mechanism — what the rows below
                it are and how many there are — which is the same kind of
@@ -169,7 +221,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
                it; that name is not page copy. */
             <section aria-label="올해의 앨범 후보">
               <ol class="rows">
-                {top10.entries.map((entry, i) => (
+                {top10!.entries.map((entry, i) => (
                   <ListRankRow
                     rank={i + 1}
                     title={entry.title}
@@ -185,7 +237,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
           <section class="buckets" aria-label="Genre Nominees">
             <h2 class="section-title">Genre Nominees</h2>
             <div class="bucket-grid">
-              {board.buckets.map((bucket) => (
+              {board!.buckets.map((bucket) => (
                 <BoardPanel bucket={bucket} />
               ))}
             </div>
@@ -207,6 +259,31 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === year - 1);
     display: flex;
     flex-direction: column;
     gap: var(--s-48);
+  }
+  /* Year nav — a thin wayfinding strip, not a section, so it takes a tighter
+     gap to the title than `.list-page`'s 48px section rhythm (same
+     margin-stacks-with-gap technique `.head` already uses below). Two
+     wrapper spans keep `space-between` pinning whichever link exists to its
+     own edge even when the other side is empty (see the intro). */
+  .year-nav {
+    display: flex;
+    justify-content: space-between;
+  }
+  .year-nav + .head {
+    margin-top: calc(var(--s-16) - var(--s-48));
+  }
+  .year-nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-8);
+    min-height: 44px;
+    font-family: var(--mono);
+    font-size: var(--fs-14);
+    line-height: 20px;
+    font-weight: 600;
+  }
+  .year-nav-link:hover {
+    color: var(--accent-2-ink);
   }
   /* Size and weight come from the shared .page-title (global.css); only the
      spacing this page needs is local. The top margin is the gap under the

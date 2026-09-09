@@ -1,0 +1,5 @@
+years:
+  - year: 2026
+    buckets:
+      - { id: "pop", label: "팝", order: 1 }
+    min_reviews_to_publish: 3
