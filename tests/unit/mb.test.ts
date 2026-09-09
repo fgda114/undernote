@@ -22,7 +22,7 @@ const searchFixture = {
   ],
 };
 
-function mockFetch(status: number, body: unknown = {}, url = 'https://mock/'): typeof fetch {
+function mockFetch(status: number, body: unknown = {}): typeof fetch {
   return vi.fn(async () =>
     new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }),
   ) as unknown as typeof fetch;

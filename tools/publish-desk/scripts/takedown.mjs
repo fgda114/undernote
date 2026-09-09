@@ -22,7 +22,13 @@
  * This module MIRRORS that E-113 rule rather than importing it (a
  * documented sync point, the same convention as slugify.mjs — see its own
  * header): this package lives in a different repository from the one that
- * defines archive.ts. Getting it wrong is bounded in one direction only —
+ * defines archive.ts. There is no automated drift check between the two
+ * repos (code review MN-2, 2026-09-09) — `reachableArtists` above was last
+ * hand-compared line-by-line against archive.ts#deriveArchiveIndex's
+ * `by_artist` construction on 2026-09-09 and found to match exactly. If you
+ * touch either side, re-diff the other and move this date forward; an
+ * out-of-date note here is a prompt to re-check, not a guarantee. Getting it
+ * wrong is bounded in one direction only —
  * UNDER-deleting (leaving something that should have gone) still fails the
  * real E-113 for real on the build that follows, so the writer is never
  * left with silent breakage; OVER-deleting is structurally impossible here,

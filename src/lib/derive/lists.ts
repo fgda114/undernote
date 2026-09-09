@@ -16,7 +16,7 @@
 import { coverSetFor, type CoverSet } from '../covers.ts';
 import { scoreToTenths } from '../score.ts';
 import type { Album, GenresConfig, ReviewFrontmatter } from '../schema/index.ts';
-import type { Entry, RepoData } from '../checker/load.ts';
+import type { RepoData } from '../checker/load.ts';
 import type { Finding } from '../checker/types.ts';
 
 // ── Joined unit ────────────────────────────────────────────────────────

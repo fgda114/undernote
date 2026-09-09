@@ -17,6 +17,13 @@
  * copy drifts, the worst case is a slightly wrong pre-check UX (asking when
  * unnecessary, or not asking when it should); it can never let a malformed
  * slug reach content/, because the build still rejects it.
+ *
+ * No automated drift check exists between this copy and the two source
+ * modules above (code review MN-2, 2026-09-09) — SLUG_PATTERN and slugify()
+ * were last hand-compared verbatim against common.ts / scaffold.ts on
+ * 2026-09-09 and found to match exactly. Move this date forward whenever you
+ * re-check; an out-of-date note here is a prompt to re-check, not a
+ * guarantee.
  */
 
 /** Kebab-case ASCII slug pattern — verbatim copy of SLUG_PATTERN. */
