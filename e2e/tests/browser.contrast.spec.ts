@@ -194,7 +194,16 @@ test('focus-visible — 링이 자기 배경에서 3:1 이상 (전 인터랙티�
       ['마스트헤드 내비', '.nav-link'],
       ['홈 카드 링크', 'section[aria-label="최신 리뷰"] .card-link'],
       ['차트 행 링크', '.chart-card a.row-link'],
-      ['페이저 버튼', '.pager-btn'],
+      // 캐러셀 버튼 (2026-09-10 rebuild): the previous `.pager-btn` row was
+      // removed the same day the control was briefly deleted, then restored
+      // under its new name and shape (`.carousel-btn`, a real `<button>`
+      // rather than an anchor — see index.astro's intro for the round trip).
+      // `.carousel-btn:not(:disabled)` specifically: the `prev` button opens
+      // `disabled` (the carousel always starts on card 0), and a disabled
+      // native button cannot receive focus at all — `el.focus()` below would
+      // silently no-op on it and report whatever ring was already showing
+      // elsewhere on the page, not this control's own ring.
+      ['캐러셀 버튼', '.carousel-btn:not(:disabled)'],
       ['섹션 더보기', '.section-more'],
       ['푸터 About', '.footer-about'],
     ];

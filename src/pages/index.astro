@@ -48,8 +48,10 @@
  *
  * The `n-*` variants and ArticleCard's whole `feature` layout were DELETED
  * rather than left dormant: a branch nobody can reach is a question the next
- * reader has to answer before they can change anything. Charts keeps its own
- * count classes — it is a carousel, a different object with a different job.
+ * reader has to answer before they can change anything. Charts kept its own
+ * count classes for a while after this cut — it was a carousel, a different
+ * object with a different job — until the reversal below retired the
+ * carousel itself and took the classes with it.
  *
  * The steps and the widths that trigger them are in the grid rules below;
  * the 320px track cap that keeps the hierarchy invariant true at every one
@@ -87,7 +89,7 @@
  * the build e2e suite pins:
  *   empty         · the declaration line + three empty grounds, and not one
  *                   review link anywhere on the page
- *   early/normal  · a populated Charts grid carrying rank plates
+ *   early/normal  · a populated Charts card carrying a rank plate
  *   post-finalize · the finalized card + a Charts section whose empty ground
  *                   proves the NEW year's board starts empty (last year's
  *                   albums are gone from the home, not re-listed)
@@ -98,6 +100,73 @@
  * explains what kind of section it is has stopped being a section and become
  * a note about the software. The heading names the surface; the cards under
  * it show what is on it.
+ *
+ * CHARTS IS A ONE-CARD-AT-A-TIME CAROUSEL (2026-09-10, decision-maker
+ * request: "올해의 앨범은 원래처럼(기존 하나만 있었을때처럼 카드 하나가 폭 전체
+ * 차지) 카드 한장만 뜨게 하고 최대 10개까지, 좌우 화살표버튼(동그랗고 반투명한
+ * 버튼이 카드 양 옆에 있는 느낌), 버튼으로 한번에 한 카드씩 넘겨볼 수 있음,
+ * 모바일도 동일" — the multi-card grid/scroller this section grew between
+ * 2026-09-07 and 2026-09-09 read as too dense, and an intermediate pass on
+ * this same date briefly cut it to a single, un-navigable card with no way
+ * to reach anything but the leader. THAT PASS HAD THE REQUEST BACKWARDS: "카드
+ * 하나가 폭 전체 차지" describes the CARD SHAPE the decision-maker wants
+ * restored (`feature` — 440px cover + two-column body, unchanged since the W5
+ * rebuild), not a ceiling of one card total. Reversed within the hour, and
+ * recorded here rather than silently corrected, because the same misreading
+ * is easy to make again from the sentence alone.
+ *
+ * "기존처럼" checks out against git history for the CARD, not the count:
+ * `n-1`'s `display: block` plus ChartCard's own `feature` layout is the
+ * shape a lone candidate has always taken here — it was simply gated behind
+ * `charts.length === 1`. That gate is gone, but not in the direction the
+ * intermediate pass took it: EVERY card in the row is `feature` now, always,
+ * whatever `charts.length` is, so the one visible at any moment is the same
+ * shape the site has always shown for a single candidate.
+ *
+ * ONE CARD VISIBLE, UP TO TEN REACHABLE. `charts` is capped at ten by
+ * `deriveHomeSections` (via `deriveTop10`, lib/derive/lists.ts) and ordered
+ * by the year's overall rank — see that function's own intro for why the
+ * card is the year's #1 and not a bucket leader. All of them render into the
+ * DOM in order; `.chart-cards` clips to exactly one card's width and scrolls
+ * the rest offscreen, which is what makes "한 카드씩 넘겨볼 수 있음" true by
+ * construction — stepping one card is stepping one flex-basis-100% child,
+ * never a fraction of one.
+ *
+ * THE ARROWS ARE STRUCTURAL, NOT OVERLAID (the "카드 양 옆에 있는 느낌" this
+ * asked for). ADR-0008 (ChartCard's own intro) forbids covering album art
+ * except by the one recorded exception (the list thumbnail's score chip);
+ * putting a translucent circle over the FEATURE cover — which runs flush to
+ * the card's own left edge by design — would have been a second exception
+ * with nothing but layout convenience to justify it. `.chart-carousel` sides
+ * with the rule instead of arguing for a second exception: the two buttons
+ * are flex siblings of the scroller, not `position: absolute` children of
+ * it, so they occupy their own space beside the card rather than sitting on
+ * top of any part of it — on every viewport, including the stacked mobile
+ * layout where the cover runs full width above the body and a vertically
+ * centred overlay would have landed on it either way. The cost is honest:
+ * the visible card is `.chart-carousel`'s width minus two 44px circles and
+ * two gaps (see the style block), not the section's full content width to
+ * the pixel — but it is still the one full-width-feeling card the request
+ * asked for, and it is precisely THIS shape at 641px+, 900px+ and stacked
+ * mobile alike, because the same three flex children answer to every
+ * viewport in WIDTHS (browser.hierarchy.spec.ts) rather than three
+ * per-breakpoint layouts.
+ *
+ * NO ARROWS FOR A SINGLE CANDIDATE (R-4). `charts.length > 1` gates both
+ * buttons — a control that can only ever point at the one card already on
+ * screen is exactly the empty-shell shape R-4 forbids, and the real content
+ * today (two reviews) makes this the common case rather than an edge case.
+ *
+ * SCRIPT IS AN ENHANCEMENT, NOT THE MECHANISM. `.chart-cards` is a native
+ * horizontal scroll container with `scroll-snap-type: x mandatory` — a
+ * reader can already move it one card at a time with a finger or a trackpad
+ * with zero script running, which is what keeps browser.flows.spec.ts's
+ * `javaScriptEnabled: false` context whole. The inline module
+ * (enhance.js) only wires the two buttons to `scrollBy` one card and keeps
+ * them `disabled` at either end; without it the buttons render (SSR sets the
+ * first card's `prev` `disabled` up front) but do nothing when clicked —
+ * which is an acceptable no-script gap because the row underneath them is
+ * never the reader's only way to move it, only the buttons' own way.
  */
 import ArticleCard from '../components/ArticleCard.astro';
 import ChartCard from '../components/ChartCard.astro';
@@ -111,11 +180,6 @@ import { withBase } from '../lib/paths.ts';
 
 const { site, homeSections, homeVariant, data } = getSiteData();
 const { charts, latestReviews, notes } = homeSections;
-
-// Charts: 1 / 2 / 3 are the three layouts, and everything above 3 is the same
-// horizontal scroller, so the class saturates at n-3. The browsing grids used
-// to have a matching helper and no longer do — see the intro.
-const chartClass = (n: number) => `n-${Math.min(n, 3)}`;
 
 // Exactly one <h1> per document. Now that all three sections always render,
 // Charts is always the first heading on the page — except in the `empty`
@@ -158,57 +222,55 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     }
 
     <section class="board" aria-label="올해의 앨범">
-      <div class="board-head">
-        {/* `sheen` — the only heading on this page allowed the gradient
-            display treatment: the annual list is what the scores produced,
-            which is exactly what --accent is reserved for (tokens.css). The
-            other two headings deliberately do NOT take it: "최신 리뷰" and
-            "음악 이야기" are not lists the scores made, and painting them
-            with the score's colour is the exact move that turns the doctrine
-            back into decoration. */}
-        <SectionHead label="Charts" title={`${site.active_year} 올해의 앨범`} level={chartsLevel} sheen />
-        {
-          charts.length > 2 && (
-            /* Pager. These are ANCHORS, not buttons, and that is the whole
-               progressive-enhancement story: with no script they are
-               ordinary in-page links to the first and last card, which the
-               browser scrolls the row to. The inline module upgrades them to
-               step by one screenful and marks them aria-disabled at the ends.
-               A <button> here would be a dead control without JavaScript. */
-            <p class="pager">
-              <a class="pager-btn" href="#chart-first" data-scroll="-1" aria-label="앞쪽 앨범 보기">
-                <span aria-hidden="true">←</span>
-              </a>
-              <a class="pager-btn" href="#chart-last" data-scroll="1" aria-label="뒤쪽 앨범 보기">
-                <span aria-hidden="true">→</span>
-              </a>
-            </p>
-          )
-        }
-      </div>
+      {/* `sheen` — the only heading on this page allowed the gradient
+          display treatment: the annual list is what the scores produced,
+          which is exactly what --accent is reserved for (tokens.css). The
+          other two headings deliberately do NOT take it: "최신 리뷰" and
+          "음악 이야기" are not lists the scores made, and painting them
+          with the score's colour is the exact move that turns the doctrine
+          back into decoration. */}
+      <SectionHead label="Charts" title={`${site.active_year} 올해의 앨범`} level={chartsLevel} sheen />
       {
         charts.length > 0 ? (
-          /* <ol>, because markup order IS rank order within each bucket
-             (deriveHomeSections flattens board.buckets in bucket → rank
-             order, lib/derive/lists.ts#ChartCardEntry). Empty buckets
-             contribute nothing here. The full per-bucket board itself — the
-             thing this grid is flattened FROM — used to be one click away
-             on /list/{year}/ too; as of 2026-09-09 that page dropped its own
-             Genre Nominees board and shows only the flat top10 ranking (see
-             that page's own intro) — this home grid remains the one place a
-             reader still sees albums grouped by bucket. */
-          <ol class:list={['chart-cards', 'stagger', chartClass(charts.length)]}>
-            {charts.map((entry, i) => (
-              /* Only the first row is eager: three covers is the whole
-                 above-the-fold image cost, the rest stream in on scroll. */
-              <ChartCard
-                entry={entry}
-                feature={charts.length === 1}
-                eager={i < 3}
-                anchorId={i === 0 ? 'chart-first' : i === charts.length - 1 ? 'chart-last' : undefined}
-              />
-            ))}
-          </ol>
+          /* One-card-at-a-time carousel, up to ten reachable (2026-09-10 —
+             see the intro). `.chart-carousel` is the three-way flex row
+             (prev button · scroller · next button); the buttons are omitted
+             entirely below `charts.length > 1` (R-4 — no control that can
+             only ever point at what is already on screen). Every card is
+             `feature`, always: the visible one is meant to read exactly like
+             the single-candidate shape this section has always had. Only the
+             first is `eager` — the rest scroll into view, not onto the
+             critical rendering path. */
+          <div class="chart-carousel">
+            {
+              charts.length > 1 && (
+                /* `disabled`, not `aria-disabled`: a real `<button>` gets to
+                   use the native state, which marks the end two ways at once
+                   (dimmed AND pulled from the tab order / announced
+                   "unavailable") without a second attribute to keep in sync
+                   (WCAG 1.4.1 — never by colour alone). Set here rather than
+                   left to the inline module because the carousel always
+                   opens on card 0: the no-script page is already correct,
+                   and enhance.js only re-derives the same value as the row
+                   scrolls. */
+                <button type="button" class="carousel-btn prev" data-scroll="-1" aria-label="이전 앨범" disabled>
+                  <span aria-hidden="true">‹</span>
+                </button>
+              )
+            }
+            <ol class="chart-cards stagger">
+              {charts.map((entry, i) => (
+                <ChartCard entry={entry} feature eager={i === 0} />
+              ))}
+            </ol>
+            {
+              charts.length > 1 && (
+                <button type="button" class="carousel-btn next" data-scroll="1" aria-label="다음 앨범">
+                  <span aria-hidden="true">›</span>
+                </button>
+              )
+            }
+          </div>
         ) : (
           <SectionEmpty />
         )
@@ -219,7 +281,11 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
           intro for the 2026-09-09 cut of its old always-there bucket board).
           That page IS the ranked list this section summarises, so an empty
           Charts section can still point at something real — which is what
-          "let the structure speak" means here. */}
+          "let the structure speak" means here. The carousel above already
+          reaches every candidate up to the ten-card cap; this link is what
+          reaches the rest of the board past that cap, and it is still the
+          only route with no script at all if a reader never discovers the
+          carousel's own scroll affordance. */}
       <a class="section-more" href={withBase(`/list/${site.active_year}/`)}>올해의 앨범 전체 보기 →</a>
     </section>
 
@@ -321,42 +387,6 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
   }
 
   /* Section tail link — same object in all three sections. */
-  /* Heading on the left, pager on the right, baseline-aligned. */
-  .board-head {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--s-16);
-    flex-wrap: wrap;
-  }
-  .pager {
-    display: flex;
-    gap: var(--s-8);
-  }
-  .pager-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
-    border: 1px solid var(--line-strong);
-    color: var(--ink);
-    font-size: var(--fs-16);
-    line-height: 1;
-    transition: background var(--t-micro), color var(--t-micro), border-color var(--t-micro);
-  }
-  .pager-btn:hover {
-    background: var(--surface-2);
-    color: var(--accent-2-ink);
-  }
-  /* Set by the inline module when the row is already at that end. Marked
-     two ways — dimmed AND announced — never by colour alone (WCAG 1.4.1).
-     The link still works; it simply has nowhere left to go. */
-  .pager-btn[aria-disabled='true'] {
-    color: var(--muted);
-    border-color: var(--line);
-  }
-
   .section-more {
     display: inline-flex;
     align-items: center;
@@ -370,74 +400,179 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     color: var(--accent-2-ink);
   }
 
-  /* ── Grids: one rule set per card count (layouts.md §2.4) ──────────────
-     Two grids, two densities. Chart cards are compact (cover + a 32px
-     plate + two short lines), so five fit the 1040px frame; article cards
-     carry a headline and an excerpt line and need 336px to stay readable. */
+  /* ── Lists: one rule set per section (layouts.md §2.4) ──────────────────
+     `.chart-cards` and `.cards` share only list resets here (list-style,
+     padding) — their sizing rules live apart because they are different
+     objects now: `.chart-cards` is a horizontal scroll track inside
+     `.chart-carousel` (below), `.cards` is a wrapping grid. Top margin moved
+     OFF `.chart-cards` and onto `.chart-carousel` (2026-09-10) since the
+     scroller is no longer the outermost element in the Charts section — see
+     that rule for why. */
   .chart-cards,
   .cards {
     list-style: none;
-    margin: var(--s-16) 0 0;
+    margin: 0;
     padding: 0;
   }
-  .chart-cards.n-2 {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--s-16);
+  .cards {
+    margin-top: var(--s-16);
   }
-  /* Charts, 3+ cards: a horizontal snap row, not a wrapping grid.
-     Two problems solved at once. The board can hold fifteen albums, which as
-     a 3-up grid was five rows of the home; and a wrapping grid divides the
-     frame, so the more the board filled the SMALLER its cards got — the
-     inversion this section is measured against. A scroller fixes the card at
-     336px no matter how many there are, and the extra ones travel sideways
-     instead of downward.
-     `overflow-x` here is a CONTAINED scroll: the document itself never
-     exceeds the viewport, which is what the 360px audit measures. */
-  .chart-cards.n-3 {
+
+  /* ── Charts: one-card carousel (2026-09-10 — see the intro) ─────────────
+     Three flex children, always in this order: an optional `prev` button, the
+     scroller, an optional `next` button. The buttons are OMITTED from the DOM
+     (not just hidden) when `charts.length <= 1` — see the intro's R-4 note —
+     so this rule never has to branch on whether they exist; `gap` simply
+     collapses when a flex child is absent. */
+  .chart-carousel {
+    margin-top: var(--s-16);
     display: flex;
-    gap: var(--s-16);
-    overflow-x: auto;
-    /* Without this the row is free to grow to its content and the DOCUMENT
-       scrolls sideways instead of the row — which the 360px audit correctly
-       reports as a page-level overflow. A scroll container has to be allowed
-       to be narrower than what it holds. */
-    min-width: 0;
-    scroll-snap-type: x mandatory;
-    /* The scroller starts and ends INSIDE the gutter, like every other
-       block on the page. Letting a carousel bleed to the screen edge is a
-       common magazine move, but this site's one explicit layout promise is
-       that the frame never shifts between pages ("메뉴마다 가로폭이 튀는 게
-       싫다") — and a bleeding row would break the left alignment line that
-       the masthead, the headings and the cards below it all share. The
-       cards that run past the edge are reached by scrolling, not by the
-       container escaping.
-       Room for the focus outline of a card at the edges, which a clipped
-       scroll port would otherwise cut in half: */
-    padding-bottom: var(--s-8);
-    scrollbar-width: thin;
-    overscroll-behavior-x: contain;
+    align-items: center;
+    gap: var(--s-8);
   }
-  .chart-cards.n-3 > :global(*) {
-    flex: 0 0 336px;
-    scroll-snap-align: start;
-  }
+
+  /* NARROW SCREENS PUT THE BUTTONS UNDER THE CARD (2026-09-10, measured).
+
+     Flanking circles cost a FIXED 2 x 44px plus two gaps whatever the
+     viewport is, so the share they take grows as the screen shrinks. On the
+     real build: 1200px gave the card 940px (78%), 390px gave it 246px
+     (63%) -- and "one card taking the full width" is the whole brief for
+     this section. A 63%-wide card with two circles crowding it is the
+     cramped look this rebuild was asked to remove.
+
+     `column` + `order` moves them below rather than shrinking them: a 44px
+     touch target is the floor this site holds everywhere (masthead nav,
+     archive chips), and trading it away on the one device that is actually
+     touched would be the wrong side to give. Below the card they are a
+     centred pair, still 44px, still one card per press.
+
+     Overlaying them on the card edges was the other option and is refused:
+     the left edge of this card IS the cover, and this site does not lay
+     anything over album art (ADR-0008 -- the list thumbnail score chip is
+     the single documented exception, and its reasoning is written out in
+     ArticleCard). */
   @media (max-width: 640px) {
-    /* One card per screen: below this width every grid on the page is a
-       single column, and a peeking half-card would make the chart the only
-       thing on the home that is not. */
-    .chart-cards.n-3 > :global(*) {
-      flex-basis: 100%;
+    .chart-carousel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      justify-items: center;
+      gap: var(--s-12) var(--s-8);
+    }
+    .chart-carousel .chart-cards {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      width: 100%;
+    }
+    .carousel-btn.prev {
+      grid-column: 1;
+      grid-row: 2;
+      justify-self: end;
+    }
+    .carousel-btn.next {
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: start;
     }
   }
+  /* The scroller. `flex: 1` lets it take whatever width the two buttons
+     leave; `min-width: 0` is required on a flex item before that — without
+     it a flex item's default `min-width: auto` refuses to shrink below its
+     CONTENT's own minimum, which for a horizontally-scrolling row is its
+     full unscrolled length, and the whole carousel would refuse to shrink
+     below ten cards wide. `scroll-snap-type: x mandatory` plus each card's
+     `scroll-snap-align: start` below is what makes "step one card" the
+     resting state after either a script-driven `scrollBy` or a bare-finger
+     swipe — the same mechanism serves both (see the intro's script-is-an-
+     enhancement paragraph). `scrollbar-width: thin`, not `none`: a visible
+     scrollbar is the one hint a mouse/trackpad reader gets that the row
+     holds more than what is on screen when JavaScript never runs to draw the
+     arrows' disabled state for them. `overscroll-behavior-x: contain` keeps
+     a swipe that reaches either end from bubbling into the page's own
+     scroll — the contained-scroll property browser.responsive.spec.ts
+     measures is the DOCUMENT'S width, and this is what keeps this row from
+     ever being counted against it. */
+  .chart-cards {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    /* Room for the focus outline on a snapped card and for the scrollbar
+       thumb, so neither is clipped by the container's own overflow box. */
+    padding-bottom: var(--s-8);
+  }
+  /* `:global` reaches into ChartCard's own scoped output — Astro scopes a
+     component's root element with an attribute selector, and a plain
+     `.chart-cards > .chart-card` written here would carry THIS file's scope
+     attribute instead and never match. `flex: 0 0 100%` is the one rule that
+     makes "one card visible, the rest offscreen" true regardless of how many
+     `charts` holds: every card is exactly the scroller's own width, never a
+     fraction sized by card count. */
+  .chart-cards > :global(.chart-card) {
+    flex: 0 0 100%;
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+  /* Circular, translucent — the decision-maker's own words ("동그랗고
+     반투명한 버튼"), and the FIRST use of `--r-full` (tokens.css) since square
+     is this system's default everywhere else. `color-mix` rather than a
+     literal `rgba()` keeps the fill a function of the existing `--surface-3`
+     token instead of a new hardcoded colour — the only new value this rule
+     introduces is the mix ratio, not a colour. 44px is the site's touch
+     target floor (Masthead, ArticleCard's row date, everywhere else on the
+     page already holds it); `appearance: none` strips the UA's own button
+     chrome so the circle is the whole visible shape, and `padding: 0` keeps
+     the glyph centred inside it rather than pushed by a default inset. */
+  .carousel-btn {
+    flex: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--surface-3) 65%, transparent);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: var(--fs-21);
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--t-micro), border-color var(--t-micro), color var(--t-micro), opacity var(--t-micro);
+  }
+  .carousel-btn:hover:not(:disabled) {
+    background: var(--surface-3);
+    color: var(--accent-2-ink);
+  }
+  /* Native `disabled`, marked two ways at once rather than by colour alone
+     (WCAG 1.4.1) — see the markup comment for why `disabled` and not
+     `aria-disabled` here. The link-based pager this replaced (git history)
+     had to fall back to `aria-disabled` because an anchor has no native
+     disabled state; a `<button>` does, so this carousel does not need the
+     older pattern's second attribute. */
+  .carousel-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
   /* ── Browsing grids: ONE grid, four columns, stepped at three widths ──
      (2026-09-07. Replaced `auto-fill`, then the per-count `n-*` variants.)
 
-        viewport      columns   browsing card       chart card
-        ≥ 1160px         4      241 → 320px         336px
-        840 – 1159       3      244 → 320px         336px
-        641 – 839        2      292 → 320px         336px
-        ≤ 640            1      full width          full width (tie)
+        viewport      columns   browsing card
+        ≥ 1160px         4      241 → 320px
+        840 – 1159       3      244 → 320px
+        641 – 839        2      292 → 320px
+        ≤ 640            1      full width
+
+     The chart card's own width is no longer in this table (2026-09-10): it
+     is not a grid track, it is `.chart-carousel`'s flex width minus its two
+     buttons — see that rule and browser.hierarchy.spec.ts, which measures
+     the two against each other directly rather than relying on a table like
+     this one to stay in sync with both.
 
      THE CARD COUNT IS NOT IN THAT TABLE, and that is the whole change: a
      section holding one card renders it in the first cell at the same width
@@ -457,7 +592,7 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
      `minmax(0, 320px)`, NOT `1fr`, IS THE HIERARCHY RULE IN CSS — FROM 641px
      UP. A fixed max makes the track min(320, available/n): it fills the row
      when the row is narrow and STOPS at 320 when the row is wide, so a
-     browsing card can never reach the chart card's fixed 336px at any
+     browsing card can never reach the visible chart card's own width at any
      multi-column width — including the ≥1680px case where the shell caps the
      frame at 1440 and four `1fr` tracks would resolve to 348px and invert the
      hierarchy. The `0` minimum is what keeps a card's own content (the nowrap
@@ -471,13 +606,14 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
      narrower than the row variant's dense archive listing but wider than it
      sounds — see ArticleCard's card-variant type scale, already the smallest
      step on the site, chosen for exactly this box. The hierarchy invariant
-     (chart card ≥ browsing card) is UNCHANGED here: Charts stays a single
-     full-width card below 640px (`.chart-cards.n-2` forces `1fr` in the same
-     media block below, `.chart-cards.n-3` forces `flex-basis: 100%`), so two
-     half-width browsing tracks only widen the margin the invariant already
-     held at 1fr. browser.hierarchy.spec.ts's 361–640px case is rewritten to
-     match — see that spec for the property it now checks instead of "one
-     card fills the row".
+     (chart card ≥ browsing card) is UNCHANGED here: `.chart-carousel` is a
+     flex row at every width, mobile included — see that rule — so it was
+     never going to shrink below its own arithmetic (frame minus two fixed
+     44px buttons) the way a grid track can shrink with a row it shares with
+     other tracks; two half-width browsing tracks only widen the margin the
+     invariant already held at 1fr. browser.hierarchy.spec.ts's 361–640px
+     case is rewritten to match — see that spec for the property it now
+     checks instead of "one card fills the row".
 
      THE SUPERSEDED PARAGRAPH, kept because the reasoning inside it (why a
      capped track breaks a genuinely single-column row) still applies the
@@ -515,37 +651,29 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
       grid-template-columns: repeat(4, minmax(0, 320px));
     }
   }
-  /* One chart card = the section's face; ChartCard owns the two-column
-     feature layout. The browsing grids have no such case any more — see the
-     intro. */
-  .chart-cards.n-1 {
-    display: block;
-  }
-
   @media (max-width: 640px) {
     .home {
       padding-top: var(--s-32);
     }
-    .chart-cards.n-2 {
-      grid-template-columns: 1fr;
-    }
   }
 
-  /* Board load orchestration — the site's ONE entrance animation:
-     opacity + 8px rise, 240ms per card, 60ms stagger.
-     Only the Charts grid animates: the motion vocabulary is two entries long
-     and stays that way. Slots past the fifth SATURATE at the last delay
-     rather than restarting from 0 — a card grid holds more items than the
-     three-panel board did, and a restarted stagger reads as two separate
-     animations rather than one entrance. */
+  /* Board load orchestration — the site's ONE entrance animation: opacity +
+     8px rise, 240ms, no per-child delay. Every card in `charts` carries this
+     rule (all ten, when the board holds that many), but only the first is
+     ever on screen at load — the rest sit clipped inside the scroller's
+     `overflow-x`, so animating them in lockstep rather than staggering
+     costs nothing visually; a reader only ever sees ONE entrance regardless
+     of how many cards are behind it. This used to stagger up to five entries
+     at 60ms apart (`--t-board-stagger`, tokens.css) back when the section
+     rendered a wrapping grid with several cards visible at once; that reason
+     stopped applying the day Charts became single-card, and the per-child
+     delay rules were removed with it. `--t-board-stagger` itself was left in
+     tokens.css rather than deleted here — a token is the design system's
+     call, not this page's, and a single unused custom property costs
+     nothing to leave for that decision. */
   .stagger > :global(*) {
     animation: board-in var(--t-board-row) var(--t-board-ease) both;
-    animation-delay: calc(var(--t-board-stagger) * 4);
   }
-  .stagger > :global(*:nth-child(1)) { animation-delay: 0ms; }
-  .stagger > :global(*:nth-child(2)) { animation-delay: var(--t-board-stagger); }
-  .stagger > :global(*:nth-child(3)) { animation-delay: calc(var(--t-board-stagger) * 2); }
-  .stagger > :global(*:nth-child(4)) { animation-delay: calc(var(--t-board-stagger) * 3); }
   @keyframes board-in {
     from {
       opacity: 0;

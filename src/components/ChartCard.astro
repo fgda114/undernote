@@ -30,6 +30,14 @@
  *     home to a review — browser.flows.spec.ts)
  *   · the figure is the ONLY text node of its element, so scores are still
  *     locatable as `>8.4<` (build.dist-matrix.spec.ts)
+ *
+ * `feature` is the component's only caller-selectable layout switch, and as
+ * of the 2026-09-10 home reversal (index.astro's intro) its one caller always
+ * passes it: the section renders exactly one card now, always as `feature`.
+ * The prop stays rather than being hardcoded here because `feature` names a
+ * LAYOUT (two-column, 440px cover), not "is this the home page's only card"
+ * — collapsing the two would make a future caller that wants the compact
+ * layout on a single-item list read the prop's name backwards.
  */
 import type { ChartCardEntry } from '../lib/derive/lists.ts';
 import CoverImage from './CoverImage.astro';
@@ -38,18 +46,13 @@ import { hasNonAscii } from '../lib/typography.ts';
 
 interface Props {
   entry: ChartCardEntry;
-  /** True for the single card that fills the row on its own (count === 1). */
+  /** True for the single card that fills the row on its own. */
   feature?: boolean;
   /** Above-the-fold cards load their cover eagerly; the rest stream in. */
   eager?: boolean;
-  /** Anchor target for the section's pager arrows — set on the first and
-   * last card only. Without JavaScript the arrows are ordinary in-page
-   * links to these two ids, which is what makes the pager work at all when
-   * the script does not run. */
-  anchorId?: string;
 }
 
-const { entry, feature = false, eager = false, anchorId } = Astro.props;
+const { entry, feature = false, eager = false } = Astro.props;
 
 // THE ORDINAL IS PRINTED ONLY WHERE IT ORDERS SOMETHING (2026-09-07).
 // The plate used to open with a bare "1" on every bucket leader. On the home
@@ -79,7 +82,7 @@ const rankSentence = `${entry.rank}위 · 평점 ${entry.score} / 10점 만점`;
 const FILL_SIZES = feature ? '(min-width: 900px) 440px, 100vw' : '(min-width: 960px) 200px, (min-width: 641px) 33vw, 100vw';
 ---
 
-<li class:list={['chart-card', { first: entry.rank === 1, feature }]} id={anchorId}>
+<li class:list={['chart-card', { first: entry.rank === 1, feature }]}>
   <a href={withBase(entry.review_url)} class="row-link">
     <span class="art">
       <CoverImage

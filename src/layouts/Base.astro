@@ -9,9 +9,11 @@
  *
  * CLIENT JS: "zero" became "a budget" on 2026-09-07 (lead decision). Exactly
  * ONE inline module ships, from this file, under the ceiling in
- * build.dist-matrix.spec.ts (3072B; the block measures 3020B), and it does
- * three things — two decorative, one functional (the archive search + axis
- * chips, 2026-09-09). What replaced the old zero as the guard is measured, not
+ * build.dist-matrix.spec.ts (2836B; the block measures 2783B), and it does
+ * three things — one decorative, one functional (the archive search + axis
+ * chips, 2026-09-09), one the Charts carousel arrows (2026-09-10, rebuilt —
+ * see the ceiling history below for why this line has said "two" and even
+ * "one" on this same date already). What replaced the old zero as the guard is measured, not
  * assumed — build.dist-matrix.spec.ts fails the build if any page carries
  * more than one script tag, if any script has a src, or if the inline body
  * exceeds the byte budget; browser.flows.spec.ts still proves that no
@@ -117,39 +119,61 @@ const csp = cspContent(goatcounter);
     <slot />
     <Footer current={current} />
     {/* The site's ONE script. Two decorations plus one functional feature
-        (archive search, 2026-09-09). The two decorations are progressive
-        enhancement in the strict sense: everything they touch already works
-        without them — the chart pager arrows are in-page links to the first
-        and last card, and the cover hover zoom is pure CSS. Search is
-        DIFFERENT IN KIND, and said so plainly rather than squeezed into the
-        old claim: it DOES hide rows and relabel a live count, so a reader
-        without JavaScript is not merely missing an effect there — they are
-        missing the FILTER. What they are not missing is the FEATURE the
-        filter narrows: /archive/ already renders every article server-side
-        (see that page's own intro for why "the hub is the index" removes the
-        need for a fetched search index), so JS off leaves the full, real
-        archive — nothing is stubbed out waiting for a script, there is just
-        one fewer way to narrow it. That is also why there is still no
-        <noscript> counterpart: a query box with nothing to say when it
-        cannot run would be exactly the self-narrating sentence this site's
-        empty states already gave up (SectionEmpty's intro). Its text is
-        src/scripts/enhance.js, emitted verbatim below; that file's comments
-        are DEPLOY BYTES (nothing minifies them), which is why the long-form
-        reasoning stays here where it costs nothing and the file itself
-        carries one pointer line. Ship budget: that file is the whole of it —
-        3020B against 3072B. The ceiling has moved FIVE times — 1KB → 2KB
-        when the pager arrived, 2048B → 2304B when the tracking grew from one
-        reader to three, back DOWN to 2048B when two of those three readers
-        were withdrawn, 2048B → 2560B when the search filter arrived (a
-        third, FUNCTIONAL reader of the budget, decided at the lead level
-        rather than shaved to fit), and 2560B → 3072B when the archive's four
+        (archive search, 2026-09-09). The Charts carousel arrows are the
+        SAME decoration by role that shipped 2026-09-07 under the name
+        "pager", was deleted outright 2026-09-10 when an intermediate pass
+        misread the decision-maker's request as "one card total" (see
+        index.astro's intro), and was rebuilt within the hour once the
+        request was re-read correctly — the request never asked to remove
+        navigation, it asked to restore the single-card SHAPE and add the
+        two-button carousel around it. This comment and the ship-budget
+        paragraph below describe what ships now, and record the round trip
+        rather than pretend it did not happen. Both decorations are
+        progressive enhancement in the strict sense: everything they touch
+        already works without them — the carousel row already scrolls one
+        card at a time on native `overflow-x` + `scroll-snap`, the cover
+        hover zoom is pure CSS — the script only wires the two arrow buttons
+        to `scrollBy` and adds the cursor-following highlight on top. Search
+        is DIFFERENT IN KIND, and said so plainly rather than squeezed into
+        the old claim: it DOES hide rows and relabel a live count, so a
+        reader without JavaScript is not merely missing an effect there —
+        they are missing the FILTER. What they are not missing is the
+        FEATURE the filter narrows: /archive/ already renders every article
+        server-side (see that page's own intro for why "the hub is the
+        index" removes the need for a fetched search index), so JS off
+        leaves the full, real archive — nothing is stubbed out waiting for a
+        script, there is just one fewer way to narrow it. That is also why
+        there is still no <noscript> counterpart: a query box with nothing to
+        say when it cannot run would be exactly the self-narrating sentence
+        this site's empty states already gave up (SectionEmpty's intro). Its
+        text is src/scripts/enhance.js, emitted verbatim below; that file's
+        comments are DEPLOY BYTES (nothing minifies them), which is why the
+        long-form reasoning stays here where it costs nothing and the file
+        itself carries one pointer line. Ship budget: that file is the whole
+        of it — 2783B against 2836B. The ceiling has moved SEVEN times — 1KB
+        → 2KB when the pager arrived, 2048B → 2304B when the tracking grew
+        from one reader to three, back DOWN to 2048B when two of those three
+        readers were withdrawn, 2048B → 2560B when the search filter arrived
+        (a third, FUNCTIONAL reader of the budget, decided at the lead level
+        rather than shaved to fit), 2560B → 3072B when the archive's four
         axes (Year/Genre/Artist/Tag) became chips that drive the SAME filter
         (also a lead decision) — the chip loop, the click handler, and the
         `?q=` landing-param reader added roughly 480B on top of the existing
-        480-odd-byte search block. Each move is recorded with its reason in
-        build.dist-matrix.spec.ts, which holds the number and fails the build
-        when a feature outgrows it. A ceiling left standing above a payload
-        that shrank is not a budget.
+        480-odd-byte search block — 3072B → 2176B on 2026-09-10 when the
+        Charts pager was deleted in the misreading above: the section it
+        scrolled briefly rendered no more than one card, so the scroll
+        handler had (temporarily) nothing left to serve — and 2176B → 2836B
+        the same day, hours later, when the carousel was rebuilt once the
+        request was re-read. THIS LAST MOVE IS A REVERSAL, NOT A NEW FEATURE,
+        and it is recorded as one: the ceiling went down 897B and then back
+        up 660B on 2026-09-10, netting −237B against the pre-deletion 3072B
+        figure — smaller than the deleted pager because the new one steps
+        exactly one card (`box.clientWidth * 1`) rather than a screenful at
+        0.8x and marks its ends with native `disabled` rather than a second
+        `aria-disabled` attribute, not because it does less. Each move is
+        recorded with its reason in build.dist-matrix.spec.ts, which holds
+        the number and fails the build when a feature outgrows it. A ceiling
+        left standing above a payload that shrank is not a budget.
 
         THE ARCHIVE SEARCH+CHIPS are ONE filter with THREE triggers. `data-s`
         on every row already in the DOM (lib/derive/archive.ts#deriveHubIndex
@@ -177,12 +201,20 @@ const csp = cspContent(goatcounter);
         archive/index.astro's intro for why an always-visible count was
         withdrawn.
 
-        THE PAGER never creates a control. The arrows are anchors in the
-        HTML, so a reader without JavaScript gets "jump to the start / to the
-        end" instead of "step one screen" — less, but never a dead button.
-        aria-disabled is advisory only: the link stays operable, it simply
-        has nowhere left to go, and it is marked dimmed AND announced so the
-        state is never carried by colour alone.
+        THE CHART CAROUSEL, REBUILT SHAPE (2026-09-10 — see the ship budget
+        paragraph above for the round trip). Two `<button>`s, not the
+        anchor-pair the pre-2026-09-10 pager used: an anchor needed
+        `aria-disabled` at the ends because it has no native disabled state;
+        a real button does, so `sync()` below just sets `.disabled` and gets
+        BOTH the dimmed-and-announced double marking (WCAG 1.4.1) and
+        removal from the tab order for free. `box.clientWidth * 1` per click,
+        not the old pager's `* 0.8` screenful — the row now holds exactly one
+        card per "page" (`.chart-cards > .chart-card { flex: 0 0 100% }`,
+        index.astro), so a full `clientWidth` step lands precisely on the
+        next card via `scroll-snap-align`, and a 0.8 step would have
+        overshot. The buttons render server-side and do nothing without this
+        module — the row's native `scroll-snap` scrolling is what keeps
+        `javaScriptEnabled: false` whole either way (browser.flows.spec.ts).
 
         THE CURSOR TRACKING passes three gates before a single listener
         exists:
@@ -211,9 +243,10 @@ const csp = cspContent(goatcounter);
 
         No layout thrash: the frame is measured ONCE per enter, writes are
         coalesced into one rAF, and the only thing written is two custom
-        properties that CSS turns into a composited transform. Every listener
-        in the module is passive except the pager's click, so nothing here
-        can block scrolling.
+        properties that CSS turns into a composited transform. No listener in
+        the module calls `preventDefault` — the carousel buttons `scrollBy`
+        rather than navigate, so there is nothing to prevent — so nothing
+        here can block scrolling.
 
         Values are clamped to ±0.5. The measured box goes stale if the page
         scrolls while the pointer sits still on a cover; the clamp bounds how

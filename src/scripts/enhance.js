@@ -3,24 +3,16 @@
 const q = (m) => matchMedia(m).matches;
 const still = q('(prefers-reduced-motion:reduce)');
 
-// Chart pager. The arrows are links that already work without this; here
-// they become one-screenful steps and learn when they have run out of row.
+// Chart carousel — arrows step the row one card; it scrolls with no script.
 for (const box of document.querySelectorAll('.chart-cards')) {
   const btns = box.parentElement.querySelectorAll('[data-scroll]');
   if (!btns.length) continue;
   const sync = () => {
     const end = box.scrollWidth - box.clientWidth - 1;
-    for (const b of btns) {
-      const atEnd = b.dataset.scroll < 0 ? box.scrollLeft <= 0 : box.scrollLeft >= end;
-      b.setAttribute('aria-disabled', atEnd);
-    }
+    for (const b of btns) b.disabled = b.dataset.scroll < 0 ? box.scrollLeft <= 0 : box.scrollLeft >= end;
   };
-  for (const b of btns)
-    b.addEventListener('click', (e) => {
-      e.preventDefault();
-      box.scrollBy({ left: box.clientWidth * 0.8 * b.dataset.scroll, behavior: still ? 'auto' : 'smooth' });
-    });
-  box.addEventListener('scroll', sync, { passive: true });
+  for (const b of btns) b.onclick = () => box.scrollBy({ left: box.clientWidth * b.dataset.scroll, behavior: still ? 'auto' : 'smooth' });
+  box.onscroll = sync;
   addEventListener('resize', sync, { passive: true });
   sync();
 }

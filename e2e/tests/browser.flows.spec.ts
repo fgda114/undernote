@@ -81,12 +81,19 @@ test('점진적 향상 — 스크립트 비활성 상태에서도 지면·링크
   await expect(page.locator('.board a.row-link').first()).toBeVisible();
   // The CSS-only half of the cover treatment is present with no script.
   await expect(page.locator('.board .cover-frame').first()).toBeVisible();
-  // The pager arrows are anchors, so they are real links with no script —
-  // they point at the first and last card instead of stepping.
-  const pager = page.locator('.board .pager-btn');
-  if ((await pager.count()) > 0) {
-    await expect(pager.first()).toHaveAttribute('href', /#chart-/);
-  }
+  // The Charts carousel's two arrow buttons ship in the HTML regardless of
+  // script (2026-09-10 rebuild — index.astro's intro), because R-4 only
+  // withholds them when there is nothing to step to; the rich fixture's 8
+  // reviews clear that floor. Clicking them does nothing here — enhance.js
+  // never runs in this context — but that is an accepted gap (see the
+  // intro's "script is an enhancement" paragraph): the row itself is a
+  // native `overflow-x` + `scroll-snap` container, so a reader can still
+  // move it by touch or trackpad with zero script, which this click-only
+  // harness cannot exercise but the buttons' mere presence and reachability
+  // by keyboard can still be checked without one.
+  await expect(page.locator('.board .carousel-btn')).toHaveCount(2);
+  expect(await page.locator('.board .chart-cards .chart-card').count(), '차트 카드가 2장 미만 — 화살표가 가리킬 곳이 없음').toBeGreaterThan(1);
+  await expect(page.locator('.board a.section-more')).toHaveAttribute('href', /\/list\/\d+\/$/);
 
   // Navigation still works: it is anchors all the way down.
   await page.locator('.board a.row-link').first().click();

@@ -196,7 +196,13 @@
   /* ── Radius — square is the default. 0 is a density device, not a style:
      rounded corners demand visual air, square blocks read when butted up. ── */
   --r-0: 0px;
-  --r-2: 2px; /* the single exception: cover image corners */
+  --r-2: 2px; /* first exception: cover image corners */
+  /* Second exception (2026-09-10, decision-maker request: circular Charts
+     carousel arrows — "동그랗고 반투명한 버튼"). A 50% radius on a square box
+     is the standard circle, and it stays a NAMED token rather than a literal
+     `50%` at the call site so a reviewer grepping this file for every radius
+     this system permits finds two exceptions, not one plus a stray value. */
+  --r-full: 50%;
 
   /* ── Elevation — none. Depth is surface steps + a 1px keyline; shadows do
      not read on a dark page. ── */
