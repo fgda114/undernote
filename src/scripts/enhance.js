@@ -48,19 +48,30 @@ if (q('(hover:hover) and (pointer:fine)') && !still) {
   }, { passive: true });
 }
 
-// Archive search — data-s is each row's match text; hide misses, live-count.
+// Archive search + chips — one filter: type, click a chip, or land on ?q=.
 const si = document.getElementById('archive-q');
 if (si) {
   const rows = document.querySelectorAll('#archive-list [data-s]');
   const out = document.getElementById('archive-n');
-  si.addEventListener('input', () => {
+  const chips = document.querySelectorAll('[data-axis-value]');
+  const run = () => {
     const v = si.value.trim().toLowerCase();
     let n = 0;
     for (const row of rows) {
       const hit = !v || row.dataset.s.includes(v);
       row.hidden = !hit;
-      if (hit) n++;
+      n += hit;
     }
-    out.textContent = n ? `${n}개` : '일치하는 글이 없습니다.';
-  });
+    out.hidden = !v;
+    if (v) out.textContent = n ? `${n}개` : '일치하는 글이 없습니다.';
+    for (const c of chips) c.setAttribute('aria-pressed', `${c.dataset.axisValue.toLowerCase() === v}`);
+  };
+  si.addEventListener('input', run);
+  for (const c of chips)
+    c.addEventListener('click', () => {
+      si.value = c.getAttribute('aria-pressed') === 'true' ? '' : c.dataset.axisValue;
+      run();
+    });
+  const p = new URLSearchParams(location.search).get('q');
+  if (p) { si.value = p; run(); }
 }

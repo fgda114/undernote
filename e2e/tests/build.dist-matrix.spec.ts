@@ -25,12 +25,17 @@ test.beforeAll(() => {
   pages = distPagePaths(dir);
 });
 
-test('지면 전수 — 13유형 상당(34지면) + 404 생성', () => {
-  // 33 → 34 on 2026-09-07: /artists/ was promoted from an axis on /archive/
-  // to a page of its own with a masthead item. Nothing else was added; the
-  // per-artist pages under /artists/{slug}/ already existed.
-  expect(pages.length).toBe(34); // 33 pages + 404.html
-  for (const must of ['/', '/about/', '/archive/', '/artists/', '/list/2026/', '/list/2026/08/', '/404.html']) {
+test('지면 전수 — 12유형 상당(29지면) + 404 생성', () => {
+  // 34 → 29 on 2026-09-09 (axis-chip archive redesign): the per-value pages
+  // `/archive/{year}/`, `/archive/genre/{bucket}/` (×2 for the rich set's
+  // pop/hiphop-rnb), `/archive/tag/{tag}/`, and the `/artists/` LIST page
+  // were retired — every one of those axes is now a chip on /archive/
+  // instead of a page of its own (5 pages removed). The per-artist detail
+  // pages under /artists/{slug}/ are UNCHANGED and still exist; only the
+  // list page above them is gone, which is why '/artists/' itself is no
+  // longer in the must-exist set below.
+  expect(pages.length).toBe(29); // 28 pages + 404.html
+  for (const must of ['/', '/about/', '/archive/', '/list/2026/', '/list/2026/08/', '/404.html']) {
     expect(pages).toContain(must);
   }
 });
@@ -59,7 +64,13 @@ test('D2-R2 — 점수를 보이는 탐색 지면은 명시된 목록뿐', () =>
       (p.startsWith('/archive/') || p.startsWith('/artists/') || p.startsWith('/stories/') || p === '/about/') &&
       !SCORE_SURFACES.includes(p),
   );
-  expect(silent.length).toBeGreaterThanOrEqual(14);
+  // 14 → 12 on 2026-09-09: the per-value archive pages this floor used to
+  // count (`/archive/{year}/`, two `/archive/genre/{bucket}/`,
+  // `/archive/tag/{tag}/`) are gone — see the page-count test's own comment.
+  // What is left under `/archive/` is just the hub and the two format
+  // presets (minus /archive/reviews/, the one SCORE_SURFACES entry) = 2,
+  // plus 8 artist pages + 1 story page + /about/ = 12.
+  expect(silent.length).toBeGreaterThanOrEqual(12);
   for (const p of silent) {
     const html = readPage(dir, p);
     for (const s of SCORES) expect(html, `${p} leaks ${s}`).not.toContain(scoreToken(s));
@@ -211,6 +222,147 @@ test('US-9/SS-12 — 아티스트 집계: 공유 아티스트 2편, 복수 아�
 });
 
 /**
+ * 2026-09-09 — the review rail's spec block: row set, row ORDER, multi-genre
+ * display, and the Release row's link to a pre-filtered archive query. See
+ * SpecMeta.astro's own intro for the ordering rationale (identity → category
+ * → dates) and why Title duplicates the hero on purpose.
+ */
+// Astro stamps a `data-astro-cid-…` attribute onto EVERY element inside a
+// component that has a scoped <style> block — including elements that carry
+// no attributes at all in the source (`<dt>Title</dt>` ships as `<dt
+// data-astro-cid-xxxxxxxx>Title</dt>`). A literal `<dt>Title</dt>` substring
+// check would look reasonable and match nothing, which is exactly the
+// "assertion that is silently vacuous" trap the lead's brief warned about —
+// so every bare-tag lookup below goes through this regex helper instead of
+// indexOf on a literal string.
+function findTag(html: string, tag: string, text: string): number {
+  const m = html.match(new RegExp(`<${tag}(?:\\s[^>]*)?>${text}</${tag}>`));
+  return m ? m.index! : -1;
+}
+
+test('SpecMeta — Title·Artist·Genre·Tags·Release·Reviewed 순서 + Release/Genre/Tags 링크', () => {
+  const html = readPage(dir, '/reviews/fixture-artist-fixture-album/');
+  const at = (tag: string, text: string) => {
+    const i = findTag(html, tag, text);
+    expect(i, `spec block에 <${tag}>${text}</${tag}> 없음`).toBeGreaterThan(-1);
+    return i;
+  };
+  // fixture-artist-fixture-album: bucket pop, tag city-pop, no label, no
+  // subtitle, release 2026-05-01.
+  const order = [
+    at('dt', 'Title'),
+    at('dt', 'Artist'),
+    at('dt', 'Genre'),
+    at('dt', 'Tags'),
+    at('dt', 'Release'),
+    at('dt', 'Reviewed'),
+  ];
+  for (let i = 1; i < order.length; i++) expect(order[i], 'spec block 행 순서 어긋남').toBeGreaterThan(order[i - 1]);
+  expect(findTag(html, 'dt', 'Label'), 'Label 필드가 없는 앨범인데 Label 행이 있음').toBe(-1);
+
+  // Title row: title alone, no parenthetical — this album has no `subtitle`.
+  expect(findTag(html, 'dd', '픽스처 앨범')).toBeGreaterThan(-1);
+
+  // Release links to /archive/?q=<release year>, not the retired per-year page.
+  expect(html).toContain(`href="${B}/archive/?q=2026"`);
+  // Genre links to /archive/?q=<bucket label>.
+  expect(html).toContain(`href="${B}/archive/?q=${encodeURIComponent('Pop')}"`);
+  // Tags links to /archive/?q=<tag label> (시티팝, the registered label for city-pop).
+  expect(html).toContain(`href="${B}/archive/?q=${encodeURIComponent('시티팝')}"`);
+});
+
+test('SpecMeta — 복수 장르 앨범은 Genre 행에 버킷 전부가 뜬다', () => {
+  // twin-motif-duet is single-bucket in the rich set (no multi-genre fixture
+  // there); this asserts the SHAPE holds for a single bucket too — exactly
+  // one Genre value, linked — which is the n=1 case of the same code path
+  // multi-genre uses (bucketLabels.map(...), array of length 1 here).
+  // MULTI-GENRE ITSELF is unit-tested directly against buildReviewPageData
+  // (tests/unit/derive.test.ts) and deriveHubIndex (derive-archive.test.ts),
+  // since the rich E2E fixture set has no album spanning two buckets.
+  const html = readPage(dir, '/reviews/twin-motif-duet/');
+  const genreStart = findTag(html, 'dt', 'Genre');
+  const releaseStart = findTag(html, 'dt', 'Release');
+  expect(genreStart).toBeGreaterThan(-1);
+  expect(releaseStart).toBeGreaterThan(genreStart);
+  const genreRow = html.slice(genreStart, releaseStart);
+  expect((genreRow.match(/class="meta-link"/g) ?? []).length).toBe(1);
+  expect(genreRow).toContain('Pop');
+});
+
+/**
+ * 2026-09-09 — prev/next chain (AdjacentNav), both formats. Order is
+ * publication date ascending (lib/derive/lists.ts#deriveAdjacentMap) — see
+ * that function's own comment for the full definition. The rich set's
+ * review dates, ascending: ember-field-ash(04-02) < paper-crane-fold(05-15)
+ * < quiet-harbor-tide(06-05) < twin-motif-duet(07-10) < low-orbit-signal
+ * (08-01) < aurora-line-second-wind(08-14) < aurora-line-first-light(08-21)
+ * < fixture-artist-fixture-album(09-02, the base fixture).
+ */
+test('이전·다음 글 — 평론 체인이 발행일 오름차순, 첫/마지막은 한쪽만', () => {
+  const first = readPage(dir, '/reviews/ember-field-ash/');
+  expect(first, '체인의 첫 항목인데 이전 글 링크가 있음').not.toContain('class="adjacent-link prev"');
+  expect(first).toContain('class="adjacent-link next"');
+  expect(first).toContain(`href="${B}/reviews/paper-crane-fold/"`);
+
+  const middle = readPage(dir, '/reviews/quiet-harbor-tide/');
+  expect(middle).toContain(`href="${B}/reviews/paper-crane-fold/"`); // prev
+  expect(middle).toContain(`href="${B}/reviews/twin-motif-duet/"`); // next
+
+  const last = readPage(dir, '/reviews/fixture-artist-fixture-album/');
+  expect(last).toContain('class="adjacent-link prev"');
+  expect(last, '체인의 마지막 항목인데 다음 글 링크가 있음').not.toContain('class="adjacent-link next"');
+  expect(last).toContain(`href="${B}/reviews/aurora-line-first-light/"`);
+});
+
+test('이전·다음 글 — 이야기가 하나뿐이면 nav 자체가 렌더링되지 않는다 (R-4)', () => {
+  const story = readPage(dir, '/stories/fixture-story/');
+  expect(story).not.toContain('class="adjacent"');
+});
+
+/**
+ * Archive hub — axis-chip redesign (2026-09-09): four axes as chips (not
+ * links), no "All" section heading, and the page still titles itself
+ * "Archive" (masthead label reverted the same day — Masthead.astro's intro).
+ */
+test('아카이브 허브 — Year·Genre·Artist·Tag 칩 개수 + ALL 제목 제거 + 지면 제목 Archive', () => {
+  const html = readPage(dir, '/archive/');
+  expect(html).toMatch(/<h1[^>]*class="[^"]*page-title[^"]*"[^>]*>Archive<\/h1>/);
+  expect(html).not.toContain('>All<');
+
+  const chipValues = (axis: string) => {
+    const start = findTag(html, 'h2', axis);
+    expect(start, `${axis} 축 섹션 없음`).toBeGreaterThan(-1);
+    const end = html.indexOf('</section>', start);
+    return [...html.slice(start, end).matchAll(/data-axis-value="([^"]*)"/g)].map((m) => m[1]);
+  };
+  // Rich set: publication year 2026 only.
+  expect(chipValues('Year')).toEqual(['2026']);
+  // Buckets actually used: hiphop-rnb, pop (rock is configured but unused —
+  // by_bucket only has keys for buckets that appear on content, R-4). The
+  // attribute value is HTML-escaped by Astro (& → &amp;), same as any other
+  // attribute — the raw label is still "Hip-Hop / R&B" everywhere it is
+  // read back out of the DOM (e.g. by enhance.js's `dataset` access, which
+  // un-escapes automatically).
+  expect(chipValues('Genre').sort()).toEqual(['Hip-Hop / R&amp;B', 'Pop']);
+  // 8 artists — 7 from RICH_SET (shared-artist credited twice, once each
+  // way) + the base fixture's own artist.
+  expect(chipValues('Artist')).toHaveLength(8);
+  expect(chipValues('Artist')).toContain('공유 아티스트');
+  // One registered tag actually used.
+  expect(chipValues('Tag')).toEqual(['시티팝']);
+
+  // Every chip is a real <button>, not a link (in-page filter, not
+  // navigation — WAI-ARIA), and starts unpressed.
+  expect(html).not.toMatch(/<a[^>]*data-axis-value/);
+  expect((html.match(/data-axis-value="[^"]*"[^>]*aria-pressed="false"/g) ?? []).length).toBeGreaterThan(0);
+
+  // The magnifying-glass is a <label>, not a <button> — zero-JS focus
+  // shortcut (see the component intro) — and the live count starts hidden.
+  expect(html).toMatch(/<label for="archive-q" class="search-icon-btn"/);
+  expect(html).toMatch(/<p id="archive-n"[^>]*hidden[^>]*>/);
+});
+
+/**
  * NFR, revised 2026-09-07. This used to assert the string `<script` never
  * appeared in dist. The site now ships one inline module (the cover cursor
  * tracking), so the assertion was REVERSED INTO A BUDGET rather than
@@ -269,12 +421,23 @@ test('US-9/SS-12 — 아티스트 집계: 공유 아티스트 2편, 복수 아�
  * filter alone would not have fit in that headroom, so the ceiling moved
  * rather than the payload being shaved to squeeze under it — which is
  * exactly the "decision someone has to make on purpose, in a diff, with a
- * reason" the comment above this constant already calls out. The block now
- * measures 2544B against 2560B. The feature is documented in full in
- * Base.astro (search under "The site's ONE script"), not repeated here:
- * this file only ever needs to carry the NUMBER and why it moved.
+ * reason" the comment above this constant already calls out. The block
+ * measured 2544B against 2560B at that point.
+ *
+ * 2560 → 3072, LATER THE SAME DAY (lead-approved, fifth move), when the
+ * archive's four axes — Year, Genre, Artist, Tag — became CHIPS that drive
+ * the same filter instead of links to their own pages (the axis-chip
+ * redesign: archive/index.astro's own intro has the full reasoning). This
+ * is a widening of the search filter's existing functional reader, not a
+ * fourth one: one `run()` still owns the whole feature, now triggered by a
+ * chip click or a `?q=` landing param in addition to typing. What it costs:
+ * a chip click-handler loop, an `aria-pressed` sync pass inside `run()`
+ * itself, and the `URLSearchParams` read on load — none of it decorative.
+ * The block measures 3020B against 3072B. Documented in full in Base.astro
+ * (search under "The site's ONE script"), not repeated here: this file only
+ * ever needs to carry the NUMBER and why it moved.
  */
-const INLINE_JS_BUDGET_BYTES = 2560;
+const INLINE_JS_BUDGET_BYTES = 3072;
 
 test('NFR — 클라이언트 JS 예산: 지면당 인라인 1개 · 외부 JS 0 · 상한 이하', () => {
   for (const p of pages) {

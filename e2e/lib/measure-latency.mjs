@@ -27,8 +27,11 @@ const PAGE_TYPES = {
   '평론 (커버 없음)': '/reviews/ember-field-ash/',
   '리스트 (연간 진행형)': '/list/2026/',
   '리스트 (월말정산)': '/list/2026/08/',
+  // '아카이브 (연도)' (/archive/2026/) was removed here 2026-09-09: the
+  // axis-chip redesign retired the per-year archive page in favour of one
+  // hub with filter chips (archive/index.astro) — '아카이브 허브' below
+  // already measures that page, and it is the only /archive/ page type left.
   '아카이브 허브': '/archive/',
-  '아카이브 (연도)': '/archive/2026/',
   '아티스트': '/artists/shared-artist/',
   '이야기': '/stories/fixture-story/',
   '소개': '/about/',

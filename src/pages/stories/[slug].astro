@@ -13,6 +13,7 @@
  * editor picks plan B).
  */
 import { getCollection, render } from 'astro:content';
+import AdjacentNav from '../../components/AdjacentNav.astro';
 import AlbumBox from '../../components/AlbumBox.astro';
 import FormatLabel from '../../components/FormatLabel.astro';
 import Base from '../../layouts/Base.astro';
@@ -28,7 +29,14 @@ export async function getStaticPaths() {
 const { story } = Astro.props;
 const { Content } = await render(story);
 const description = excerptFrom(story.body ?? '');
-const albumRows = deriveAlbumBoxRows(story.data, getSiteData().data);
+const siteData = getSiteData();
+const albumRows = deriveAlbumBoxRows(story.data, siteData.data);
+// Prev/Next (2026-09-09) — within stories only, see
+// lib/derive/lists.ts#deriveAdjacentMap for the order this follows. The
+// `?? {…}` fallback mirrors reviews/[slug].astro's own — see that page's
+// comment for why a missing map entry is possible and why R-4 (render
+// nothing, never crash) is the right response to it.
+const { prev, next } = siteData.adjacent.get(`/stories/${story.id}/`) ?? { prev: null, next: null };
 ---
 
 <Base
@@ -58,6 +66,9 @@ const albumRows = deriveAlbumBoxRows(story.data, getSiteData().data);
             </div>
           )
         }
+        <div class="column">
+          <AdjacentNav prev={prev} next={next} />
+        </div>
       </div>
     </article>
   </main>

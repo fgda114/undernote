@@ -51,63 +51,67 @@ test('768 · 1440 · 1920 · 2560px — 전 지면 가로 스크롤 0', async ({
 
 /**
  * MOBILE TITLE POSITION — THE .page-title FAMILY AGREES ON ONE TOP EDGE
- * (2026-09-08).
+ * (2026-09-08, STRUCTURAL REWRITE 2026-09-09).
  *
  * A DESKTOP pass already unified every `.page-title` page onto one shared top
  * offset (the reader's "각 메뉴 탭마다 제목부분이 다른데 통일성을 맞춰줘"
- * request). Five `.listing` pages — /archive/reviews/, /archive/stories/, and
- * the three axis-VALUE pages /archive/{year}/, /archive/genre/{bucket}/,
- * /archive/tag/{tag}/ — never got the matching mobile rule
- * (`padding-top: var(--s-32)` below 640px); every sibling page had it. The
- * five sat 16px lower than the pages a reader compares them against directly
- * from the masthead, on every phone width, which is what the "상세페이지들
- * 제목위치 안 맞음" report was measuring.
+ * request). This test used to assert TWO groups by a hardcoded page list —
+ * axis-NAME pages (no eyebrow) and axis-VALUE pages (a FormatLabel eyebrow
+ * above the `<h1>`, e.g. /archive/{year}/) — because at the time both groups
+ * were real and non-empty.
  *
- * TWO GROUPS, NOT ONE, AND THAT SPLIT IS CORRECT. The three axis-value pages
- * carry a FormatLabel eyebrow ("Archive") above the `<h1>` that the other
- * five do not — a `<h1>` that is an axis VALUE takes the overline, one that
- * is the axis NAME does not (see archive/[year].astro's intro). That is a
- * content difference, not a bug, and it is the same 16px-taller gap on
- * desktop (measured 113 vs 129 at 1024px) — so this test asserts each group
- * is internally flush AND that the gap between the groups is the SAME
- * constant on mobile as it already is on desktop, rather than asserting one
- * single position for every page, which would fight the eyebrow rather than
- * account for it. */
-test('모바일 — .page-title 계열 상단 위치가 데스크톱과 같은 두 그룹으로 일치', async ({ page }) => {
+ * THE EYEBROWED GROUP IS GONE (2026-09-09, axis-chip redesign). Every
+ * `.page-title` page that carried a FormatLabel eyebrow was a per-axis-value
+ * page (`/archive/{year}/`, `/archive/genre/{bucket}/`, `/archive/tag/
+ * {tag}/`), and all three were retired in favour of chips on the one archive
+ * hub — see archive/index.astro's intro. The one other page on this site
+ * with an eyebrow over an axis VALUE, `/artists/{slug}/`, titles itself with
+ * its own `.name` class rather than the shared `.page-title` (see that
+ * page's template) and was never part of this comparison.
+ *
+ * REWRITTEN TO CLASSIFY STRUCTURALLY RATHER THAN BY A HARDCODED LIST (the
+ * lead's standing instruction, already followed by the title→content gap
+ * test below — a hardcoded array only proves today's pages agree with EACH
+ * OTHER and says nothing the moment a page is added, removed, or, as
+ * happened here, a whole GROUP disappears). Each `.page-title` page found in
+ * the built site is classified by whether its `<h1>` has a preceding sibling
+ * (an eyebrow) or not, the two groups are each asserted internally flush,
+ * and — only if a future page brings the eyebrowed group back — the two
+ * groups' offsets are compared. Today that second check is skipped rather
+ * than faked: asserting a relationship between an empty group and a
+ * non-empty one would either pass vacuously or fail on a group that no
+ * longer exists, neither of which tests anything real. */
+test('모바일 — .page-title 계열 상단 위치가 같은 그룹끼리 일치 (지면 목록 하드코딩 없음)', async ({ page }) => {
   const B = basePathOf(join(SANDBOX_ROOT, 'rich'));
-  // No FormatLabel eyebrow above the <h1> — the axis NAME pages.
-  const flush = ['/about/', '/archive/', '/archive/reviews/', '/archive/stories/', '/artists/', '/list/2026/'];
-  // FormatLabel eyebrow above the <h1> — the axis VALUE pages.
-  const eyebrowed = ['/archive/2026/', '/archive/genre/pop/', '/archive/tag/city-pop/'];
+  const pages = distPagePaths(join(SANDBOX_ROOT, 'rich')).filter((p) => p !== '/404.html');
 
-  // One `page`, so navigations are sequential — Promise.all over goto() on a
-  // single page would race two navigations against each other.
-  const topOf = async (width: number, path: string) => {
+  const classify = async (width: number, path: string) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`${B}${path}`, { waitUntil: 'load' });
-    return page.locator('main h1').first().evaluate((el) => el.getBoundingClientRect().top);
+    return page.evaluate(() => {
+      const h1 = document.querySelector('main h1.page-title');
+      if (!h1) return null;
+      return { eyebrowed: h1.previousElementSibling !== null, top: h1.getBoundingClientRect().top };
+    });
   };
-  const topsOf = async (width: number, paths: string[]) => {
-    const out: number[] = [];
-    for (const p of paths) out.push(await topOf(width, p));
-    return out;
-  };
-
-  // Measured once: the reference gap the desktop pass already established
-  // between the two groups (1024px, well above every breakpoint in play).
-  const desktopGap = (await topOf(1024, eyebrowed[0])) - (await topOf(1024, flush[0]));
 
   for (const width of [360, 390, 414]) {
-    const flushTops = await topsOf(width, flush);
-    const eyebrowedTops = await topsOf(width, eyebrowed);
+    const flushTops: number[] = [];
+    const eyebrowedTops: number[] = [];
+    for (const p of pages) {
+      const m = await classify(width, p);
+      if (!m) continue; // not a .page-title page at all (review/story/recap)
+      (m.eyebrowed ? eyebrowedTops : flushTops).push(m.top);
+    }
 
+    expect(flushTops.length, `${width}px — 비교할 이름축(.page-title, 이유브로우 없음) 지면이 없음`).toBeGreaterThan(0);
     const flushSpread = Math.max(...flushTops) - Math.min(...flushTops);
-    const eyebrowedSpread = Math.max(...eyebrowedTops) - Math.min(...eyebrowedTops);
-    const mobileGap = eyebrowedTops[0] - flushTops[0];
+    expect(flushSpread, `${width}px — 이름축 페이지 상단 위치가 서로 어긋남: ${flushTops.join(', ')}`).toBeLessThanOrEqual(0.5);
 
-    expect(flushSpread, `${width}px — 이름축 페이지 상단 위치가 서로 어긋남: ${flush.map((p, i) => `${p}=${flushTops[i]}`).join(', ')}`).toBeLessThanOrEqual(0.5);
-    expect(eyebrowedSpread, `${width}px — 값축 페이지 상단 위치가 서로 어긋남: ${eyebrowed.map((p, i) => `${p}=${eyebrowedTops[i]}`).join(', ')}`).toBeLessThanOrEqual(0.5);
-    expect(mobileGap, `${width}px — 값축 그룹과 이름축 그룹의 간격(${mobileGap})이 데스크톱(${desktopGap})과 다름`).toBeCloseTo(desktopGap, 0);
+    if (eyebrowedTops.length > 0) {
+      const eyebrowedSpread = Math.max(...eyebrowedTops) - Math.min(...eyebrowedTops);
+      expect(eyebrowedSpread, `${width}px — 값축 페이지 상단 위치가 서로 어긋남: ${eyebrowedTops.join(', ')}`).toBeLessThanOrEqual(0.5);
+    }
   }
 });
 

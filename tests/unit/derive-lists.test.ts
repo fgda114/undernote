@@ -14,6 +14,7 @@ import {
   boardState,
   compareR1,
   currentYearMonthSeoul,
+  deriveAdjacentMap,
   deriveBadgeMap,
   deriveBoard,
   deriveHomeSections,
@@ -25,6 +26,7 @@ import {
   detectBoundaryTies,
   detectUnfinalizedYear,
   joinReviews,
+  type ArticleItem,
 } from '../../src/lib/derive/lists';
 import { excerptFrom } from '../../src/lib/derive/excerpt';
 import type { Album, Artist, GenresConfig, ReviewFrontmatter, SiteConfig, Snapshot, Story } from '../../src/lib/schema';
@@ -476,5 +478,41 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
     expect(latestReviews.map((a) => a.score)).toEqual(['4.0', '5.0', '6.0', '7.0', '8.0', '9.0']);
     // Stories still cannot carry one.
     expect(notes.every((n) => n.score === undefined)).toBe(true);
+  });
+});
+
+// ── Prev/Next chain (2026-09-09) ───────────────────────────────────────
+
+describe('deriveAdjacentMap — 이전 글·다음 글 체인', () => {
+  function article(url: string, title: string, date: string): ArticleItem {
+    return { type: 'review', url, title, subtitle: '', date, formatLabel: 'Reviews' };
+  }
+
+  it('발행일 오름차순으로 체인: next=더 나중, prev=더 이전', () => {
+    const items = [article('/reviews/c/', 'C', '2026-03-01'), article('/reviews/a/', 'A', '2026-01-01'), article('/reviews/b/', 'B', '2026-02-01')];
+    const map = deriveAdjacentMap(items);
+    expect(map.get('/reviews/a/')).toEqual({ prev: null, next: { url: '/reviews/b/', title: 'B' } });
+    expect(map.get('/reviews/b/')).toEqual({
+      prev: { url: '/reviews/a/', title: 'A' },
+      next: { url: '/reviews/c/', title: 'C' },
+    });
+    expect(map.get('/reviews/c/')).toEqual({ prev: { url: '/reviews/b/', title: 'B' }, next: null });
+  });
+
+  it('같은 날짜는 url 사전순으로 갈린다 (전순서 — 결정성)', () => {
+    const items = [article('/reviews/z/', 'Z', '2026-01-01'), article('/reviews/a/', 'A', '2026-01-01')];
+    const map = deriveAdjacentMap(items);
+    // 'a' sorts before 'z' at the same date, so a→z is the "next" direction.
+    expect(map.get('/reviews/a/')!.next).toEqual({ url: '/reviews/z/', title: 'Z' });
+    expect(map.get('/reviews/z/')!.prev).toEqual({ url: '/reviews/a/', title: 'A' });
+  });
+
+  it('항목이 하나면 양쪽 다 없다', () => {
+    const map = deriveAdjacentMap([article('/reviews/only/', 'Only', '2026-01-01')]);
+    expect(map.get('/reviews/only/')).toEqual({ prev: null, next: null });
+  });
+
+  it('빈 목록 → 빈 맵', () => {
+    expect(deriveAdjacentMap([]).size).toBe(0);
   });
 });

@@ -337,6 +337,61 @@ export function deriveLatestArticles(
   return items.slice(0, limit);
 }
 
+// ── Prev/Next chain (2026-09-09) ────────────────────────────────────────
+
+/** One end of a prev/next pair — just enough to render a link. */
+export interface AdjacentLink {
+  url: string;
+  title: string;
+}
+
+export interface AdjacentPair {
+  prev: AdjacentLink | null;
+  next: AdjacentLink | null;
+}
+
+/**
+ * Prev/Next chain, WITHIN ONE FORMAT ONLY (2026-09-09, decision-maker
+ * request "이전 글 · 다음 글" on both review and story detail pages).
+ *
+ * THE ORDER, DEFINED ONCE, HERE. Publication date, ascending, url ascending
+ * as the tiebreak (the mirror of deriveLatestArticles' own date-desc/url-asc
+ * order — same total order, opposite direction, so the two derivations can
+ * never disagree about which of two same-day pieces comes first). "다음 글"
+ * (next) is the piece published AFTER this one; "이전 글" (previous) is the
+ * piece published BEFORE it — the ordinary reading-forward-in-time sense,
+ * not "next in the reverse-chronological archive listing" (which would put
+ * OLDER at "next" and read backwards against the site's own vocabulary
+ * elsewhere: "Latest Reviews" always means newest-first).
+ *
+ * NEVER MIXED ACROSS FORMATS. A review's neighbours are always other
+ * reviews, a story's are always other stories — the two formats already
+ * read as separate things everywhere else on this site (separate masthead
+ * tabs, separate archive presets, separate score contract), and handing a
+ * reader reading through reviews an unrelated story mid-chain would break
+ * that separation for no reason the reader asked for. Call this once per
+ * format (site-data.ts filters allArticles by `type` first) rather than
+ * teaching this function to split internally, so the "same format only"
+ * rule is visible at the call site instead of buried in a branch here.
+ *
+ * BOOKENDS: the earliest piece in the format has no `prev`, the latest has
+ * no `next` — R-4, the same "absent, not disabled" rule the ladder/AlbumBox
+ * already use for a missing side, rather than a greyed-out dead link.
+ */
+export function deriveAdjacentMap(items: ArticleItem[]): Map<string, AdjacentPair> {
+  const sorted = [...items].sort((a, b) => codePointCompare(a.date, b.date) || codePointCompare(a.url, b.url));
+  const map = new Map<string, AdjacentPair>();
+  sorted.forEach((item, i) => {
+    const prev = i > 0 ? sorted[i - 1] : null;
+    const next = i < sorted.length - 1 ? sorted[i + 1] : null;
+    map.set(item.url, {
+      prev: prev ? { url: prev.url, title: prev.title } : null,
+      next: next ? { url: next.url, title: next.title } : null,
+    });
+  });
+  return map;
+}
+
 // ── Home sections (W5 home rebuild, 2026-09-06) ────────────────────────
 
 /** A board entry carried onto the home chart grid. */

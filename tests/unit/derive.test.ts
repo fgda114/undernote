@@ -120,6 +120,28 @@ describe('buildReviewPageData — subtitle pass-through (2026-09-09, 앨범 스�
   });
 });
 
+describe('buildReviewPageData — releaseYear (2026-09-09, SpecMeta Release 링크용)', () => {
+  const genres: GenresConfig = {
+    years: [{ year: 2026, buckets: [{ id: 'rock', label: '록', order: 1 }], min_reviews_to_publish: 3 }],
+  };
+  const site = { site_name: 'undernote', base_url: 'https://example.com', active_year: 2026, og_use_cover: true, early_stage_threshold: 6 } as SiteConfig;
+  const artists = new Map<string, Artist>([['phoebe-bridgers', { name: 'Phoebe Bridgers' }]]);
+
+  it('발매 연도를 4자리 문자열로 뽑는다 — releaseDateText와 별도 필드', () => {
+    const review: ReviewFrontmatter = { album: 'old-classic', score: '9.0', date: '2026-08-01', editorial_check: true };
+    const album: Album = {
+      title: 'Old Classic',
+      artists: ['phoebe-bridgers'],
+      release_date: '1975-11-14', // back-catalog — release year ≠ review year
+      buckets: ['rock'],
+      tags: [],
+    };
+    const data = buildReviewPageData({ slug: 'old-classic', review, album, artists, genres, site });
+    expect(data.releaseYear).toBe('1975');
+    expect(data.reviewDate).toBe('2026-08-01'); // the two years genuinely differ
+  });
+});
+
 describe('excerptFrom — og:description 원료', () => {
   it('첫 문단을 평문으로 뽑는다 (링크·강조 제거)', () => {
     const body = '\n\n**강조**와 [링크](https://x.com)가 있는 첫 문단.\n\n둘째 문단.';
