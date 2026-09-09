@@ -82,17 +82,41 @@ export function scriptHash(body: string): string {
  * when it is absent the analytics origin is not listed at all, so turning
  * the feature off also narrows the policy rather than leaving a hole open.
  */
+/**
+ * The analytics BEACON's origin, which is not the loader's.
+ *
+ * GoatCounter loads its script from gc.zgo.at but reports each pageview to
+ * a per-account host, `https://{code}.goatcounter.com/count` — the URL in
+ * Base.astro's `data-goatcounter` attribute. Those are two different origins
+ * and CSP treats them under two different directives: the loader under
+ * script-src, the beacon under connect-src/img-src.
+ *
+ * WHY THIS FUNCTION EXISTS AT ALL (2026-09-09). Adding `default-src 'self'`
+ * closed the beacon: script-src had been widened for the loader, nothing
+ * covered the beacon, and it fell through to the new default and was
+ * blocked. The script still loads and still runs, so nothing looks broken —
+ * the pageviews simply never arrive. A security control that silently
+ * disables a feature is the same failure this codebase keeps producing, so
+ * the beacon origin is now derived in ONE place and both directives are
+ * built from it.
+ */
+export function analyticsBeaconOrigin(goatcounter: string): string {
+  return `https://${goatcounter}.goatcounter.com`;
+}
+
 export function cspContent(goatcounter?: string): string {
+  const beacon = goatcounter ? [analyticsBeaconOrigin(goatcounter)] : [];
   const scriptSrc = [scriptHash(enhanceJs()), ...(goatcounter ? [ANALYTICS_ORIGIN] : [])];
   return [
     `script-src ${scriptSrc.join(' ')}`,
     "object-src 'none'",
     "base-uri 'self'",
-    // Closes every OTHER fetch directive (img-src, frame-src, form-action,
-    // connect-src, …) that used to be unrestricted by omission (UN-SEC-017)
-    // — see this module's doc comment for why style-src is listed
-    // separately rather than left to this fallback.
     "default-src 'self'",
     "style-src 'self' 'unsafe-inline'",
+    // Both, because GoatCounter has shipped an <img> beacon and a fetch/
+    // sendBeacon path at different versions; allowing one origin under two
+    // directives costs nothing and removes a version-dependent break.
+    `img-src 'self' data: ${beacon.join(' ')}`.trim(),
+    `connect-src 'self' ${beacon.join(' ')}`.trim(),
   ].join('; ');
 }

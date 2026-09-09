@@ -20,12 +20,13 @@
  * request): the year list page stopped rendering its 8 genre-board sections
  * the same day (list/[year]/index.astro's own intro), so a bucket name here
  * would have pointed a reader at a section that no longer exists on the page
- * this badge links to. `rank` is still the album's position WITHIN its best
- * bucket's board (lib/derive/lists.ts#deriveBadgeMap is unchanged — that is
- * a derive-layer computation outside this package's owned paths, and
- * changing what the number MEANS, not just this label's wording, is a
- * separate, reported decision) — the copy now reads as if it were an
- * overall rank, which it is not yet. `bucketLabel` was this component's only
+ * this badge links to. `rank` now comes from the same overall top 10 the
+ * page itself shows — this SAME COMMIT also changed
+ * lib/derive/lists.ts#deriveBadgeMap to derive it from `Top10Progressive`
+ * instead of a bucket board (that derive-layer change is outside this
+ * package's owned paths; see lists.ts's own comment for the full reasoning)
+ * — so the copy now reads as an overall rank because it is one.
+ * `bucketLabel` was this component's only
  * other prop and had no remaining caller once this line stopped needing it,
  * so it was removed rather than left unused (see reviews/[slug].astro's
  * call site and 08-impl-notes/frontend.md for what that removal reported
