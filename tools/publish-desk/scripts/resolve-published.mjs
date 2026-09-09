@@ -12,12 +12,32 @@
  *
  * Convention this module depends on (owned by the SAME package — the
  * "Commit and push" step): the FIRST commit that ever published issue N is
- * always `발행: <title> (issue #N)`, authored by this workflow's own commit
- * identity ("undernote publish desk"). A LATER edit commits as
- * `수정: <title> (issue #N)` instead — a different prefix, on purpose, so
- * this lookup always resolves to exactly one commit no matter how many
- * times an issue has since been edited or (for the artist/album identity
- * fields) how many *other* commits happen to mention the same issue number.
+ * always a two-paragraph message —
+ *
+ *   발행: <title>
+ *
+ *   Issue-Number: <N>
+ *
+ * — authored by this workflow's own commit identity ("undernote publish
+ * desk"). A LATER edit commits `수정: <title>` (same `Issue-Number:` trailer
+ * form) instead — a different first-line prefix, on purpose, so this lookup
+ * always resolves to exactly one commit no matter how many times an issue
+ * has since been edited.
+ *
+ * The issue NUMBER lives on its OWN paragraph, not inlined into the title
+ * line, and is matched with `^Issue-Number: N$` (start/end of line, exactly
+ * — see MATCH_TRAILER below): a writer's issue TITLE is untrusted, writer-
+ * controlled text that lands verbatim in the first line, so it must never be
+ * able to satisfy the number match no matter what it contains. Before this
+ * split, the issue number was matched as a bare substring `(issue #N)`
+ * sharing the FIRST line with the title — a title containing the literal
+ * text "(issue #3)" (accidentally or on purpose) made THAT COMMIT match
+ * issue #3's lookup too, and `.pop()` (oldest match wins) could then return
+ * the wrong commit entirely, with `updateReview` overwriting an unrelated
+ * album's review file (code review MJ-1, reproduced against a throwaway
+ * repo). A title can only ever occupy the commit message's first line
+ * (GitHub issue titles cannot contain a newline), so it can never reach a
+ * `^Issue-Number: N$`-anchored second paragraph.
  *
  * Known weakness (reported honestly, not glossed over — see this package's
  * own report to the team lead): if a DEVELOPER later hand-edits the album or
@@ -35,6 +55,14 @@ import { execFileSync } from 'node:child_process';
 
 const PUBLISH_COMMIT_AUTHOR = 'undernote publish desk';
 const PUBLISH_PREFIX = '발행: ';
+
+/** `N` must be the exact numeric issue number, never writer-controlled text
+ * (it comes from `github.event.issue.number`, an integer GitHub assigns —
+ * never rendered from the issue body/title). No escaping is needed: a
+ * decimal integer contains no BRE metacharacters. */
+function issueNumberTrailer(issueNumber) {
+  return `^Issue-Number: ${issueNumber}$`;
+}
 
 /** Default git runner — shells out to a real `git` in `cwd`. Tests inject a
  * stub (no real repository needed for the decision-logic cases) plus a
@@ -62,16 +90,22 @@ function parseFrontmatterText(raw, parseYaml) {
  * never as an infrastructure fault.
  */
 export function findOriginalPublishCommit({ issueNumber, publicRepoDir, git = defaultGit }) {
+  // NOT --fixed-strings: `^`/`$` below must be read as regex anchors (git's
+  // default grep mode is POSIX basic regex with each embedded newline in the
+  // commit message treated as its own line boundary — verified against a
+  // real repo in resolve-published.test.mjs). Both patterns stay literal
+  // otherwise: `PUBLISH_PREFIX` is fixed Korean text with no BRE
+  // metacharacters, and `issueNumberTrailer` only ever interpolates a
+  // decimal integer (see its own doc comment) — neither needs escaping.
   const out = git(
     [
       'log',
       '--format=%H',
       `--author=${PUBLISH_COMMIT_AUTHOR}`,
-      '--fixed-strings',
       '--grep',
-      PUBLISH_PREFIX,
+      `^${PUBLISH_PREFIX}`,
       '--grep',
-      `(issue #${issueNumber})`,
+      issueNumberTrailer(issueNumber),
       '--all-match',
     ],
     publicRepoDir,

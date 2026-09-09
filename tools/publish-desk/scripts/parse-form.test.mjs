@@ -3,10 +3,27 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { extractField, extractCheckbox, extractCheckedOptions, parseReviewForm, parseStoryForm } from './parse-form.mjs';
+import { parse as parseYaml } from 'yaml';
+import {
+  extractField,
+  extractCheckbox,
+  extractCheckedOptions,
+  parseReviewForm,
+  parseStoryForm,
+  REVIEW_LABELS,
+  STORY_LABELS,
+} from './parse-form.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(join(here, 'fixtures', name), 'utf8');
+
+/** Read the `label:` GitHub will actually render for every field in an Issue
+ * Form template, in template order (markdown-only blocks have no `label` and
+ * are skipped — GitHub never renders a `### ` heading for those either). */
+function templateLabels(templatePath) {
+  const doc = parseYaml(readFileSync(templatePath, 'utf8'));
+  return doc.body.filter((field) => field.attributes?.label).map((field) => field.attributes.label);
+}
 
 test('extractField pulls the section body and stops at the next heading', () => {
   const body = '### A\n\nvalue a\n\n### B\n\nvalue b\n';
@@ -21,6 +38,60 @@ test('extractField returns "" for an explicit "_No response_"', () => {
 
 test('extractField returns "" for a section that does not exist', () => {
   assert.equal(extractField('### Only\n\nvalue\n', 'Missing'), '');
+});
+
+// MJ-2 (code review, 2026-09-09): a writer's own "### " line inside a field
+// used to be mistaken for the NEXT field's heading, silently dropping
+// everything after it — no error, no PD-* code, publish "succeeded" with a
+// truncated review. Reproduces the lead's exact repro case.
+test('extractField does NOT stop at a "### " line the writer typed themselves', () => {
+  const body = [
+    '### A',
+    '',
+    '첫 문단입니다.',
+    '',
+    '### 여담',
+    '',
+    '이 뒤의 문단이 살아 있어야 합니다.',
+    '',
+    '마지막 문단입니다.',
+    '',
+    '### B',
+    '',
+    'value b',
+    '',
+  ].join('\n');
+  // Without a knownLabels list ("A" isn't part of a known set here), the
+  // writer's own "### 여담" would still end the section under the OLD
+  // behaviour — passing knownLabels=['A', 'B'] is what fixes it: only a
+  // heading matching one of those two ends "A"'s section.
+  const value = extractField(body, 'A', ['A', 'B']);
+  assert.match(value, /첫 문단입니다\./);
+  assert.match(value, /### 여담/);
+  assert.match(value, /이 뒤의 문단이 살아 있어야 합니다\./);
+  assert.match(value, /마지막 문단입니다\./);
+  assert.equal(extractField(body, 'B', ['A', 'B']), 'value b');
+});
+
+test('extractField without knownLabels keeps the old "any ### " behaviour (fallback for callers with no fixed field set)', () => {
+  const body = '### A\n\nfirst\n\n### 여담\n\nlost\n\n### B\n\nvalue b\n';
+  assert.equal(extractField(body, 'A'), 'first');
+});
+
+// Guards against the two label lists (this file's REVIEW_LABELS/STORY_LABELS
+// vs. the Issue Form templates' own `label:` values) drifting apart —
+// review.yml's own comment already flags this as a hand-synced pair for the
+// genre options; this test extends the same guarantee to every field label,
+// since parseReviewForm/parseStoryForm now depend on the FULL set matching
+// exactly for field-boundary detection (not just individual lookups).
+test('REVIEW_LABELS matches review.yml label text and order exactly', () => {
+  const templatePath = join(here, '..', '.github', 'ISSUE_TEMPLATE', 'review.yml');
+  assert.deepEqual(Object.values(REVIEW_LABELS), templateLabels(templatePath));
+});
+
+test('STORY_LABELS matches story.yml label text and order exactly', () => {
+  const templatePath = join(here, '..', '.github', 'ISSUE_TEMPLATE', 'story.yml');
+  assert.deepEqual(Object.values(STORY_LABELS), templateLabels(templatePath));
 });
 
 test('extractCheckbox reads a ticked box', () => {

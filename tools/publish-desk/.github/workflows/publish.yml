@@ -66,14 +66,33 @@ jobs:
       # already uses for the same actions (checked 2026-09-08) — reused rather
       # than re-picked, so there is exactly one place in this whole project that
       # has actually verified these tags resolve to these commits.
+      # persist-credentials: false on BOTH checkouts below (security review
+      # finding UN-SEC-015): the default (`true`) would write a token into
+      # `.git/config` that stays readable for the ENTIRE rest of the job —
+      # including "Install ... dependencies" (npm ci) and "Build public
+      # repo" (npm run build), i.e. while ~425 third-party packages run. A
+      # compromised dependency in that window could read the file and get
+      # a credential capable of pushing to the public repo, silently
+      # bypassing the "only content/covers get committed" control this
+      # workflow otherwise enforces. Neither checkout needs a persisted
+      # credential: this step only reads (issues:write from GITHUB_TOKEN is
+      # used later by `gh issue …` calls, which read it fresh from the
+      # environment each time, not from a persisted git credential).
       - name: Checkout publish-desk (this repo)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
+      # No `token:` here: the public repo is PUBLIC, so cloning/reading it
+      # (and the `npm ci`/`npm run build` steps below that run against this
+      # checkout) never needs a credential at all. The PUBLISH_PAT is
+      # injected later, for the single `git push` invocation only — see
+      # "Commit and push" below for why and how.
       - name: Checkout public repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: fgda114/undernote
-          token: ${{ secrets.PUBLISH_PAT }}
+          persist-credentials: false
           path: public
           # Full history, not the default shallow clone: MODE=update/takedown
           # (resolve-published.mjs) reads `git log`/`git show` against this
@@ -236,6 +255,7 @@ jobs:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ACTION: ${{ steps.result.outputs.action }}
+          PUBLISH_PAT: ${{ secrets.PUBLISH_PAT }}
         run: |
           git config user.name "undernote publish desk"
           git config user.email "actions@users.noreply.github.com"
@@ -246,9 +266,19 @@ jobs:
           esac
           git add content public/covers
           # resolve-published.mjs greps commit messages for this EXACT
-          # "<PREFIX>: " form (and, for the original publish, the literal
-          # "발행: " prefix specifically) to recover an issue's history later
-          # — changing this format is a breaking change to that lookup.
+          # two-paragraph form (and, for the original publish, the literal
+          # "발행: " prefix specifically on the FIRST line) to recover an
+          # issue's history later — changing this format is a breaking
+          # change to that lookup. The issue number is its OWN paragraph
+          # ("Issue-Number: N"), deliberately never appended to the title
+          # line: ISSUE_TITLE is writer-controlled text, and code review
+          # MJ-1 found that a title containing the literal substring
+          # "(issue #3)" could make resolve-published.mjs's lookup for issue
+          # #3 match THIS commit instead of the real one — putting the
+          # number on its own trailer line, matched anchored (`^...$`), closes
+          # that off structurally: a title can only ever occupy the first
+          # line (GitHub issue titles can't contain a newline), so it can
+          # never reach the trailer's own line.
           if git diff --cached --quiet; then
             # Re-running an already-applied take-down (the "내림" label added
             # a second time) is the one realistic way to reach here with
@@ -256,9 +286,22 @@ jobs:
             # not an error, since the desired end state already holds.
             echo "커밋할 변경 사항이 없습니다 — 이미 반영된 상태로 보입니다."
           else
-            git commit -m "$(printf '%s: %s (issue #%s)' "$PREFIX" "$ISSUE_TITLE" "$ISSUE_NUMBER")"
+            git commit -m "$(printf '%s: %s' "$PREFIX" "$ISSUE_TITLE")" -m "$(printf 'Issue-Number: %s' "$ISSUE_NUMBER")"
           fi
-          git push origin HEAD:main
+          # PUBLISH_PAT is bound via `-c` on this ONE invocation, not
+          # `git remote set-url`/`git config` (no `--global`, no write to a
+          # file): a `-c key=value` override lives only in this process's
+          # memory and is never persisted to public/.git/config, so it
+          # cannot leak through a later `git remote -v`, `cat .git/config`,
+          # or (per UN-SEC-015) sit readable through the `npm ci`/`npm run
+          # build` steps above — those already ran, with no credential on
+          # disk at all (see the checkout steps' `persist-credentials:
+          # false`). The header format (`AUTHORIZATION: basic
+          # base64(x-access-token:<PAT>)`) is exactly what actions/checkout
+          # itself would have written, so the remote sees an identical
+          # Basic-auth request either way.
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUBLISH_PAT" | base64 -w0)" \
+            push origin HEAD:main
 
       # PUBLISH_RESULT_PATH (not the individual KIND/URL step outputs): the
       # success comment now also relays `notes` (2026-09-08 — e.g. an
