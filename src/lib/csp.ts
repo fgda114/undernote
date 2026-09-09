@@ -20,12 +20,30 @@
  * builds twice on one machine cannot see that class of defect — it has to be
  * removed at the source.
  *
- * WHAT IS DELIBERATELY NOT DIRECTIVE'D. `style-src` is absent: Astro's
- * scoped styles plus the @font-face injection put three inline <style>
- * blocks on every page, so it would need 'unsafe-inline' and would then
- * assert nothing. `frame-ancestors` is absent because a <meta> CSP ignores
- * it and GitHub Pages cannot set response headers — accepted, with the
- * reasoning recorded in 10-security/security-audit-kr.md §1.1.
+ * WHY `default-src 'self'` (security audit UN-SEC-017, 2026-09-09). Before
+ * this, only `script-src`/`object-src`/`base-uri` were listed — every OTHER
+ * fetch directive (`img-src`, `frame-src`, `form-action`, `connect-src`, …)
+ * was UNRESTRICTED by CSP's own "unlisted directives fall back to
+ * default-src, and an absent default-src means unlisted" rule. Script
+ * execution was already closed (script-src, hashed), but a raw `<img
+ * src="https://attacker.example/beacon">` or `<iframe src="…">` pasted into
+ * a review — needing no execution at all — sailed straight through. One
+ * directive closes the whole unlisted set at once, rather than enumerating
+ * `img-src`/`frame-src`/`form-action` by hand and leaving the NEXT unlisted
+ * one (`connect-src`, `worker-src`, …) open by omission again.
+ *
+ * `style-src 'self' 'unsafe-inline'` is listed EXPLICITLY alongside it, not
+ * left to fall back to the new `default-src`: Astro's scoped styles plus the
+ * @font-face injection put three inline <style> blocks on every page, so
+ * `default-src 'self'`'s own fallback (no 'unsafe-inline') would silently
+ * break every page's styling the moment this shipped. Listing it explicitly
+ * keeps that failure mode from ever reaching a real page — verified by a
+ * full site build after this change (no visual regression, all pages
+ * render) rather than assumed.
+ *
+ * `frame-ancestors` is absent because a <meta> CSP ignores it and GitHub
+ * Pages cannot set response headers — accepted, with the reasoning recorded
+ * in 10-security/security-audit-kr.md §1.1.
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -66,5 +84,15 @@ export function scriptHash(body: string): string {
  */
 export function cspContent(goatcounter?: string): string {
   const scriptSrc = [scriptHash(enhanceJs()), ...(goatcounter ? [ANALYTICS_ORIGIN] : [])];
-  return [`script-src ${scriptSrc.join(' ')}`, "object-src 'none'", "base-uri 'self'"].join('; ');
+  return [
+    `script-src ${scriptSrc.join(' ')}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    // Closes every OTHER fetch directive (img-src, frame-src, form-action,
+    // connect-src, …) that used to be unrestricted by omission (UN-SEC-017)
+    // — see this module's doc comment for why style-src is listed
+    // separately rather than left to this fallback.
+    "default-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+  ].join('; ');
 }

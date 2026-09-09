@@ -293,7 +293,11 @@ async function makePublishedFixtureRepo({ issueNumber = 7, issueBody = fixtureBo
   gitRun('git config user.name "undernote publish desk"', root);
 
   const result = kind === 'story' ? await publishStory({ issueBody, publicRepoDir: root }) : await publishReview({ issueBody, publicRepoDir: root, fetchImpl: stubFetch });
-  gitRun(`git add -A && git commit -q -m "발행: title (issue #${issueNumber})"`, root);
+  // Two `-m` flags == two paragraphs, matching EXACTLY what publish.yml's own
+  // "Commit and push" step produces (title paragraph, blank line, then the
+  // "Issue-Number: N" trailer on its own line) — resolve-published.mjs's
+  // grep depends on this shape (MJ-1).
+  gitRun(`git add -A && git commit -q -m "발행: title" -m "Issue-Number: ${issueNumber}"`, root);
   return { root, result };
 }
 
@@ -393,7 +397,7 @@ test('updateReview: original buckets recorded in a DIFFERENT order than today\'s
     '---\nalbum: phoebe-bridgers-lost-weekend\nscore: "8.4"\ndate: 2026-09-06\neditorial_check: true\n---\n\n원래 본문\n',
     'utf8',
   );
-  gitRun('git add -A && git commit -q -m "발행: title (issue #7)"', root);
+  gitRun('git add -A && git commit -q -m "발행: title" -m "Issue-Number: 7"', root);
 
   const outcome = await updateReview({ issueBody: fixtureBody('review-form-body.txt'), issueNumber: 7, publicRepoDir: root, fetchImpl: stubFetch });
   assert.equal(outcome.ok, true, 'the same genre SET in a different stored order must never be treated as an identity change');

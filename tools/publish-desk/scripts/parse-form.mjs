@@ -38,18 +38,42 @@ function escapeRegExp(s) {
 }
 
 /**
- * Extract the raw text under `### <label>` up to the next `### ` heading (or
- * the end of the body). Returns '' for an explicit "_No response_" or a
- * genuinely missing section — callers decide whether '' is acceptable.
+ * Extract the raw text under `### <label>` up to the next KNOWN field
+ * heading (or the end of the body). Returns '' for an explicit
+ * "_No response_" or a genuinely missing section — callers decide whether ''
+ * is acceptable.
+ *
+ * `knownLabels` MUST be every label GitHub Issue Forms can render for this
+ * template (REVIEW_LABELS/STORY_LABELS below — parseReviewForm/parseStoryForm
+ * always pass the full set). Only a `### ` line whose text is EXACTLY one of
+ * those labels ends the section; any other `### `-looking line is just text
+ * the writer typed and stays part of the value. Before this, boundary
+ * detection used to be "the next `### ` ANYWHERE" — a writer who typed their
+ * own `### 여담`-style aside inside the "글" field had everything after it
+ * silently dropped, with no error and a successful publish (caught by
+ * review, MJ-2). Treating an UNKNOWN heading as plain text is the safer
+ * failure direction: worst case a writer's own `###` line survives verbatim
+ * in the markdown output (harmless — it just renders as a heading), instead
+ * of the field's own text disappearing.
  */
-export function extractField(body, label) {
+export function extractField(body, label, knownLabels) {
   // Deliberately NOT the 'm' flag: with multiline mode, `$` matches before
   // EVERY newline in the body, not just true end-of-string — which made the
   // lazy capture below stop after the section's first LINE instead of its
   // last one (caught by a real multi-paragraph fixture in testing). `^` and
   // `$` here mean exactly "start of body" / "end of body"; `(?:^|\n)` finds
   // the heading either way (also matches when it opens the body).
-  const re = new RegExp(`(?:^|\\n)### ${escapeRegExp(label)}\\s*\\n+([\\s\\S]*?)(?=\\n### |$)`);
+  //
+  // The lookahead only stops at a heading line whose text matches one of
+  // `knownLabels` verbatim — built as an alternation so `(?:\n### (?:A|B|C)\s*\n|$)`
+  // reads as "a KNOWN heading, or end of body". Without a `knownLabels` list
+  // (e.g. a caller extracting a sub-slice that never contains further
+  // headings, like extractCheckbox's checkbox line search) this falls back
+  // to "any `### `", preserving old behaviour for those callers.
+  const boundary = knownLabels && knownLabels.length
+    ? `(?:\\n### (?:${knownLabels.map(escapeRegExp).join('|')})\\s*\\n|$)`
+    : `(?:\\n### |$)`;
+  const re = new RegExp(`(?:^|\\n)### ${escapeRegExp(label)}\\s*\\n+([\\s\\S]*?)(?=${boundary})`);
   const match = re.exec(body);
   if (!match) return '';
   const value = match[1].trim();
@@ -63,8 +87,8 @@ export function extractField(body, label) {
  * function exists anyway as defence in depth (P1-equivalent: never trust a
  * value just because the UI was supposed to enforce it upstream).
  */
-export function extractCheckbox(body, label, optionLabel) {
-  const section = extractField(body, label);
+export function extractCheckbox(body, label, optionLabel, knownLabels) {
+  const section = extractField(body, label, knownLabels);
   const re = new RegExp(`^-\\s*\\[( |x|X)\\]\\s*${escapeRegExp(optionLabel)}`, 'm');
   const match = re.exec(section);
   return match ? match[1].toLowerCase() === 'x' : false;
@@ -76,8 +100,8 @@ export function extractCheckbox(body, label, optionLabel) {
  * field, 2026-09-08), where the caller wants the whole set that was ticked,
  * not one specific option's state (that is extractCheckbox above).
  */
-export function extractCheckedOptions(body, label) {
-  const section = extractField(body, label);
+export function extractCheckedOptions(body, label, knownLabels) {
+  const section = extractField(body, label, knownLabels);
   const re = /^-\s*\[(x|X)\]\s*(.+)$/gm;
   const checked = [];
   for (const match of section.matchAll(re)) checked.push(match[2].trim());
@@ -111,23 +135,37 @@ export const REVIEW_LABELS = {
 
 export const REVIEW_EDITORIAL_OPTION = '이 앨범, 안 들으면 손해라고 확신합니다.';
 
+// The exact set of `### ` headings GitHub can render for this template —
+// EVERY extractField/extractCheckbox/extractCheckedOptions call below passes
+// this as `knownLabels` so a writer's own `### something` line inside a
+// textarea (most realistically "글", the last field) is never mistaken for
+// the next field's boundary (MJ-2). This array and review.yml's `label:`
+// values must match exactly; parse-form.test.mjs asserts that against the
+// real template file so drift between the two fails CI instead of silently
+// mis-parsing a live submission.
+const REVIEW_KNOWN_LABELS = Object.values(REVIEW_LABELS);
+
 /** Pull every field out of a review-template issue body. Every value is a
  * trimmed string (possibly ''); nothing here is validated yet. */
 export function parseReviewForm(rawBody) {
   const body = normalize(rawBody);
   return {
-    artistName: extractField(body, REVIEW_LABELS.artistName),
-    artistSlugHint: extractField(body, REVIEW_LABELS.artistSlugHint),
-    albumTitle: extractField(body, REVIEW_LABELS.albumTitle),
-    albumSlugHint: extractField(body, REVIEW_LABELS.albumSlugHint),
-    releaseDate: extractField(body, REVIEW_LABELS.releaseDate),
+    artistName: extractField(body, REVIEW_LABELS.artistName, REVIEW_KNOWN_LABELS),
+    artistSlugHint: extractField(body, REVIEW_LABELS.artistSlugHint, REVIEW_KNOWN_LABELS),
+    albumTitle: extractField(body, REVIEW_LABELS.albumTitle, REVIEW_KNOWN_LABELS),
+    albumSlugHint: extractField(body, REVIEW_LABELS.albumSlugHint, REVIEW_KNOWN_LABELS),
+    releaseDate: extractField(body, REVIEW_LABELS.releaseDate, REVIEW_KNOWN_LABELS),
     // MULTI-GENRE (2026-09-08): zero or more checked labels, template order,
     // never deduplicated/validated here (see resolveGenreBuckets for why).
-    genreLabels: extractCheckedOptions(body, REVIEW_LABELS.genre),
-    score: extractField(body, REVIEW_LABELS.score),
-    editorialCheck: extractCheckbox(body, REVIEW_LABELS.editorialCheck, REVIEW_EDITORIAL_OPTION),
-    coverField: extractField(body, REVIEW_LABELS.cover),
-    bodyText: extractField(body, REVIEW_LABELS.body),
+    genreLabels: extractCheckedOptions(body, REVIEW_LABELS.genre, REVIEW_KNOWN_LABELS),
+    score: extractField(body, REVIEW_LABELS.score, REVIEW_KNOWN_LABELS),
+    editorialCheck: extractCheckbox(body, REVIEW_LABELS.editorialCheck, REVIEW_EDITORIAL_OPTION, REVIEW_KNOWN_LABELS),
+    coverField: extractField(body, REVIEW_LABELS.cover, REVIEW_KNOWN_LABELS),
+    // "글" is the LAST field in review.yml, so its boundary is really just
+    // "end of body" — but it goes through the same knownLabels-guarded call
+    // as every other field rather than a separate "read to the end" path,
+    // so this stays correct even if a future template reorders fields.
+    bodyText: extractField(body, REVIEW_LABELS.body, REVIEW_KNOWN_LABELS),
   };
 }
 
@@ -137,17 +175,20 @@ export const STORY_LABELS = {
   body: '글',
 };
 
+// See REVIEW_KNOWN_LABELS above — same reasoning, story.yml's template.
+const STORY_KNOWN_LABELS = Object.values(STORY_LABELS);
+
 /** Pull every field out of a story-template issue body. */
 export function parseStoryForm(rawBody) {
   const body = normalize(rawBody);
-  const albumsRaw = extractField(body, STORY_LABELS.albums);
+  const albumsRaw = extractField(body, STORY_LABELS.albums, STORY_KNOWN_LABELS);
   return {
-    title: extractField(body, STORY_LABELS.title),
+    title: extractField(body, STORY_LABELS.title, STORY_KNOWN_LABELS),
     // One mention per line: "앨범명 (아티스트명)" or bare "앨범명".
     albumLines: albumsRaw
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line.length > 0),
-    bodyText: extractField(body, STORY_LABELS.body),
+    bodyText: extractField(body, STORY_LABELS.body, STORY_KNOWN_LABELS),
   };
 }

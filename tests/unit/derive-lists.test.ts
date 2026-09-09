@@ -55,8 +55,6 @@ const site: SiteConfig = {
   early_stage_threshold: 6,
 };
 
-let counter = 0;
-
 function entry<T>(slug: string, data: T, body = '본문'): Entry<T> {
   return { slug, file: `fixture/${slug}`, data, body };
 }

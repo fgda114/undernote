@@ -37,7 +37,7 @@ function makeGitFixtureRepo() {
     '---\nalbum: phoebe-bridgers-lost-weekend\nscore: "8.4"\ndate: 2026-09-06\neditorial_check: true\n---\n\n원래 본문\n',
     'utf8',
   );
-  run('git add -A && git commit -q -m "발행: [평론] Lost Weekend (issue #7)"');
+  run('git add -A && git commit -q -m "발행: [평론] Lost Weekend" -m "Issue-Number: 7"');
 
   // A LATER edit (issue #7 again) — must NOT be picked up as the original.
   writeFileSync(
@@ -45,7 +45,7 @@ function makeGitFixtureRepo() {
     '---\nalbum: phoebe-bridgers-lost-weekend\nscore: "8.5"\ndate: 2026-09-06\neditorial_check: true\n---\n\n고친 본문\n',
     'utf8',
   );
-  run('git add -A && git commit -q -m "수정: [평론] Lost Weekend (issue #7)"');
+  run('git add -A && git commit -q -m "수정: [평론] Lost Weekend" -m "Issue-Number: 7"');
 
   // issue #12 — a story.
   writeFileSync(
@@ -53,14 +53,15 @@ function makeGitFixtureRepo() {
     '---\ntitle: "93년 여름"\ndate: 2026-09-08\nalbums: []\n---\n\n이야기 본문\n',
     'utf8',
   );
-  run('git add -A && git commit -q -m "발행: [이야기] 93년 여름 (issue #12)"');
+  run('git add -A && git commit -q -m "발행: [이야기] 93년 여름" -m "Issue-Number: 12"');
 
-  // issue #1 — an UNRELATED number that happens to be a numeric PREFIX of
-  // #12's digits reversed is not a risk here, but #1 vs #12 (both share the
-  // digit "1") IS the realistic collision this repo's fixed-string grep must
-  // not fall into: "(issue #1)" must never match inside "(issue #12)".
+  // issue #1 — an UNRELATED number that happens to share a leading digit
+  // with #12 is not a risk here, but #1 vs #12 (both share the digit "1")
+  // IS the realistic collision this repo's anchored `^Issue-Number: N$` grep
+  // must not fall into: "Issue-Number: 1" must never match the line
+  // "Issue-Number: 12".
   writeFileSync(join(root, 'content', 'stories', 'unrelated.md'), '---\ntitle: "무관한 글"\ndate: 2026-09-08\nalbums: []\n---\n\n본문\n', 'utf8');
-  run('git add -A && git commit -q -m "발행: [이야기] 무관한 글 (issue #1)"');
+  run('git add -A && git commit -q -m "발행: [이야기] 무관한 글" -m "Issue-Number: 1"');
 
   return root;
 }
@@ -70,13 +71,23 @@ test('resolve-published: against a REAL git repository', async (t) => {
   t.after(() => rmSync(root, { recursive: true, force: true }));
 
   await t.test('findOriginalPublishCommit finds the FIRST ("발행: ") commit, not the later "수정: " one', () => {
-    const log = execFileSync('git', ['log', '--format=%H %s'], { cwd: root, encoding: 'utf8' });
-    const originalSha = log.split('\n').find((l) => l.includes('(issue #7)') && l.includes('발행: '));
+    // Independently locate the expected commit from raw `git log` (subject
+    // + body, tab-separated) rather than reusing the module's own regex —
+    // the issue number now lives in the BODY ("Issue-Number: 7"), not the
+    // subject, since the trailer-line fix (MJ-1).
+    const log = execFileSync('git', ['log', '--format=%H%x09%s%x09%b'], { cwd: root, encoding: 'utf8' });
+    const originalLine = log
+      .split('\n')
+      .filter(Boolean)
+      .find((l) => {
+        const [, subject, body] = l.split('\t');
+        return subject?.startsWith('발행: ') && body?.trim() === 'Issue-Number: 7';
+      });
     const sha = findOriginalPublishCommit({ issueNumber: 7, publicRepoDir: root });
-    assert.equal(sha, originalSha.split(' ')[0]);
+    assert.equal(sha, originalLine.split('\t')[0]);
   });
 
-  await t.test('issue #1 never matches the "(issue #12)" commit (fixed-string, closing paren boundary)', () => {
+  await t.test('issue #1 never matches the "Issue-Number: 12" commit (anchored trailer, no digit-prefix collision)', () => {
     const sha1 = findOriginalPublishCommit({ issueNumber: 1, publicRepoDir: root });
     const sha12 = findOriginalPublishCommit({ issueNumber: 12, publicRepoDir: root });
     assert.notEqual(sha1, sha12);
@@ -139,7 +150,7 @@ test('resolveOriginalPublication: reused-existing-album case (no content/albums/
     '---\nalbum: boygenius-the-record\nscore: "8.5"\ndate: 2026-09-08\neditorial_check: true\n---\n\n본문\n',
     'utf8',
   );
-  run('git add -A && git commit -q -m "발행: [평론] the record (issue #20)"');
+  run('git add -A && git commit -q -m "발행: [평론] the record" -m "Issue-Number: 20"');
 
   try {
     const original = resolveOriginalPublication({ issueNumber: 20, publicRepoDir: root, parseYaml });
@@ -152,6 +163,45 @@ test('resolveOriginalPublication: reused-existing-album case (no content/albums/
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// MJ-1 (code review, 2026-09-09): reproduces the lead's exact throwaway-repo
+// finding — a DECOY issue whose writer-controlled TITLE contains text that
+// could be mistaken for another issue's number lookup, published BEFORE the
+// real target issue (so `.pop()`'s "oldest match wins" tie-break would pick
+// the decoy if the match were not correctly scoped to the target issue
+// alone). Before the trailer-line fix, the number lived on the SAME line as
+// the title as a bare "(issue #N)" substring, so a title literally
+// containing "(issue #3)" made the decoy match issue #3's lookup too.
+test('findOriginalPublishCommit: a decoy issue whose TITLE contains trailer-shaped text never matches another issue\'s lookup', () => {
+  const root = mkdtempSync(join(tmpdir(), 'publish-desk-git-mj1-'));
+  const run = (cmd) => execFileSync('sh', ['-c', cmd], { cwd: root, encoding: 'utf8' });
+  run('git init -q -b main');
+  run('git config user.email "actions@users.noreply.github.com"');
+  run('git config user.name "undernote publish desk"');
+  writeFileSync(join(root, 'seed.txt'), 'seed', 'utf8');
+  run('git add -A && git commit -q -m "발행: a"');
+
+  // Decoy — issue #7's WRITER-CONTROLLED title is literally the string a
+  // naive same-line encoding would have put in issue #3's own commit. It
+  // still gets ITS OWN correct trailer ("Issue-Number: 7"), same as any
+  // other publish. This commit lands BEFORE the real issue #3 publish below.
+  writeFileSync(join(root, 'decoy.txt'), 'decoy', 'utf8');
+  run('git add -A && git commit -q -m "발행: Issue-Number: 3" -m "Issue-Number: 7"');
+
+  // The REAL issue #3 publish, later.
+  writeFileSync(join(root, 'real.txt'), 'real', 'utf8');
+  run('git add -A && git commit -q -m "발행: Real Album Title" -m "Issue-Number: 3"');
+
+  const sha3 = findOriginalPublishCommit({ issueNumber: 3, publicRepoDir: root });
+  const subject = execFileSync('git', ['show', '-s', '--format=%s', sha3], { cwd: root, encoding: 'utf8' }).trim();
+  assert.equal(subject, '발행: Real Album Title', 'issue #3\'s lookup must resolve to its OWN commit, never the decoy');
+
+  const sha7 = findOriginalPublishCommit({ issueNumber: 7, publicRepoDir: root });
+  const subject7 = execFileSync('git', ['show', '-s', '--format=%s', sha7], { cwd: root, encoding: 'utf8' }).trim();
+  assert.equal(subject7, '발행: Issue-Number: 3', 'issue #7 still resolves correctly to its own (decoy-titled) commit');
+
+  rmSync(root, { recursive: true, force: true });
 });
 
 test('findOriginalPublishCommit: injected git stub — author mismatch is never matched', () => {
