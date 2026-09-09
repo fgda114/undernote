@@ -15,6 +15,8 @@ import {
   findAlbumByTitleArtist,
   resolveGenreBucket,
   resolveGenreBuckets,
+  allConfiguredGenreLabels,
+  missingGenreFormOptions,
   loadTagRegistry,
   resolveTags,
 } from './resolve-content.mjs';
@@ -136,6 +138,31 @@ test('resolve-content: end-to-end against a fixture checkout', async (t) => {
   await t.test('resolveGenreBuckets: stops at the FIRST unresolvable label and names it', () => {
     assert.deepEqual(resolveGenreBuckets(['Rock', 'Jazz', 'Pop'], root), { status: 'none', label: 'Jazz' });
   });
+
+  await t.test('allConfiguredGenreLabels: every bucket label across every year block, deduplicated', () => {
+    assert.deepEqual(allConfiguredGenreLabels(root), new Set(['Hip-Hop / R&B', 'Pop', 'Rock']));
+  });
+});
+
+// ── missingGenreFormOptions (2026-09-09, PD-GENRE-UNKNOWN-adjacent incident:
+// config/genres.yaml split "Hip-Hop / R&B" into 8 buckets while review.yml's
+// static checkboxes stayed at the old 4 — see resolve-content.mjs's own doc
+// comment). Pure, so no fixture repo is needed for these. ──
+
+test('missingGenreFormOptions: reports every configured label the form does NOT offer', () => {
+  const configLabels = new Set(['Hip-Hop', 'R&B', 'Digicore', 'Rage']);
+  const missing = missingGenreFormOptions(configLabels, ['Hip-Hop / R&B', 'Pop', 'Rock']);
+  assert.deepEqual(new Set(missing), new Set(['Hip-Hop', 'R&B', 'Digicore', 'Rage']));
+});
+
+test('missingGenreFormOptions: returns [] when the form already offers every configured label', () => {
+  const configLabels = new Set(['Rock', 'Pop']);
+  assert.deepEqual(missingGenreFormOptions(configLabels, ['Rock', 'Pop', '그 외']), []);
+});
+
+test('missingGenreFormOptions: is order-independent — only presence matters', () => {
+  const configLabels = new Set(['Rock', 'Pop']);
+  assert.deepEqual(missingGenreFormOptions(configLabels, ['Pop', 'Rock']), []);
 });
 
 // ── resolveTags / loadTagRegistry (2026-09-09 — "태그" form field) ─────────

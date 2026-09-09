@@ -28,7 +28,7 @@ test.beforeAll(() => {
 test('지면 전수 — 12유형 상당(29지면) + 404 생성', () => {
   // 34 → 29 on 2026-09-09 (axis-chip archive redesign): the per-value pages
   // `/archive/{year}/`, `/archive/genre/{bucket}/` (×2 for the rich set's
-  // pop/hiphop-rnb), `/archive/tag/{tag}/`, and the `/artists/` LIST page
+  // pop/hiphop), `/archive/tag/{tag}/`, and the `/artists/` LIST page
   // were retired — every one of those axes is now a chip on /archive/
   // instead of a page of its own (5 pages removed). The per-artist detail
   // pages under /artists/{slug}/ are UNCHANGED and still exist; only the
@@ -337,13 +337,16 @@ test('아카이브 허브 — Year·Genre·Artist·Tag 칩 개수 + ALL 제목 �
   };
   // Rich set: publication year 2026 only.
   expect(chipValues('Year')).toEqual(['2026']);
-  // Buckets actually used: hiphop-rnb, pop (rock is configured but unused —
-  // by_bucket only has keys for buckets that appear on content, R-4). The
-  // attribute value is HTML-escaped by Astro (& → &amp;), same as any other
-  // attribute — the raw label is still "Hip-Hop / R&B" everywhere it is
-  // read back out of the DOM (e.g. by enhance.js's `dataset` access, which
-  // un-escapes automatically).
-  expect(chipValues('Genre').sort()).toEqual(['Hip-Hop / R&amp;B', 'Pop']);
+  // Buckets actually used: hiphop, pop (rock is configured but unused —
+  // by_bucket only has keys for buckets that appear on content, R-4).
+  // config/genres.yaml's 2026 block labels bucket "hiphop" plain "Hip-Hop"
+  // (the 3→8 bucket split on 2026-09-09 retired the old combined "Hip-Hop /
+  // R&B" id in favour of separate "hiphop"/"rnb" ids — see that config's own
+  // history), so there is no `&` left in this particular value to escape;
+  // the general HTML-escaping behaviour this comment used to also document
+  // (Astro's attribute encoding, & → &amp;) is unit-tested elsewhere and not
+  // this test's job to re-prove with a value that no longer exercises it.
+  expect(chipValues('Genre').sort()).toEqual(['Hip-Hop', 'Pop']);
   // 8 artists — 7 from RICH_SET (shared-artist credited twice, once each
   // way) + the base fixture's own artist.
   expect(chipValues('Artist')).toHaveLength(8);

@@ -1,14 +1,36 @@
 # Genre bucket blocks per year (api-contracts §3.5 GenresConfig — D1: config is data).
-# 2026 block uses the default "plan B" 3 buckets (open question Q1 — swap values,
-# not code, when the editor answers). Past year blocks must never be edited (R-8).
-# "etc" is a reserved bucket id and must not appear here (E-109).
+#
+# WHAT A BUCKET IS. A record's broad genre, recorded on the album and used to
+# group and find things. They are not a complete vocabulary for describing
+# music — that is what `tags` are for, and tags are free-form and unlimited.
+#
+# THEY NO LONGER SPLIT THE YEAR-END LIST (2026-09-09). /list/{year}/ used to
+# render one section per bucket; eight configured buckets produced eight
+# mostly-empty sections, so that rendering was removed and the page now shows
+# one ranked top 10. `min_reviews_to_publish` below therefore no longer
+# decides what a READER sees — it still runs at finalize time, recording on
+# each snapshot bucket whether it cleared the threshold, and E-119 compares
+# this block against that record to keep a finalized year frozen. Kept for
+# that reason, and because restoring the per-genre sections should not also
+# require re-deciding this number.
+#
+# EDITING THIS BLOCK. A year whose list has been FINALIZED is frozen and E-119
+# fails the build if its block changes (2026-09-08 rule change: the freeze is
+# keyed on finalization, not on the calendar). 2026 is NOT finalized, so this
+# block is free to edit — that is why the list below could be rewritten.
+#
+# IDS ARE PERMANENT. Album `buckets` values are keyed on them. A label can be
+# reworded any time; an id can only be retired once no album uses it.
+# "etc" is reserved and must not appear here (E-109).
 years:
   - year: 2026
     buckets:
-      # Labels are English (2026-09-07) to match the site's section-name rule;
-      # the ids are UNCHANGED and must stay so — album `bucket` values and the
-      # /archive/genre/{id}/ routes are keyed on them, not on the label.
-      - { id: "hiphop-rnb", label: "Hip-Hop / R&B", order: 1 }
-      - { id: "pop", label: "Pop", order: 2 }
-      - { id: "rock", label: "Rock", order: 3 }
+      - { id: "hiphop", label: "Hip-Hop", order: 1 }
+      - { id: "rnb", label: "R&B", order: 2 }
+      - { id: "digicore", label: "Digicore", order: 3 }
+      - { id: "rage", label: "Rage", order: 4 }
+      - { id: "pop", label: "Pop", order: 5 }
+      - { id: "indie-pop", label: "Indie Pop", order: 6 }
+      - { id: "rock", label: "Rock", order: 7 }
+      - { id: "indie-folk", label: "Indie Folk", order: 8 }
     min_reviews_to_publish: 3

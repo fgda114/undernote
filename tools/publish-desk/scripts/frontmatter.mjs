@@ -36,12 +36,18 @@ export function reviewFile({ albumSlug, score, date, body }) {
  * bucket ids, written verbatim in the order resolveGenreBuckets returned
  * them (checked-option / template order — carries no ranking meaning, see
  * src/lib/schema/album.ts). `subtitle` (2026-09-09, "(선택) 부제" form field)
- * is omitted entirely when absent — same "no key at all, not an empty
- * string" convention as `cover`/`tags` below, so an old album written before
- * this field existed and a new album with no subtitle typed are
- * byte-identical (schema field is optional, api-contracts stays backward
- * compatible either way). */
-export function albumFile({ title, artistSlugs, releaseDate, subtitle, buckets, tags = [], cover, coverSource }) {
+ * and `duration` (2026-09-09, "(선택) 앨범 길이" form field) are both omitted
+ * entirely when absent — same "no key at all, not an empty string"
+ * convention as `cover`/`tags` below, so an old album written before either
+ * field existed and a new album with neither typed are byte-identical (both
+ * schema fields are optional, api-contracts stays backward compatible
+ * either way). `duration` is written UNQUOTED, unlike `score`/`release_date`
+ * above: this file's own module doc explains why THOSE need quoting (YAML
+ * would otherwise silently reinterpret a numeric-looking scalar) — a
+ * "MM:SS" value like "52:26" has no such trap (verified against both YAML
+ * parsers this project uses, see src/lib/schema/common.ts#durationSchema),
+ * so quoting it would only add visual noise with no correctness benefit. */
+export function albumFile({ title, artistSlugs, releaseDate, subtitle, duration, buckets, tags = [], cover, coverSource }) {
   const lines = [
     `title: ${yamlString(title)}`,
     `artists: [${artistSlugs.join(', ')}]`,
@@ -49,6 +55,7 @@ export function albumFile({ title, artistSlugs, releaseDate, subtitle, buckets, 
     `buckets: [${buckets.join(', ')}]`,
   ];
   if (subtitle) lines.push(`subtitle: ${yamlString(subtitle)}`);
+  if (duration) lines.push(`duration: ${duration}`);
   if (tags.length > 0) lines.push(`tags: [${tags.join(', ')}]`);
   if (cover) lines.push(`cover: ${cover}`, `cover_source: ${yamlString(coverSource ?? '')}`);
   return lines.join('\n') + '\n';

@@ -31,7 +31,8 @@
  * either produces a PD-* code or is left to propagate.
  */
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import sharp from 'sharp';
 
@@ -46,9 +47,11 @@ import {
   findArtistByName,
   findAlbumByTitleArtist,
   resolveGenreBuckets,
+  allConfiguredGenreLabels,
+  missingGenreFormOptions,
   resolveTags,
 } from './resolve-content.mjs';
-import { extractImageUrl, downloadImage, resizeCoverBuffer } from './cover.mjs';
+import { extractImageUrl, downloadImage, resizeCoverBuffer, CoverAuthError } from './cover.mjs';
 import { reviewFile, albumFile, artistFile, storyFile, updateAlbumCover, appendTagEntries } from './frontmatter.mjs';
 import { resolveOriginalPublication } from './resolve-published.mjs';
 import { planReviewTakedown, planStoryTakedown, lockedSnapshotYears } from './takedown.mjs';
@@ -75,6 +78,67 @@ function pdFail(code, message) {
 
 function readSiteConfig(publicRepoDir) {
   return parseYaml(readFileSync(join(publicRepoDir, 'config', 'site.yaml'), 'utf8'));
+}
+
+// This package's OWN Issue Form template — resolved to a FIXED path
+// relative to THIS script, never process.cwd(): the workflow runs `node
+// scripts/publish.mjs` from the desk repo's root (so cwd would happen to
+// work there too), but a test's cwd is arbitrary — see
+// parse-form.test.mjs's own templateLabels() helper, which resolves the
+// same file the same import.meta.url-relative way for the same reason.
+const REVIEW_TEMPLATE_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '.github', 'ISSUE_TEMPLATE', 'review.yml');
+
+/**
+ * Read review.yml's OWN genre checkboxes `options` labels — best-effort,
+ * for noteGenreFormDrift below. This is a DIAGNOSTIC, never a publish gate
+ * (docs/publishing.md §2.10): a missing/malformed/unset template path must
+ * never break an actual submission, so any failure here — INCLUDING
+ * `templatePath` being undefined, which every caller in this file except
+ * main() leaves it as (see genreTemplatePath's own doc comment on
+ * publishReview for why that is deliberate, not an oversight) — degrades to
+ * `null` (never `[]`, which would read as "the field legitimately has zero
+ * options" and falsely report every configured genre as missing). Callers
+ * treat `null` as "could not/should not check this run" and skip the note
+ * entirely.
+ */
+function loadGenreFormOptionLabels(templatePath) {
+  if (!templatePath) return null;
+  try {
+    const doc = parseYaml(readFileSync(templatePath, 'utf8'));
+    const genreField = doc.body?.find((field) => field.id === 'genre');
+    const options = genreField?.attributes?.options;
+    if (!Array.isArray(options)) return null;
+    return options.map((o) => o.label).filter((label) => label !== '그 외');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Append a developer-facing note when genres.yaml configures a bucket label
+ * this package's OWN Issue Form cannot offer at all — the real incident
+ * (2026-09-09) `missingGenreFormOptions` (resolve-content.mjs) documents:
+ * config/genres.yaml split one bucket into 8 while review.yml's static
+ * checkboxes stayed at the old count, so a decision-maker had no way to
+ * select the missing genres and fell back to "그 외" with no PD-* ever
+ * firing. Runs whenever a NEW album's genre is being decided (never for an
+ * existing album, which does not touch buckets at all) — unconditionally,
+ * regardless of whether THIS submission's own picks happened to be valid,
+ * because the drift is a property of the FORM, not of any one submission.
+ * Never fails the publish itself: a template read/parse/unset-path problem
+ * is silently swallowed by loadGenreFormOptionLabels above, not surfaced
+ * here. `templatePath` has NO default here — see publishReview's own
+ * `genreTemplatePath` doc comment for why this package deliberately never
+ * assumes a real filesystem path on its own.
+ */
+function noteGenreFormDrift(publicRepoDir, notes, templatePath) {
+  const formLabels = loadGenreFormOptionLabels(templatePath);
+  if (formLabels === null) return;
+  const missing = missingGenreFormOptions(allConfiguredGenreLabels(publicRepoDir), formLabels);
+  if (missing.length === 0) return;
+  notes.push(
+    `참고(개발 담당용): config/genres.yaml에는 있지만 이 폼(review.yml)의 장르 체크박스에는 없는 장르가 있습니다: ${missing.join(', ')}. review.yml의 genre 옵션 목록을 config/genres.yaml과 맞춰주세요 — 지금은 필자가 이 장르를 선택할 방법이 없습니다.`,
+  );
 }
 
 /**
@@ -200,12 +264,22 @@ function resolveAlbum({ title, slugHint, artistSlug, releaseDate }, publicRepoDi
 /** Shared by both cover resolvers below: download + resize, or fail with a
  * PD-COVER-FETCH-FAILED whose recovery hint differs by caller (a first
  * publish vs an edit have different "what happens if you just leave this
- * empty" answers, so the hint is a parameter, not duplicated logic). */
-async function fetchAndResizeCover(url, fetchImpl, emptyFieldHint) {
+ * empty" answers, so the hint is a parameter, not duplicated logic).
+ *
+ * A `CoverAuthError` (cover.mjs) is deliberately let through UNCAUGHT
+ * instead of being folded into PD-COVER-FETCH-FAILED like every other
+ * downloadImage failure: it means this workflow's OWN token (not the
+ * writer's photo) is the problem, so there is no field for the writer to
+ * fix and re-save — see CoverAuthError's own doc comment. Left to propagate,
+ * it lands in the same "no result file written -> infrastructure failure,
+ * developer-only" bucket as every other bug/unexpected-fault path this
+ * file's own module doc describes. */
+async function fetchAndResizeCover(url, fetchImpl, coverAuthToken, emptyFieldHint) {
   try {
-    const buffer = await downloadImage(url, fetchImpl);
+    const buffer = await downloadImage(url, fetchImpl, coverAuthToken);
     return await resizeCoverBuffer(buffer, sharp);
   } catch (err) {
+    if (err instanceof CoverAuthError) throw err;
     pdFail(
       'PD-COVER-FETCH-FAILED',
       `커버 이미지를 처리하지 못했습니다 (${err instanceof Error ? err.message : String(err)}). 사진을 다시 끌어다 놓고 저장해 주세요. ${emptyFieldHint}`,
@@ -213,7 +287,7 @@ async function fetchAndResizeCover(url, fetchImpl, emptyFieldHint) {
   }
 }
 
-async function resolveCover({ fieldText, albumIsNew, notes, fetchImpl }) {
+async function resolveCover({ fieldText, albumIsNew, notes, fetchImpl, coverAuthToken }) {
   if (fieldText.trim() === '') return null;
   const url = extractImageUrl(fieldText);
   if (url === null) {
@@ -231,7 +305,7 @@ async function resolveCover({ fieldText, albumIsNew, notes, fetchImpl }) {
     notes.push('참고: 이미 있는 앨범이라 이번에 올린 커버 이미지는 반영되지 않았습니다 (기존 앨범 파일은 건드리지 않습니다).');
     return null;
   }
-  return fetchAndResizeCover(url, fetchImpl, '급하면 그 칸을 비워두고 저장하면 기본 이미지로 우선 발행됩니다.');
+  return fetchAndResizeCover(url, fetchImpl, coverAuthToken, '급하면 그 칸을 비워두고 저장하면 기본 이미지로 우선 발행됩니다.');
 }
 
 /**
@@ -243,7 +317,7 @@ async function resolveCover({ fieldText, albumIsNew, notes, fetchImpl }) {
  * or not): that IS the feature ("나중에 넣어도 됩니다" — the form's own promise
  * to the writer, docs/publishing.md).
  */
-async function resolveCoverForUpdate({ fieldText, fetchImpl }) {
+async function resolveCoverForUpdate({ fieldText, fetchImpl, coverAuthToken }) {
   if (fieldText.trim() === '') return null;
   const url = extractImageUrl(fieldText);
   if (url === null) {
@@ -252,7 +326,7 @@ async function resolveCoverForUpdate({ fieldText, fetchImpl }) {
       '"커버 이미지" 칸에 사진이 아닌 내용이 들어 있습니다. 사진 파일을 그 칸에 끌어다 놓으면 자동으로 업로드됩니다 — 다시 시도해 주세요. 사진을 바꾸지 않으려면 그 칸을 비워두면 됩니다.',
     );
   }
-  return fetchAndResizeCover(url, fetchImpl, '급하면 그 칸을 비워두고 저장하면 커버는 지금 상태 그대로 유지됩니다.');
+  return fetchAndResizeCover(url, fetchImpl, coverAuthToken, '급하면 그 칸을 비워두고 저장하면 커버는 지금 상태 그대로 유지됩니다.');
 }
 
 /** Commit-phase counterpart of `resolveTags` (resolve-content.mjs): write
@@ -279,7 +353,23 @@ function writeNewTagEntries(publicRepoDir, newEntries, notes) {
 // suite never makes a real network call (and so the one leg that IS
 // verifiable offline, download→resize→write, still gets a real exercise
 // against a real in-memory image instead of being skipped entirely).
-async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
+// `genreTemplatePath` has NO default here (unlike `fetchImpl = fetch`
+// above): every OTHER filesystem input this module touches is an explicit
+// parameter derived from `publicRepoDir`, never an assumed real path
+// (resolve-content.mjs's own module doc states this as a deliberate rule,
+// precisely so tests can point every read at a fixture instead of the real
+// checkout) — defaulting this one to REVIEW_TEMPLATE_PATH here would be the
+// one exception, and it would have a real cost: EVERY existing test above
+// that publishes a new album through the standalone fixture in
+// makeFixtureRepo() (publish.test.mjs) would start silently comparing that
+// fixture's OWN synthetic config/genres.yaml against THIS desk repo's REAL
+// review.yml — two things that have no reason to agree in a unit test and
+// were never meant to be compared. Only `main()` (this file's bottom)
+// passes the real `REVIEW_TEMPLATE_PATH`; every other caller — including
+// every test that is not specifically testing this diagnostic — leaves it
+// unset, and noteGenreFormDrift below silently no-ops on an unset path (see
+// its own doc comment).
+async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch, coverAuthToken = undefined, genreTemplatePath = undefined }) {
   const form = parseReviewForm(issueBody);
   const notes = [];
 
@@ -319,27 +409,35 @@ async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
       `장르 "${buckets.label}"을(를) 사이트 설정(config/genres.yaml)에서 찾지 못했습니다. 이슈 폼의 장르 목록이 사이트 설정과 어긋난 것 같습니다 — User(개발 담당)에게 알려주세요.`,
     );
   }
+  // Structural drift check, independent of whether THIS submission's own
+  // picks were valid — see noteGenreFormDrift's own doc comment.
+  if (album.isNew) noteGenreFormDrift(publicRepoDir, notes, genreTemplatePath);
 
-  const coverBuffer = await resolveCover({ fieldText: form.coverField, albumIsNew: album.isNew, notes, fetchImpl });
+  const coverBuffer = await resolveCover({ fieldText: form.coverField, albumIsNew: album.isNew, notes, fetchImpl, coverAuthToken });
   const coverPath = coverBuffer ? `covers/${album.slug}.jpg` : undefined;
 
-  // Subtitle/tags are ALBUM fields, so — same rule as buckets/cover above —
-  // they are only ever set when THIS submission is the one creating the
-  // album file. A follow-up review for an album that already exists (e.g.
-  // a second review attempt, or a review of an album the developer
+  // Subtitle/duration/tags are ALBUM fields, so — same rule as buckets/cover
+  // above — they are only ever set when THIS submission is the one creating
+  // the album file. A follow-up review for an album that already exists
+  // (e.g. a second review attempt, or a review of an album the developer
   // pre-created with album-add.ts) never touches that file's other fields,
-  // so a subtitle/tags typed on such a submission would silently do nothing
-  // if not reported — the notes below make that explicit rather than
-  // leaving the writer to wonder why their tags never showed up (same
+  // so a subtitle/duration/tags typed on such a submission would silently
+  // do nothing if not reported — the notes below make that explicit rather
+  // than leaving the writer to wonder why their tags never showed up (same
   // reasoning as resolveCover's own "이미 있는 앨범이라 이번에 올린 커버
-  // 이미지는 반영되지 않았습니다" note just above it).
+  // 이미지는 반영되지 않았습니다" note just above it). `duration`'s exact
+  // MM:SS shape is NOT re-validated here (docs/publishing.md
+  // §"검증을 중복 구현하지 마십시오") — an unparsable value just becomes an
+  // E-1xx build failure, same as every other content-shape rule.
   const subtitle = form.albumSubtitle.trim() || undefined;
+  const duration = form.albumDuration.trim() || undefined;
   let tagSlugs = [];
   let newTagEntries = [];
   if (album.isNew) {
     ({ slugs: tagSlugs, newEntries: newTagEntries } = resolveTags(form.tagTexts, publicRepoDir));
   } else {
     if (subtitle) notes.push('참고: 이미 있는 앨범이라 이번에 적은 부제는 반영되지 않았습니다 (기존 앨범 파일은 건드리지 않습니다).');
+    if (duration) notes.push('참고: 이미 있는 앨범이라 이번에 적은 앨범 길이는 반영되지 않았습니다 (기존 앨범 파일은 건드리지 않습니다).');
     if (form.tagTexts.length > 0) notes.push('참고: 이미 있는 앨범이라 이번에 적은 태그는 반영되지 않았습니다 (기존 앨범 파일은 건드리지 않습니다).');
   }
 
@@ -358,6 +456,7 @@ async function publishReview({ issueBody, publicRepoDir, fetchImpl = fetch }) {
         title: form.albumTitle,
         artistSlugs: [artist.slug],
         subtitle,
+        duration,
         releaseDate: form.releaseDate.trim(),
         buckets: buckets.ids,
         tags: tagSlugs,
@@ -499,7 +598,7 @@ async function publishStory({ issueBody, publicRepoDir }) {
  * the review SAYS, never WHEN it counts as published (R-1's tie-break, and
  * the archive's publication-year axis, both key off it).
  */
-async function updateReview({ issueBody, issueNumber, publicRepoDir, fetchImpl = fetch, git = undefined }) {
+async function updateReview({ issueBody, issueNumber, publicRepoDir, fetchImpl = fetch, coverAuthToken = undefined, git = undefined }) {
   const form = parseReviewForm(issueBody);
   const original = resolveOriginalPublication({ issueNumber, publicRepoDir, git, parseYaml });
   if (original === null || original.kind !== 'review') {
@@ -568,7 +667,7 @@ async function updateReview({ issueBody, issueNumber, publicRepoDir, fetchImpl =
   if (bodyMd.trim() === '') pdFail('PD-MISSING-BODY', '평론 본문이 비어 있습니다. "글" 칸을 채워 주세요.');
 
   const notes = [];
-  const coverBuffer = await resolveCoverForUpdate({ fieldText: form.coverField, fetchImpl });
+  const coverBuffer = await resolveCoverForUpdate({ fieldText: form.coverField, fetchImpl, coverAuthToken });
 
   // ── Commit phase ──
   writeFileSync(
@@ -705,6 +804,14 @@ async function main() {
   const issueBody = process.env.ISSUE_BODY ?? '';
   const issueNumber = process.env.ISSUE_NUMBER ?? '';
   const resultPath = process.env.PUBLISH_RESULT_PATH ?? join(process.cwd(), 'publish-result.json');
+  // The PRIVATE (this) repo's own default GITHUB_TOKEN — NOT secrets.PUBLISH_PAT
+  // (publish.yml's other credential, scoped to the PUBLIC repo only and
+  // never valid for this repo's own attachments; see downloadImage's doc
+  // comment in cover.mjs and publish.yml's "Resolve + write/update/delete
+  // content" step for where this is set). Optional: an empty/missing value
+  // changes nothing — downloadImage skips the Authorization header entirely
+  // (docs/publishing.md §3.1, public-repo attachments never needed it).
+  const coverAuthToken = process.env.COVER_FETCH_TOKEN || undefined;
 
   if (!publicRepoDir || !existsSync(publicRepoDir)) {
     throw new Error(`PUBLIC_REPO_DIR가 없거나 존재하지 않습니다: "${publicRepoDir}"`);
@@ -714,11 +821,15 @@ async function main() {
     const isStory = issueKind === 'story';
     let result;
     if (mode === 'update') {
-      result = isStory ? await updateStory({ issueBody, issueNumber, publicRepoDir }) : await updateReview({ issueBody, issueNumber, publicRepoDir });
+      result = isStory
+        ? await updateStory({ issueBody, issueNumber, publicRepoDir })
+        : await updateReview({ issueBody, issueNumber, publicRepoDir, coverAuthToken });
     } else if (mode === 'takedown') {
       result = isStory ? await takedownStory({ issueNumber, publicRepoDir }) : await takedownReview({ issueNumber, publicRepoDir });
     } else {
-      result = isStory ? await publishStory({ issueBody, publicRepoDir }) : await publishReview({ issueBody, publicRepoDir });
+      result = isStory
+        ? await publishStory({ issueBody, publicRepoDir })
+        : await publishReview({ issueBody, publicRepoDir, coverAuthToken, genreTemplatePath: REVIEW_TEMPLATE_PATH });
     }
     writeFileSync(resultPath, JSON.stringify(result, null, 2), 'utf8');
   } catch (err) {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { extractImageUrl, resizeCoverBuffer, downloadImage } from './cover.mjs';
+import { extractImageUrl, resizeCoverBuffer, downloadImage, CoverAuthError } from './cover.mjs';
 
 test('extractImageUrl reads the URL out of GitHub-inserted image markdown', () => {
   const field = '![lost-weekend](https://private-user-images.githubusercontent.com/1/2-3.jpg?jwt=abc)';
@@ -79,9 +79,21 @@ test('resizeCoverBuffer: a small image is NOT upscaled (withoutEnlargement)', as
 // down).
 const ALLOWED_URL = 'https://user-images.githubusercontent.com/missing.jpg';
 
-test('downloadImage rejects a non-2xx response with a specific message', async () => {
+// Writer-facing wording, not the raw "HTTP 404" this used to expose
+// verbatim in the issue comment (2026-09-09 lead directive — see
+// describeDownloadFailure's own doc comment in cover.mjs).
+test('downloadImage rejects a 404 with writer-readable Korean, not raw "HTTP 404"', async () => {
   const fakeFetch = async () => new Response('nope', { status: 404 });
-  await assert.rejects(() => downloadImage(ALLOWED_URL, fakeFetch), /HTTP 404/);
+  await assert.rejects(() => downloadImage(ALLOWED_URL, fakeFetch), /찾을 수 없습니다/);
+  await assert.rejects(() => downloadImage(ALLOWED_URL, fakeFetch), (err) => {
+    assert.ok(!/HTTP 404/.test(err.message), `message must not expose raw "HTTP 404": ${err.message}`);
+    return true;
+  });
+});
+
+test('downloadImage rejects a non-2xx, non-404 response with the status code (no better plain-language guess exists)', async () => {
+  const fakeFetch = async () => new Response('nope', { status: 500 });
+  await assert.rejects(() => downloadImage(ALLOWED_URL, fakeFetch), /서버 응답 코드 500/);
 });
 
 test('downloadImage rejects a non-image content-type with a specific message', async () => {
@@ -239,4 +251,71 @@ test('downloadImage gives up after too many redirects rather than looping foreve
   };
   await assert.rejects(() => downloadImage(ALLOWED_URL, fakeFetch), /리다이렉트가 너무 많습니다/);
   assert.ok(calls < 20, 'must bail out well before an unbounded loop');
+});
+
+// ── Authentication (2026-09-09, PD-COVER-FETCH-FAILED, real submission
+// `fgda114/undernote-desk#3` — MEASURED against the real attachment URL:
+// no auth -> 404, `Authorization: Bearer <token>` -> 200/image/jpeg). See
+// downloadImage's own doc comment for the redirect-safety rule tested
+// below. ──
+
+test('downloadImage sends Authorization: Bearer <token> on the FIRST request when a token is given', async () => {
+  const bytes = await sharp({ create: { width: 4, height: 4, channels: 3, background: { r: 7, g: 7, b: 7 } } })
+    .jpeg()
+    .toBuffer();
+  let seenAuth;
+  const fakeFetch = async (_url, init) => {
+    seenAuth = init?.headers?.Authorization;
+    return new Response(bytes, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+  };
+  await downloadImage(ALLOWED_URL, fakeFetch, 'secret-token');
+  assert.equal(seenAuth, 'Bearer secret-token');
+});
+
+test('downloadImage sends NO Authorization header when no token is given (public-repo / pre-existing behavior unchanged)', async () => {
+  const bytes = await sharp({ create: { width: 4, height: 4, channels: 3, background: { r: 8, g: 8, b: 8 } } })
+    .jpeg()
+    .toBuffer();
+  let sawHeaders;
+  const fakeFetch = async (_url, init) => {
+    sawHeaders = init?.headers;
+    return new Response(bytes, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+  };
+  await downloadImage(ALLOWED_URL, fakeFetch);
+  assert.equal(sawHeaders, undefined);
+});
+
+test('downloadImage strips the Authorization header on a redirect to a DIFFERENT host, even an ALLOWED one (no credential leak to a signed CDN URL)', async () => {
+  const bytes = await sharp({ create: { width: 4, height: 4, channels: 3, background: { r: 9, g: 9, b: 9 } } })
+    .jpeg()
+    .toBuffer();
+  const authSeenPerCall = [];
+  const fakeFetch = async (_url, init) => {
+    authSeenPerCall.push(init?.headers?.Authorization);
+    if (authSeenPerCall.length === 1) {
+      return new Response(null, { status: 302, headers: { location: 'https://private-user-images.githubusercontent.com/final.jpg?sig=already-signed' } });
+    }
+    return new Response(bytes, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+  };
+  await downloadImage('https://github.com/user-attachments/assets/abc', fakeFetch, 'secret-token');
+  assert.equal(authSeenPerCall.length, 2);
+  assert.equal(authSeenPerCall[0], 'Bearer secret-token', 'the FIRST hop (the actual private-repo attachment) must be authenticated');
+  assert.equal(authSeenPerCall[1], undefined, 'a redirect to a DIFFERENT host must NOT receive the token');
+});
+
+test('downloadImage throws CoverAuthError (not a plain Error) on 401, with the token never in the message', async () => {
+  const fakeFetch = async () => new Response('nope', { status: 401 });
+  await assert.rejects(
+    () => downloadImage(ALLOWED_URL, fakeFetch, 'secret-token'),
+    (err) => {
+      assert.ok(err instanceof CoverAuthError, `expected CoverAuthError, got ${err.constructor.name}`);
+      assert.ok(!err.message.includes('secret-token'), `token must never appear in an error message: ${err.message}`);
+      return true;
+    },
+  );
+});
+
+test('downloadImage throws CoverAuthError on 403 the same way as 401', async () => {
+  const fakeFetch = async () => new Response('nope', { status: 403 });
+  await assert.rejects(() => downloadImage(ALLOWED_URL, fakeFetch, 'secret-token'), (err) => err instanceof CoverAuthError);
 });

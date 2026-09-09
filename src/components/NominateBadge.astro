@@ -1,6 +1,6 @@
 ---
 /**
- * NominateBadge (components.md §10) — "● 지금 {버킷} 노미네이트 {n}위",
+ * NominateBadge (components.md §10) — "● 지금 올해의 앨범 노미네이트 {n}위",
  * linking to the year list (the review→board reverse path, D6-3).
  *
  * Lives at the FOOT OF THE REVIEW RAIL, under the spec block (moved there
@@ -15,21 +15,35 @@
  * Outline, not fill: a page may carry exactly one large accent surface, and
  * that one is the score plate. A second filled block would halve its weight,
  * so the badge stays a line until you hover it.
+ *
+ * "올해의 앨범" REPLACED THE PER-GENRE LABEL (2026-09-09, decision-maker
+ * request): the year list page stopped rendering its 8 genre-board sections
+ * the same day (list/[year]/index.astro's own intro), so a bucket name here
+ * would have pointed a reader at a section that no longer exists on the page
+ * this badge links to. `rank` is still the album's position WITHIN its best
+ * bucket's board (lib/derive/lists.ts#deriveBadgeMap is unchanged — that is
+ * a derive-layer computation outside this package's owned paths, and
+ * changing what the number MEANS, not just this label's wording, is a
+ * separate, reported decision) — the copy now reads as if it were an
+ * overall rank, which it is not yet. `bucketLabel` was this component's only
+ * other prop and had no remaining caller once this line stopped needing it,
+ * so it was removed rather than left unused (see reviews/[slug].astro's
+ * call site and 08-impl-notes/frontend.md for what that removal reported
+ * upstream).
  */
 interface Props {
-  bucketLabel: string;
   rank: number;
   year: number;
 }
 
 import { withBase } from '../lib/paths.ts';
 
-const { bucketLabel, rank, year } = Astro.props;
+const { rank, year } = Astro.props;
 ---
 
 <a class="badge" href={withBase(`/list/${year}/`)}>
   <span aria-hidden="true">●</span>
-  지금 {bucketLabel} 노미네이트 {rank}위 → 보드 보기
+  지금 올해의 앨범 노미네이트 {rank}위 → 보드 보기
 </a>
 
 <style>

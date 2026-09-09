@@ -59,9 +59,19 @@ export interface ReviewPageData {
   listenLinks: ListenLink[];
   /* ── Spec block (components.md §7). Every field below already exists in
      the content model — nothing here is invented, and fields the model does
-     NOT have (tracklist, runtime, BPM, staff) are deliberately absent. ── */
+     NOT have (tracklist, BPM, staff) are deliberately absent. `duration`
+     (below) joined this list 2026-09-09 — components.md §7 predates that
+     field and still lists "러닝타임" among the absent ones; a page-layer
+     change to render it is tracked separately (out of this package's owned
+     paths), this only wires the value through. ── */
   /** Record label — optional in the album schema, row omitted when absent. */
   label?: string;
+  /** Running time, rendered verbatim (album schema's optional `duration`,
+   * e.g. "52:26", 2026-09-09) — already display-ready (common.ts#durationSchema
+   * validates the exact MM:SS shape), so no reformatting happens here, same
+   * as `score` above. undefined when the album has none, so the page
+   * template can omit the row entirely rather than render a blank one. */
+  duration?: string;
   /** Detail tags resolved against the registry; empty ⇒ no TAGS row. */
   tags: { slug: string; label: string }[];
   /** Publication date of the review itself (<time datetime>). */
@@ -73,10 +83,17 @@ export interface ReviewPageData {
 /** "2026-05-01" → "2026. 5. 1." · "2026-05" → "2026. 5." · "2026" → "2026"
  * — pure string math, no Date object, no locale, no timezone (deterministic). */
 export function formatReleaseDate(releaseDate: string): string {
-  const [y, m, d] = releaseDate.split('-');
-  if (d) return `${y}. ${Number(m)}. ${Number(d)}.`;
-  if (m) return `${y}. ${Number(m)}.`;
-  return y;
+  // ISO, VERBATIM (2026-09-09). This used to render `2026. 8. 14.` while
+  // the review date one row below rendered `2026-09-06` — two dates side
+  // by side in one table wearing different clothes. The spec block puts
+  // Release directly above Reviewed precisely so the gap between them can
+  // be read at a glance, and that comparison does not survive two formats.
+  //
+  // Returning the stored string unchanged also removes a locale-shaped
+  // value from the output. `release_date` is already validated as
+  // YYYY / YYYY-MM / YYYY-MM-DD (common.ts#RELEASE_DATE_PATTERN), so a
+  // year-only album still reads `2026` — missing places are NOT invented.
+  return releaseDate;
 }
 
 /** Bucket id → display label. Resolution mirrors the E-104 validation rule
@@ -131,6 +148,7 @@ export function buildReviewPageData(input: {
     cover: coverSetFor({ slug, title: album.title, artistsLabel, cover: album.cover }),
     score: review.score,
     label: album.label,
+    duration: album.duration,
     tags: album.tags.map((t) => ({ slug: t, label: tagLabels?.get(t) ?? t })),
     reviewDate: review.date,
     coverSource: album.cover_source,

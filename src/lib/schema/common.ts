@@ -67,3 +67,25 @@ export const releaseDateSchema = z.preprocess(
         `release_date "${String(iss.input)}"은(는) YYYY·YYYY-MM·YYYY-MM-DD 중 하나가 아닙니다 (예: "2026-05-03").`,
     }),
 );
+
+/**
+ * Running time, written as TOTAL minutes:seconds (e.g. "52:26") — never
+ * split into "H:MM:SS". An album over an hour just keeps counting minutes
+ * past 59 (e.g. "92:15"), the same way most track/album metadata already
+ * displays it (liner notes, streaming services) and the way a writer
+ * naturally says it ("52분 26초" -> "52:26"), rather than making them do the
+ * hours/minutes carry themselves. Kept as a validated DISPLAY string, not an
+ * integer-seconds field reformatted at render time (album.ts's `duration`
+ * field has the fuller rationale) — unlike `scoreSchema` above, there is no
+ * float-truncation risk to guard against here (an unquoted "52:26" plain
+ * YAML scalar was verified, against the actual parsers this project uses —
+ * the `yaml` package in tools/publish-desk and js-yaml under Astro's content
+ * loader — to parse as the STRING "52:26", not a YAML 1.1 sexagesimal
+ * number; some other parsers do make that mistake, these do not), so no
+ * mandatory-quoting rule is needed either. */
+export const DURATION_PATTERN = /^\d{1,3}:[0-5]\d$/;
+
+export const durationSchema = z.string().regex(DURATION_PATTERN, {
+  error: (iss) =>
+    `duration "${String(iss.input)}"은(는) MM:SS 형식이 아닙니다 (예: "52:26"). 시:분:초로 나누지 말고 총 분:초로 적으세요 — 1시간이 넘으면 "92:15"처럼 분이 60 이상이어도 됩니다.`,
+});

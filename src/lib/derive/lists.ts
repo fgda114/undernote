@@ -181,37 +181,31 @@ export function deriveMonthlyRecaps(joined: JoinedReview[], nowYm: string): Mont
 /** Badge reverse map (P8): album slug → current board position. etc albums
  * never appear (not board material — by definition, R-7).
  *
- * MULTI-GENRE (2026-09-08) — SINGLE-VALUE, DELIBERATELY, WITH A KNOWN GAP.
- * An album can now sit on more than one bucket's board at once, so more than
- * one BadgeInfo can be true for the same slug. This map still returns AT
- * MOST ONE per slug — review-page.ts's NominateBadge slot is a single line
- * ("지금 {버킷} 노미네이트 {n}위") and widening this to `BadgeInfo[]` is a
- * page-level change (src/pages/reviews/[slug].astro, NominateBadge.astro)
- * outside this layer's owned paths; see 08-impl-notes/backend.md for what
- * that widening would need. Until then, the BEST (lowest-number) rank wins,
- * and a same-rank tie is broken by bucket id ascending (code-point compare —
- * never board iteration order, so the pick cannot depend on genres.yaml's
- * own bucket ordering, R-1's determinism discipline applied here too). This
- * means a multi-genre album's badge can go quiet about a SECOND genre it
- * also charts in — an accepted, documented loss, not a silent one. */
+ * WHAT THE RANK IS, AND WHY IT CHANGED (2026-09-09). This used to be the
+ * album's rank INSIDE one genre bucket, and the badge read "지금 {버킷}
+ * 노미네이트 {n}위". The genre boards were removed from /list/{year}/ on
+ * 2026-09-09 (eight configured buckets rendered eight mostly-empty
+ * sections), and the badge was reworded to "지금 올해의 앨범 노미네이트
+ * {n}위" — at which point a bucket-relative number became a LIE: first in
+ * Indie Pop reads as first overall.
+ *
+ * So the rank now comes from the same top 10 the page itself shows
+ * (deriveTop10), and the badge only appears for albums actually on it.
+ * That is a narrower badge than before — an album that led a small bucket
+ * without reaching the overall ten no longer carries one — and that is the
+ * point: the badge says what it means now.
+ *
+ * The multi-genre single-value problem this comment used to describe is
+ * gone with it. One album has one overall rank; there is nothing left to
+ * choose between and no tie-break to make deterministic. */
 export interface BadgeInfo {
-  bucketId: string;
-  bucketLabel: string;
   rank: number;
   year: number;
 }
 
-export function deriveBadgeMap(board: Board): Map<string, BadgeInfo> {
+export function deriveBadgeMap(top10: Top10Progressive): Map<string, BadgeInfo> {
   const map = new Map<string, BadgeInfo>();
-  for (const bucket of board.buckets) {
-    bucket.entries.forEach((entry, i) => {
-      const candidate: BadgeInfo = { bucketId: bucket.id, bucketLabel: bucket.label, rank: i + 1, year: board.year };
-      const existing = map.get(entry.album);
-      if (!existing || candidate.rank < existing.rank || (candidate.rank === existing.rank && candidate.bucketId < existing.bucketId)) {
-        map.set(entry.album, candidate);
-      }
-    });
-  }
+  top10.entries.forEach((entry, i) => map.set(entry.album, { rank: i + 1, year: top10.year }));
   return map;
 }
 

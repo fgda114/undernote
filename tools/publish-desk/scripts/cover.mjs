@@ -5,18 +5,19 @@
  * repo (ADR-0008 §2 — reduced copy only, source recorded, never the
  * original resolution/bytes).
  *
- * IMPORTANT — see docs/publishing.md §"검증 못 한 것" §3.1 for the current
- * state: a decision-maker's real submission (2026-09-09, `fgda114/undernote-
- * desk#2`) confirmed the ACTUAL attachment host (`github.com`, specifically
- * `github.com/user-attachments/assets/<uuid>`) and the ACTUAL markup shape
- * (an HTML `<img>` tag, not markdown) — both were wrong assumptions this
- * module used to make, fixed in `extractImageUrl` below. What remains
- * UNVERIFIED in this environment (no network access) is whether
- * `downloadImage`'s plain, unauthenticated GET against that host actually
- * succeeds — the real submission proves the URL/host shape, not the fetch
- * outcome. `extractImageUrl` and `resizeCoverBuffer` ARE fully testable
- * without network access and have real tests against the exact markup from
- * that real issue.
+ * IMPORTANT — see docs/publishing.md §"검증 못 한 것" §3.1 for the full,
+ * dated history. As of 2026-09-09 (`fgda114/undernote-desk#3`,
+ * `PD-COVER-FETCH-FAILED`) every open question this module's doc comments
+ * used to flag is now MEASURED, not assumed: the attachment host
+ * (`github.com/user-attachments/assets/<uuid>`), the markup shape (HTML
+ * `<img>`, handled by `extractImageUrl` below), and — the one that actually
+ * broke a real submission — that a PRIVATE repo's attachment needs
+ * authentication (`?jwt=`-style self-signed URLs, this project's prior
+ * assumption, were never observed; a plain unauthenticated GET measured
+ * 404, `Authorization: Bearer <token>` measured 200 against the exact same
+ * URL). `downloadImage` below now accepts an optional token for exactly
+ * this reason — see its own doc comment for the redirect-safety rule this
+ * added.
  */
 
 /**
@@ -117,6 +118,22 @@ const MAX_COVER_REDIRECTS = 5;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 /**
+ * Thrown for a 401/403 from `downloadImage` — kept as a DISTINCT class (not
+ * a plain `Error`, unlike every other failure branch below) because it is
+ * the one outcome `publish.mjs#fetchAndResizeCover` must NOT wrap as
+ * PD-COVER-FETCH-FAILED. Every other failure (404, non-image, oversized,
+ * disallowed host) is something a writer re-dropping a photo can plausibly
+ * fix; an auth rejection means the token this workflow itself supplied is
+ * missing, expired, or lacks the scope this attachment needs — no photo a
+ * writer drops changes that outcome, so telling them to "다시 끌어다 놓고
+ * 저장해 주세요" would be actively misleading. `publish.mjs` catches this
+ * type specifically and lets it propagate uncaught instead, landing it in
+ * the same "developer-only, via Actions log" bucket as any other
+ * infrastructure fault (see publish.mjs's own module doc for that split).
+ */
+export class CoverAuthError extends Error {}
+
+/**
  * Re-encode an arbitrary image buffer to the site's cover master format:
  * longest side <=640px, no upscaling, JPEG quality 82 with mozjpeg — the
  * EXACT parameters scripts/album-add.ts uses in the public repo. Kept in
@@ -173,9 +190,25 @@ async function readCappedBody(response, url, maxBytes) {
   return Buffer.concat(chunks);
 }
 
+/** Turn a non-2xx status into writer-facing Korean — deliberately WITHOUT
+ * the bare "HTTP 404" jargon this used to expose verbatim in the issue
+ * comment (2026-09-09 lead directive: a failure message a writer reads must
+ * read like something they can act on). 404 gets its own sentence because
+ * it is the one status a writer's own action (a deleted/replaced photo)
+ * plausibly causes; every other status keeps the numeric code, since there
+ * is no better plain-language guess for e.g. a 500 or 503, and hiding the
+ * number entirely would make repeat reports to the developer harder to
+ * triage. 401/403 are handled separately by the caller (CoverAuthError,
+ * above) and never reach this function. */
+function describeDownloadFailure(status, url) {
+  if (status === 404) {
+    return `커버 이미지 주소를 찾을 수 없습니다 — 사진이 지워졌거나 옮겨진 것 같습니다. (${url})`;
+  }
+  return `커버 이미지를 받지 못했습니다 (서버 응답 코드 ${status}) — ${url}`;
+}
+
 /**
- * Download an image. UNVERIFIED against a real private-repo attachment URL
- * (see module doc) — written to fail loudly and specifically rather than
+ * Download an image — written to fail loudly and specifically rather than
  * silently produce a broken cover:
  *   - a disallowed host (UN-SEC-016 — see isAllowedCoverHost's doc comment
  *     for the scope decision), non-2xx status, an oversized response, or a
@@ -189,9 +222,37 @@ async function readCappedBody(response, url, maxBytes) {
  * would sail straight through (UN-SEC-016's own point about follow-the-
  * redirect bypasses). Each hop is re-validated against the same allowlist
  * before being followed, up to MAX_COVER_REDIRECTS hops.
+ *
+ * `authToken`, if given, is sent as an `Authorization: Bearer <token>`
+ * header — but ONLY on requests to the exact host the very first `url`
+ * pointed at, never on a hop that redirected somewhere else, even to an
+ * ALLOWED host. This is deliberately narrower than isAllowedCoverHost:
+ * that allowlist protects against SSRF (an arbitrary host being fetched at
+ * all); this rule protects against credential leakage (this workflow's own
+ * token reaching a host that never asked for it). Real measurement
+ * (2026-09-09, `fgda114/undernote-desk#3`) is the reason both halves of
+ * this rule exist — a private-repo attachment's FIRST hop
+ * (`github.com/user-attachments/assets/<uuid>`) genuinely 404s without a
+ * token and 200s with one, but GitHub is also known to redirect attachment
+ * requests to signed, time-limited CDN URLs on a DIFFERENT host (its own
+ * query string already carries the authorization) — forwarding this
+ * workflow's token there too would hand a live, comparatively long-lived
+ * credential to a response whose destination this project does not
+ * control, for no benefit (that hop does not need it). Same rationale as
+ * curl's own default of stripping Authorization across a cross-host
+ * redirect. `authToken` is optional and changes nothing when omitted — a
+ * public-repo attachment (or any host that never needed auth to begin
+ * with) downloads exactly as before.
  */
-export async function downloadImage(url, fetchImpl = fetch) {
+export async function downloadImage(url, fetchImpl = fetch, authToken = undefined) {
   let currentUrl = url;
+  let authHost;
+  try {
+    authHost = new URL(url).hostname;
+  } catch {
+    authHost = null; // invalid `url` is reported uniformly by the loop's own first-iteration check below
+  }
+
   for (let hop = 0; ; hop++) {
     let parsed;
     try {
@@ -203,7 +264,11 @@ export async function downloadImage(url, fetchImpl = fetch) {
       throw new Error(`허용되지 않은 호스트("${parsed.hostname}")에서 커버 이미지를 받으려 했습니다 — GitHub 첨부 주소만 허용됩니다.`);
     }
 
-    const response = await fetchImpl(currentUrl, { redirect: 'manual' });
+    // Never logged: this is passed straight into a `fetch` header, never
+    // interpolated into any Error message or console output anywhere in
+    // this module (grep-verify before touching this function again).
+    const headers = authToken && parsed.hostname === authHost ? { Authorization: `Bearer ${authToken}` } : undefined;
+    const response = await fetchImpl(currentUrl, { redirect: 'manual', headers });
 
     if (REDIRECT_STATUSES.has(response.status)) {
       if (hop >= MAX_COVER_REDIRECTS) {
@@ -214,11 +279,14 @@ export async function downloadImage(url, fetchImpl = fetch) {
         throw new Error(`리다이렉트 응답에 location 헤더가 없습니다 — ${currentUrl}`);
       }
       currentUrl = new URL(location, currentUrl).toString();
-      continue; // re-validate the NEW host on the next loop iteration
+      continue; // re-validate the NEW host (and re-decide the auth header) on the next loop iteration
     }
 
+    if (response.status === 401 || response.status === 403) {
+      throw new CoverAuthError(`커버 이미지 요청이 인증 거부(HTTP ${response.status})됐습니다 — ${currentUrl}`);
+    }
     if (!response.ok) {
-      throw new Error(`커버 이미지를 받지 못했습니다 (HTTP ${response.status}) — ${currentUrl}`);
+      throw new Error(describeDownloadFailure(response.status, currentUrl));
     }
     const contentType = response.headers.get('content-type') ?? '';
     if (!contentType.startsWith('image/')) {

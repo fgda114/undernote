@@ -193,6 +193,51 @@ export function resolveGenreBucket(label, root) {
 }
 
 /**
+ * Every bucket LABEL configured across every year block in genres.yaml (a
+ * flat, deduplicated set) — the "ground truth" an Issue Form's static genre
+ * checkbox list should always be a superset of. Same "read live every run"
+ * rule as resolveGenreBucket above (never cached, never a second copy).
+ * "그 외" is never in this set (E-109 forbids configuring it), same
+ * exclusion resolveGenreBucket makes explicit for the reverse lookup.
+ */
+export function allConfiguredGenreLabels(root) {
+  const path = join(root, 'config', 'genres.yaml');
+  const config = parseYaml(readFileSync(path, 'utf8'));
+  const labels = new Set();
+  for (const year of config.years ?? []) {
+    for (const bucket of year.buckets ?? []) labels.add(bucket.label);
+  }
+  return labels;
+}
+
+/**
+ * Genre labels genres.yaml configures that an Issue Form's own static
+ * checkbox `options` do NOT offer — the ONE direction resolveGenreBucket
+ * itself structurally cannot catch, because it only ever runs against
+ * labels the form ACTUALLY OFFERED (a label the form never lists as an
+ * option never reaches resolveGenreBucket at all — there is nothing for a
+ * writer to check).
+ *
+ * This is a real, not hypothetical, gap: 2026-09-09, config/genres.yaml
+ * split what had been a single "Hip-Hop / R&B" bucket into 8 (Hip-Hop, R&B,
+ * Digicore, Rage, Pop, Indie Pop, Rock, Indie Folk) while review.yml's
+ * checkboxes stayed the old 4 — a decision-maker could not select
+ * "Digicore"/"Rage" at all and had only "그 외" left to check. No PD-* ever
+ * fired ("그 외" always resolves without a config lookup, resolveGenreBucket's
+ * own doc comment), so the album was published with the WRONG bucket and
+ * nothing in the pipeline said so — this function exists to make that
+ * failure mode visible (see publish.mjs's own caller for how the note
+ * surfaces).
+ *
+ * Order-independent (a Set diff): only PRESENCE matters here, never option
+ * order.
+ */
+export function missingGenreFormOptions(configLabels, formOptionLabels) {
+  const offered = new Set(formOptionLabels);
+  return [...configLabels].filter((label) => !offered.has(label));
+}
+
+/**
  * Resolve every CHECKED genre label from the form (MULTI-GENRE, 2026-09-08)
  * to its bucket id, by composing `resolveGenreBucket` per label — one
  * mapping rule, reused, rather than a second one. Stops at the first label
