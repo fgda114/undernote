@@ -359,8 +359,36 @@ const { prev, next } = siteData.adjacent.get(`/reviews/${review.id}/`) ?? { prev
       grid-template-columns: 1fr;
       gap: var(--s-24);
     }
+    /* THE RAIL KEEPS ITS OWN WIDTH WHEN THE GRID COLLAPSES (2026-09-10,
+       decision-maker: "리뷰 상세 글에서 점수가 앨범커버 사진 폭이랑 동일하고
+       바로 밑에 딱 붙어있게").
+
+       `.score-mark` is `width: 100%` (ScoreMark.astro). On the desktop that
+       100% is the 320px grid column, so the plate came out exactly the
+       cover's width, flush under it — the "single stamped object" the
+       desktop rule above describes. Below 960px the two-column grid becomes
+       `1fr`, so the rail became the WHOLE FRAME and the plate stretched with
+       it while the cover stayed at its own edge length. Measured before this
+       fix: 390px → cover 320 / plate 350; 640px → 320 / 600; 959px → 320 /
+       856, an 88px-tall bar nearly three times the width of the artwork it
+       belongs to.
+
+       Giving the rail `--rail` here restores the desktop relationship
+       instead of restating it: the plate's own `width: 100%` resolves
+       against the same box the cover does, so the two cannot drift apart
+       again — there is no second copy of the cover's width to keep in sync.
+       `max-width: 100%` is what keeps 360px and 320px viewports (where the
+       frame is narrower than `--rail`) from overflowing.
+
+       `gap: var(--s-12)` USED TO BE HERE and is deleted with the same edit:
+       it put 12px between the cover and the plate, which is precisely the
+       "flush" the desktop rule spends a comment on. Spacing below the plate
+       comes back from the base rules' own margins (`.spec` and
+       `.rail-badge`, both `margin-top: var(--s-16)`), which is how the
+       desktop rail has always done it. */
     .hero-rail {
-      gap: var(--s-12);
+      width: var(--rail);
+      max-width: 100%;
     }
     /* REVERSED 2026-09-10, decision-maker direction: "모바일 리뷰 점수는
        앨범사진 아래에 있어야지...데스크탑처럼" (the mobile score belongs
@@ -383,12 +411,15 @@ const { prev, next } = siteData.adjacent.get(`/reviews/${review.id}/`) ?? { prev
        unaffected. See 08-impl-notes/frontend.md for the post-reversal width
        measurement (the original comment's "full-width score" claim, checked
        against what the plate now renders at under the 360px cover). */
-    .rail-cover {
-      max-width: 360px;
-    }
-    .hero-rail :global(.spec) {
-      margin-top: 0;
-    }
+    /* `.rail-cover { max-width: 360px }` and `.hero-rail :global(.spec)
+       { margin-top: 0 }` both lived here and are DELETED (2026-09-10).
+       The 360px cap never bound once the rail is `--rail` (320px) wide, and
+       the `margin-top: 0` existed only to avoid double-spacing against the
+       `gap` above — with the gap gone it would have left the spec block
+       touching the plate. Both were props for a layout that no longer
+       exists; removing them is what makes the mobile rail the same object
+       the desktop rail is, rather than a second one that happens to look
+       similar. */
   }
   @media (max-width: 640px) {
     .hero {
