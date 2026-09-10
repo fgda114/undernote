@@ -20,6 +20,38 @@ test('US-2/US-1 — 홈 보드 행 클릭 → 평론 도달 (클릭 1회)', asyn
   await expect(page.locator('.score-mark')).toBeVisible(); // D2-R: the dial IS the landing proof
 });
 
+/**
+ * D2-R rail order — mobile AND desktop (2026-09-10). The two existing
+ * `.score-mark` checks above and below (`toBeVisible()`) only prove the
+ * plate is ON the page; neither says WHERE relative to the cover, which is
+ * exactly the axis the mobile `order: -1` reversal (reviews/[slug].astro)
+ * moved. A visibility check cannot catch two elements swapping places — both
+ * stay visible either way — which is why the order bug this pins shipped and
+ * was overlooked once already (frontend.md's own account of the reversal).
+ * Checked as a RECT COMPARISON (score's own top vs cover's own bottom)
+ * rather than as document order, because CSS `order` changes VISUAL order
+ * without touching DOM order — a DOM-order assertion would have kept passing
+ * throughout the whole incident.
+ */
+test('D2-R — 히어로 레일: 점수판이 커버 아래에 온다 (모바일·데스크톱 모두)', async ({ page }) => {
+  for (const [label, width] of [['모바일', 390], ['데스크톱', 1440]] as const) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(u('/reviews/aurora-line-first-light/'));
+    const cover = page.locator('.rail-cover');
+    const score = page.locator('.score-mark');
+    await expect(cover).toBeVisible();
+    await expect(score).toBeVisible();
+    const coverBox = (await cover.boundingBox())!;
+    const scoreBox = (await score.boundingBox())!;
+    expect(coverBox, `${label}: 커버 rect 없음`).not.toBeNull();
+    expect(scoreBox, `${label}: 점수판 rect 없음`).not.toBeNull();
+    // "아래" = score's top is at or below cover's bottom. A 1px allowance
+    // covers the zero-gap flush pairing (.hero-rail's own comment) without
+    // tolerating a real overlap or reversal.
+    expect(scoreBox.y, `${label}: 점수판이 커버 아래에 있지 않음 (score.top=${scoreBox.y} cover.bottom=${coverBox.y + coverBox.height})`).toBeGreaterThanOrEqual(coverBox.y + coverBox.height - 1);
+  }
+});
+
 test('US-9 — 평론 히어로 아티스트명 클릭 → 아티스트 페이지', async ({ page }) => {
   await page.goto(u('/reviews/aurora-line-first-light/'));
   await page.locator('a.artist-link').first().click();
@@ -298,4 +330,81 @@ test('아카이브 — ?q= 로 도착하면 로드 시점에 그 값으로 미�
   // Every rich-set item is dated 2026 (published) and every review not
   // otherwise noted also released in 2026 — the query matches all 9.
   await expect(page.locator('#archive-list [data-s]:not([hidden])')).toHaveCount(9);
+});
+
+/**
+ * THE ARROWS STEP ONE SCREENFUL — NOT ONE CARD, NOT AN ARBITRARY DISTANCE
+ * (2026-09-10).
+ *
+ * The browsing sections became paged scrollers on the editor's brief: "지금처럼
+ * 두개만 보이고 옆으로 버튼 누르거나(버튼 누르면 한번에 두카드씩 넘어가게)
+ * 슬라이드해서 4개 목록까지 커버되게". The step size IS the request, and until
+ * this test nothing measured it — the suite could see that two buttons shipped
+ * (browser.flows) and that a page of cards fills the rail (browser.hierarchy),
+ * but not that pressing one moves the row by exactly one page.
+ *
+ * WHY THAT GAP MATTERS MORE THAN IT SOUNDS. `enhance.js` scrolls by
+ * `box.clientWidth`, which is not a number anyone wrote down — it is whatever
+ * the CSS made the rail. That is the design's whole economy (one line of
+ * script serves 2-up and 4-up without being told which), and it is also the
+ * failure mode: any rule that makes a card's width stop dividing the rail
+ * evenly turns "one press = one page" into "one press = a page and a bit,
+ * snapped back to something". The reader sees a card they have already read,
+ * or skips one entirely, and every existing assertion still passes.
+ *
+ * SO IT MEASURES CARD IDENTITY, NOT PIXELS. The assertion is which cards are
+ * wholly visible before and after — [1,2] → [3,4] → [5,6] on a phone,
+ * [1,2,3,4] → [5,6,7,8] on the desktop — because a pixel figure would have to
+ * restate `clientWidth` and would then agree with a broken implementation for
+ * the same reason it agrees with a correct one. Which cards a reader can see
+ * is the property; the scroll offset is an implementation of it.
+ *
+ * The two ends are checked in the same pass: `prev` ships `disabled` from the
+ * server (the row always opens on card 1) and `next` must become disabled once
+ * the last page is reached, which is the only signal a reader gets that the
+ * row has ended.
+ */
+test('탐색 캐러셀 — 화살표 한 번에 한 화면씩, 양 끝에서 멈춘다 (모바일 2장 · 데스크톱 4장)', async ({ page }) => {
+  await page.goto(u('/'));
+  const SEC = 'section[aria-label="최신 리뷰"]';
+
+  /** Indices (1-based) of the cards wholly inside the rail's visible window. */
+  const visible = () =>
+    page.evaluate((sec: string) => {
+      const rail = document.querySelector(`${sec} .cards`) as HTMLElement;
+      const left = rail.getBoundingClientRect().left;
+      return [...rail.querySelectorAll('.article-card')]
+        .map((el, i) => ({ i: i + 1, r: el.getBoundingClientRect() }))
+        .filter(({ r }) => r.left - left >= -1 && r.right - left <= rail.clientWidth + 1)
+        .map(({ i }) => i);
+    }, SEC);
+
+  const next = page.locator(`${SEC} .carousel-btn.next`);
+  const prev = page.locator(`${SEC} .carousel-btn.prev`);
+  // `scroll-snap` settles asynchronously after `scrollBy`, so every read goes
+  // through `expect.poll` rather than a fixed wait — a sleep long enough to be
+  // reliable on a loaded CI box is long enough to hide a slow bug.
+  const seeing = (want: number[]) => expect.poll(visible, { timeout: 4000 }).toEqual(want);
+
+  // ── Phone: two per page ──
+  await page.setViewportSize({ width: 390, height: 1200 });
+  await seeing([1, 2]);
+  await expect(prev, '행이 첫 페이지에서 열리는데 이전 버튼이 살아 있음').toBeDisabled();
+  await next.click();
+  await seeing([3, 4]);
+  await next.click();
+  await seeing([5, 6]);
+  await prev.click();
+  await seeing([3, 4]);
+
+  // ── Desktop: four per page, and the row ends ──
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.evaluate((sec: string) => {
+    (document.querySelector(`${sec} .cards`) as HTMLElement).scrollLeft = 0;
+  }, SEC);
+  await seeing([1, 2, 3, 4]);
+  await next.click();
+  await seeing([5, 6, 7, 8]);
+  await expect(next, '마지막 페이지인데 다음 버튼이 아직 살아 있음 — 끝이 보이지 않는다').toBeDisabled();
+  await expect(prev, '첫 페이지를 벗어났는데 이전 버튼이 죽어 있음').toBeEnabled();
 });

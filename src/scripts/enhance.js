@@ -3,8 +3,8 @@
 const q = (m) => matchMedia(m).matches;
 const still = q('(prefers-reduced-motion:reduce)');
 
-// Chart carousel — arrows step the row one card; it scrolls with no script.
-for (const box of document.querySelectorAll('.chart-cards')) {
+// Carousels — arrows step one screenful; the rows scroll with no script.
+for (const box of document.querySelectorAll('.chart-cards,.cards')) {
   const btns = box.parentElement.querySelectorAll('[data-scroll]');
   if (!btns.length) continue;
   const sync = () => {

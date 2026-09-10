@@ -1,8 +1,15 @@
 /**
- * Foreground static server for the rich sandbox dist — used instead of
+ * Foreground static server for a sandbox's dist — used instead of
  * `astro preview` because Astro 7's preview daemonizes (detaches and exits),
  * which Playwright's webServer treats as "exited early". Serves 404.html
  * with a real 404 status, like GitHub Pages does.
+ *
+ * Sandbox name is an optional 3rd arg (default 'rich', unchanged behaviour
+ * for the shared webServer in playwright.config.ts and every existing
+ * caller) — added 2026-09-10 so a spec that needs LIVE browser rendering
+ * against a purpose-built content set (not the shared rich fixture) can
+ * serve its own sandbox on its own port without a second server
+ * implementation (browser.carousel-boundary.spec.ts).
  */
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
@@ -11,7 +18,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SANDBOX = resolve(HERE, '..', '.sandbox', 'rich');
+const SANDBOX = resolve(HERE, '..', '.sandbox', process.argv[3] ?? 'rich');
 const ROOT = join(SANDBOX, 'dist');
 const PORT = Number(process.argv[2] ?? 4180);
 

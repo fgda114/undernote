@@ -435,15 +435,33 @@ export interface HomeSections {
 /**
  * @param limit cards per browsing section.
  *
- * FOUR, NOT SIX (2026-09-07). The home's browsing grids are now a FIXED
- * four-column row on desktop rather than an auto-filling one, so the count
- * and the layout have to agree: six cards would wrap to a second row holding
- * two, leaving two empty tracks on the right of the page's widest grid. One
- * full row per section is the shape the sections were asked for, and it is
- * also the shape that survives every breakpoint — at three columns it is
- * 4 = 3 + 1, at two it is 2 + 2, at one it is a short list. The limit is the
- * same for both sections on purpose: they are siblings, and giving Notes a
- * different count would invent a rank the editorial structure does not have.
+ * EIGHT (2026-09-10), RAISED FROM FOUR. The 2026-09-07 argument for four is
+ * quoted below and was correct FOR A WRAPPING GRID: with a fixed four-column
+ * row, six cards wrapped to a second row of two and left two empty tracks on
+ * the widest grid, so the count and the layout had to agree.
+ *
+ * The layout changed. Both browsing sections are now paged scrollers — one
+ * screenful of cards at a time, arrows stepping a whole page — so the count
+ * no longer decides the section's HEIGHT, only how far it can be paged. Four
+ * is exactly one page on the desktop and two on a phone; eight is two and
+ * four. The ceiling exists at all because each section still has a "전체 보기"
+ * tail link that reaches everything: this row's job is "recent", and past
+ * two or three presses a reader is better served by the archive than by more
+ * arrow clicks. Twelve was the other number considered and is a one-token
+ * change here if the front page ever wants three desktop pages.
+ *
+ * THE SUPERSEDED PARAGRAPH: "FOUR, NOT SIX (2026-09-07). The home's browsing
+ * grids are now a FIXED four-column row on desktop rather than an
+ * auto-filling one, so the count and the layout have to agree: six cards
+ * would wrap to a second row holding two, leaving two empty tracks on the
+ * right of the page's widest grid. One full row per section is the shape the
+ * sections were asked for, and it is also the shape that survives every
+ * breakpoint — at three columns it is 4 = 3 + 1, at two it is 2 + 2, at one
+ * it is a short list."
+ *
+ * The limit is the same for both sections on purpose: they are siblings, and
+ * giving Notes a different count would invent a rank the editorial structure
+ * does not have.
  *
  * Overlap between "best of the year" and "most recent" is normal in any
  * magazine and is NOT deduplicated -- the two sections answer different
@@ -468,7 +486,7 @@ function bucketLabelOf(board: Board, bucketId: string | undefined): string {
   return board.buckets.find((b) => b.id === bucketId)?.label ?? '';
 }
 
-export function deriveHomeSections(board: Board, top10: Top10Progressive, allArticles: ArticleItem[], limit = 4): HomeSections {
+export function deriveHomeSections(board: Board, top10: Top10Progressive, allArticles: ArticleItem[], limit = 8): HomeSections {
   // THE HOME CARD IS THE YEAR'S #1, NOT A BUCKET'S (2026-09-10).
   //
   // This used to flatten `board.buckets` and take the first entry, which is

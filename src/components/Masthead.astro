@@ -288,6 +288,72 @@ const items = [
       transition: none;
     }
   }
+  /* TWO ROWS BELOW 406px, AND THE WRAP IS NOW DECLARED RATHER THAN EMERGENT
+     (2026-09-10). `flex-wrap: wrap` alone left the masthead in one of two
+     shapes with no way to tell them apart in CSS, and the two-row shape had
+     never been styled — or measured. It showed, on a phone: the wordmark's
+     box sat at y=0 with NOTHING above it, the two rows were 41px apart
+     measured ink-to-ink, and the bar came to 101px tall at 390px.
+
+     Why nothing above it: `min-height` is 57px and the wrapped content is
+     100px, so `align-content: center` had no free space to distribute and
+     every value that would have made room lived on the single-row path.
+     Why 41px between: 8 (wordmark's own padding) + 16 (row-gap) + 17
+     (.nav-link's top padding). That 17 is the SINGLE-ROW number — it exists
+     to balance the nav's ink against the wordmark's across a SHARED
+     baseline (see the long note above), and on separate rows there is no
+     shared baseline to balance, so it is just 17px of dead space stacked on
+     top of 16px more.
+
+     `flex-basis: 100%` on the wordmark forces the wrap instead of waiting
+     for one, so this block and the state it describes are the same thing.
+
+     405, NOT A ROUND NUMBER: it is where the row stops fitting, measured.
+     The wordmark is 102.6px and the nav 246.8px at the mobile tracking set
+     below, so one row needs 102.6 + 16 + 246.8 = 365.4px of content — and
+     `--gutter` is pinned at its 20px floor for every viewport under ~673px,
+     so that is a 405.4px viewport. Rounding this UP to a comfortable 460
+     was the first attempt and it is the wrong direction: 414, 428 and 430
+     are all real phone widths that fit on one row today, and a tidier
+     breakpoint would have taken a 58px bar to 91px on every one of them.
+
+     Above 405 `flex-wrap: wrap` stays on .masthead-inner as the safety
+     valve it always was — a face that renders wider than the subset wraps
+     rather than overflowing 360px. If that ever fires it lands OUTSIDE this
+     block and gets the single-row spacing on a two-row layout, which is the
+     defect this pass fixed. That is deliberately not guarded with
+     `flex-wrap: nowrap` (which would trade a spacing bug for a horizontal
+     scrollbar); it is guarded by the e2e test instead, which asserts that
+     the masthead's ink is symmetric in WHICHEVER state each width is in and
+     so does not depend on this 405 staying accurate.
+
+     The measured result, at 360px and 390px:
+       위 잉크 15 · 로고~메뉴 22 · 아래 잉크 16 · 전체 93px  (was 8 / 41 / 15, 101px)
+     Symmetric top and bottom, and the gap between the rows is now smaller
+     than the rows' own height. The wrapped widths browser.a11y.spec.ts used
+     to skip outright are the reason this shipped unseen. */
+  @media (max-width: 405px) {
+    .masthead-inner {
+      /* 8/0, not a symmetric pair: the nav's own 12px padding and 2px
+         border already supply the space under its ink, so the bar only
+         needs padding on the side the wordmark is on to come out even.
+         8 rather than the 6 the box arithmetic predicts — measured, the
+         wordmark's line box starts 2px above its glyphs and the ink came
+         out 13/16. At 8 it is 15/16. */
+      padding-block: 8px 0;
+      row-gap: 0;
+    }
+    .wordmark {
+      flex-basis: 100%;
+    }
+    /* 12/12 — symmetric, because on its own row there is no wordmark
+       baseline to sit against. Still 44px (2 + 12 + 16 + 12 + 2), so the
+       touch target the e2e suite pins at 360px is untouched. */
+    .nav-link {
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+  }
   @media (max-width: 640px) {
     .masthead-inner {
       min-height: var(--masthead-h-mobile);

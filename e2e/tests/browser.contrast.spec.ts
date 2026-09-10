@@ -447,6 +447,181 @@ test('forced-colors — 전 텍스트 역할이 시스템 캔버스에서 보인
   expect(failures, `고대비 모드에서 안 보이는 텍스트:\n${failures.join('\n')}`).toEqual([]);
 });
 
+// ── 6. --bg-sheen — exists everywhere, not re-asserted by colour value ────
+/**
+ * 배경 그라데이션 일관성 (2026-09-10, 결정권자 지시: "모바일 화면에서 배경 색
+ * 그라데이션 들어가있는데 모바일 홈화면이랑 데스크탑 전체에서는 그라데이션
+ * 없어. 다 그라데이션 있게 고쳐줘"). `--bg-sheen`(tokens.css)가 `1100px 620px
+ * at 18% -12%` 같은 px+percent-of-body 좌표를 썼던 시절에는, 문서 높이가
+ * 뷰포트보다 큰 어느 지면에서든 `%` 위치가 문서 전체 높이 기준으로 계산돼
+ * 화면 최상단 ~300px 안에서 완전히 사라졌다 — 데스크톱일수록, 그리고 지면이
+ * 길수록 더 빨리. `vw`/`vh`로 바꾼 근거와 실측은 tokens.css의 --bg-sheen
+ * 코멘트에 있다.
+ *
+ * 색값을 다시 적는 테스트는 쓸모없다 — 구현과 테스트가 같이 틀릴 수 있다
+ * (tokens.css가 잘못된 rgba를 적어도, 그 값을 그대로 베낀 테스트는 통과한다).
+ * 그 대신 "렌더된 픽셀이 배경색과 실제로 다른가"를 잰다: 모든 요소를
+ * `visibility:hidden`으로 감추면 <body> 자신이 칠한 바닥만 남는다(팀장의
+ * 방법 그대로) — 그 위에서 스크린샷을 찍어 raw 픽셀을 읽는다.
+ */
+async function sheenColumn(page: Page, x: number, sampleHeight: number) {
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('body *')) (el as HTMLElement).style.visibility = 'hidden';
+  });
+  const clip = { x, y: 0, width: 1, height: sampleHeight };
+  const { data, info } = await sharp(await page.screenshot({ clip })).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const rows: number[][] = [];
+  for (let y = 0; y < info.height; y++) {
+    const i = y * info.channels;
+    rows.push([data[i], data[i + 1], data[i + 2]]);
+  }
+  return rows;
+}
+
+test('배경 그라데이션 — 전 지면·전 폭에서 존재 (홈·리뷰 상세 × 모바일·데스크톱)', async ({ page }) => {
+  // BUG FOUND BY THE LEAD (2026-09-10): a first version read `--bg` via
+  // `getComputedStyle` ONCE, before the loop's first `page.goto()` — i.e.
+  // against `about:blank`, where the custom property does not exist. `hx('')`
+  // silently produced `[NaN, NaN, NaN]`, and every `Math.abs(px - NaN) > 2`
+  // comparison below is `false` no matter what the pixel is — the test
+  // reported "no pixel differs from --bg anywhere" on EVERY page, including
+  // ones a screenshot plainly shows the wash on (the lead's own real-build
+  // measurement caught this; the mutation test that should have caught it
+  // never ran against a passing baseline first — see frontend.md).
+  //
+  // Fixed by not reading a CSS token as the reference at all (the lead's
+  // suggestion): the reference background is the sampled column's OWN bottom
+  // pixel — well below where the wash has measurably faded to nothing at
+  // every target below — so the comparison never depends on `page.goto`
+  // having run yet, or on any value read outside the loop.
+  const targets: [string, string, number, number][] = [
+    ['홈 · 모바일', u('/'), 390, 900],
+    ['홈 · 데스크톱', u('/'), 1440, 1000],
+    ['리뷰 상세 · 모바일', u('/reviews/aurora-line-first-light/'), 390, 900],
+    ['리뷰 상세 · 데스크톱', u('/reviews/aurora-line-first-light/'), 1440, 1000],
+  ];
+  const failures: string[] = [];
+  const lines: string[] = [];
+  for (const [label, path, width, height] of targets) {
+    await page.setViewportSize({ width, height });
+    await page.goto(path);
+    await page.waitForTimeout(150);
+    const col = await sheenColumn(page, 5, height);
+    const bg = col[col.length - 1];
+    // "존재" = 칼럼 맨 아래(순수 배경) 톤과 조금이라도 다른 픽셀이 있다.
+    // sRGB 채널 diff 2는 스크린샷 인코딩 자체의 반올림보다는 크고, 실측된
+    // 실제 차이(수 채널 10~20)보다는 훨씬 작은 문턱이라 오탐(과대 판정)도
+    // 누락(과소 판정)도 만들지 않는다.
+    const differs = (px: number[]) => Math.abs(px[0] - bg[0]) > 2 || Math.abs(px[1] - bg[1]) > 2 || Math.abs(px[2] - bg[2]) > 2;
+    const existsAt = col.findIndex(differs);
+    // "첫 화면 안에서 사라지지 않는다" = 위쪽 근처(상단 1/4)뿐 아니라 화면
+    // 중간대(y = height*0.4 ~ height*0.7 사이의 어느 한 지점)에서도 바닥과
+    // 구분되는 픽셀이 있다 — 이게 원래 결함의 실측 지점("첫 화면 위쪽 ~300px
+    // 안에서 완전히 소실")과 정확히 겹치는 구간이다.
+    const midStart = Math.floor(height * 0.4);
+    const midEnd = Math.floor(height * 0.7);
+    const existsMid = col.slice(midStart, midEnd).some(differs);
+    lines.push(`${label}: bg(맨아래) ${hex(bg)} · 상단 첫 발견=${existsAt < 0 ? '없음' : `y=${existsAt}`} · 중간대(${midStart}-${midEnd}) 존재=${existsMid}`);
+    if (existsAt < 0) failures.push(`${label} — 화면 어디에서도 맨아래 바닥색과 다른 픽셀이 없음 (그라데이션 미표시)`);
+    if (!existsMid) failures.push(`${label} — 중간대(${midStart}~${midEnd}px)에서 바닥색과 같음 — 첫 화면 안에서 소실`);
+  }
+  console.log(`배경 그라데이션 존재 실측:\n  ${lines.join('\n  ')}`);
+  expect(failures, failures.join('\n')).toEqual([]);
+});
+
+/**
+ * `--line-strong` 위 워시 대비 (2026-09-10, QA 권고 — 리드 채택, 리드 재검토
+ * 후 방법 변경). `--bg-sheen` 기하 변경(위 테스트) 전까지 이 저장소의 대비
+ * 테스트 전부가 평평한 `--bg` 위에서만 재고 있었다 — 그라데이션이 실제로
+ * 밝히는 워시 색 위의 대비는 이 스위트 어디에도 게이트가 없었다.
+ *
+ * 첫 버전은 `.chart-carousel .carousel-btn.next` 한 지점의 보더-배경 쌍을
+ * 그 자리에서 통째로 쟀다 — 그런데 그 버튼은 워시 피크(`--bg-sheen`의 두 레이어
+ * 중심, 뷰포트 최상단 좌우)가 아니라 섹션 헤드 아래, 화면 중간 높이에 있다.
+ * 거기 워시가 피크보다 약하면 이 테스트는 최악이 아닌 더 쉬운 조건을 재고
+ * 통과시켜, 알파를 올렸을 때 정작 더 위쪽의 다른 보더가 조용히 깨지는 걸
+ * 못 잡을 수 있다 — 검사가 있는데도 못 잡는, 이 저장소가 반복해 온 형태다.
+ * 리드 지시로 두 값을 각각 독립적으로 뽑아 합치는 방식으로 바꿨다:
+ *
+ *   ① 보더의 실제 칠해진 색 — `--line-strong`은 불투명이라 위치와 무관하게
+ *      항상 같은 색이다. 버튼 하나에서 그대로 읽는다(위치는 무관, 표본일 뿐).
+ *   ② 그 페이지에서 워시가 가장 밝은 지점 — 전 요소 `visibility:hidden`
+ *      스크린샷(위 존재 테스트와 같은 방법)에서 **가장 밝은(명도 최댓값)
+ *      픽셀**을 찾는다. `--line-strong`(#6f7791 상당의 중간 회색)은 `--bg`
+ *      보다 항상 밝고 워시는 배경을 밝히기만 하므로(어둡게 하지 않음), 가장
+ *      밝은 배경 픽셀이 보더 색에 가장 가까워지는 지점 = 실제 최악이다.
+ *
+ * `tokens.css`를 읽지 않는다 — 둘 다 스크린샷 픽셀에서 뽑고, 대비만 계산한다.
+ * 보더가 실제로 어디 있든, 앞으로 다른 요소로 옮겨져도 이 조합 자체는 유효하다.
+ * 폭 여러 개(390/768/1440)에서 잰다 — 기하가 vw/vh이므로 워시 피크의 절대
+ * 밝기가 폭에 따라 달라질 수 있다.
+ */
+async function borderColor(page: Page, selector: string) {
+  const box = await page.locator(selector).boundingBox();
+  if (!box) throw new Error(`${selector} — boundingBox 없음`);
+  const cx = Math.round(box.x + box.width / 2);
+  const top = Math.round(box.y);
+  // 원형 버튼(`border-radius: var(--r-full)`)의 정점(top-center) — 폭 1px
+  // 보더가 안티앨리어싱 없이 가장 또렷하게 걸리는 지점. 위 8px(배경)부터
+  // 아래 6px(버튼 내부)까지 세로로 가로지르는 스트립을 찍어, 배경에서
+  // 뚜렷하게(채널당 8 이상) 갈라지는 첫 행을 보더로 삼는다 — 불투명한 색이라
+  // 어디서 재든 같아야 하고, 안티앨리어싱이 섞이면 순수색보다 오히려 더
+  // 엄격한(대비를 낮게 잡는) 쪽으로만 치우친다.
+  const clip = { x: cx, y: top - 8, width: 1, height: 14 };
+  const { data, info } = await sharp(await page.screenshot({ clip })).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const rows: number[][] = [];
+  for (let y = 0; y < info.height; y++) {
+    const i = y * info.channels;
+    rows.push([data[i], data[i + 1], data[i + 2]]);
+  }
+  const bg = rows[0];
+  const border = rows.slice(1).find((px) => Math.abs(px[0] - bg[0]) > 8 || Math.abs(px[1] - bg[1]) > 8 || Math.abs(px[2] - bg[2]) > 8);
+  if (!border) throw new Error(`${selector} — 배경과 구분되는 테두리 전환부를 못 찾음 (스트립: ${JSON.stringify(rows)})`);
+  return border;
+}
+
+/** 전 요소를 숨긴 뒤 지면 전체(뷰포트 높이만큼)를 스크린샷해 명도가 가장 높은
+ *  픽셀을 찾는다 — `sheenColumn`과 같은 은폐 기법이지만 한 줄이 아니라 2D
+ *  전체를 스캔해 "이 폭에서 워시가 실제로 도달하는 최댓값"을 구한다. */
+async function brightestPixel(page: Page, width: number, height: number) {
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('body *')) (el as HTMLElement).style.visibility = 'hidden';
+  });
+  const { data, info } = await sharp(await page.screenshot({ clip: { x: 0, y: 0, width, height } }))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  let best = [0, 0, 0];
+  let bestLum = -1;
+  for (let i = 0; i < data.length; i += info.channels) {
+    const px = [data[i], data[i + 1], data[i + 2]];
+    const l = lum(px);
+    if (l > bestLum) {
+      bestLum = l;
+      best = px;
+    }
+  }
+  return best;
+}
+
+test('대비 — --line-strong 보더가 지면 최밝 지점(워시 피크) 위에서도 3:1 이상 (픽셀 실측, 폭 3종)', async ({ page }) => {
+  const failures: string[] = [];
+  const lines: string[] = [];
+  for (const width of [390, 768, 1440]) {
+    const height = 1000;
+    await page.setViewportSize({ width, height });
+    await page.goto(u('/'));
+    const border = await borderColor(page, '.chart-carousel .carousel-btn.next');
+    // brightestPixel이 전 요소를 숨기므로, 보더 색은 그 전에 이미 뽑아 둔다.
+    const brightest = await brightestPixel(page, width, height);
+    const r = ratio(border, brightest);
+    lines.push(`${width}px: border ${hex(border)} · 최밝 배경 ${hex(brightest)} · ${r.toFixed(3)}:1`);
+    if (r < 3.0) failures.push(`${width}px — ${r.toFixed(3)}:1 (border=${hex(border)} brightest=${hex(brightest)})`);
+  }
+  console.log(`--line-strong on 지면 최밝 지점:\n  ${lines.join('\n  ')}`);
+  expect(failures, `--line-strong 보더가 지면에서 가장 밝은 지점 대비 3:1 미달:\n${failures.join('\n')}`).toEqual([]);
+});
+
 test('prefers-contrast: more — 헤어라인 승격 · 보조 텍스트 본문색', async ({ page }) => {
   await page.emulateMedia({ contrast: 'more' });
   await page.goto(u('/'));

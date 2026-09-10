@@ -29,6 +29,10 @@ import {
   type ArticleItem,
 } from '../../src/lib/derive/lists';
 import { excerptFrom } from '../../src/lib/derive/excerpt';
+// F-2 (multi-genre label consistency, see the describe block below): the
+// SAME function review-page.ts calls, imported directly so the test's ground
+// truth is not a second, hand-rolled copy of the resolution rule.
+import { buildReviewPageData, bucketLabelFor } from '../../src/lib/derive/review-page';
 import type { Album, Artist, GenresConfig, ReviewFrontmatter, SiteConfig, Snapshot, Story } from '../../src/lib/schema';
 
 // ── fixture builders ───────────────────────────────────────────────────
@@ -360,6 +364,50 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
     expect(charts.map((c) => c.bucketLabel)).toEqual(['팝', '힙합/R&B', '팝']);
   });
 
+  // F-2 (2026-09-10, QA 권고 채택). 4aa3283이 고친 결함 — 홈 보드는 앨범이
+  // "마지막으로 발견된" 버킷(genres.yaml order가 가장 높은 것)을 읽고, 리뷰
+  // 상세는 `album.buckets[0]`을 읽어서, 같은 다장르 앨범을 두 지면이 다른
+  // 이름으로 부르던 것 — 을 겨냥한 회귀 테스트가 그 커밋 자체에는 없었다.
+  // 두 지면의 라벨을 서로만 비교하면 부족하다: 둘 다 같은 잘못된 값으로
+  // 수렴해도(예: 둘 다 마지막 버킷을 읽도록 나란히 재발) 통과해 버린다. 그래서
+  // `bucketLabelFor`(review-page.ts가 실제로 쓰는 그 함수)를 앨범의
+  // `buckets[0]`에 직접 적용한 값을 제3의 기준으로 두고, 홈 보드의 값과
+  // 리뷰 상세의 값 둘 다 그 기준과 일치하는지를 따로따로 확인한다.
+  it('다장르 앨범 — 홈 보드·리뷰 상세 라벨이 둘 다 album.buckets[0]과 일치한다 (F-2)', () => {
+    const repo = repoOf({
+      albums: [albumOf('multi-genre', { buckets: ['hiphop-rnb', 'pop'] })],
+      reviews: [reviewOf('multi-genre', '8.0', '2026-01-01')],
+    });
+    const { charts } = sectionsFor(repo);
+    expect(charts).toHaveLength(1);
+
+    // The ground truth: the same function review-page.ts calls, applied to
+    // the same album's buckets[0] directly — not read off either surface.
+    const groundTruth = bucketLabelFor('hiphop-rnb', 2026, genres);
+    expect(groundTruth).toBe('힙합/R&B'); // sanity: fixture's own genres block
+
+    // 홈 보드.
+    expect(charts[0].bucketLabel, '홈 보드 라벨이 album.buckets[0]과 불일치').toBe(groundTruth);
+
+    // 리뷰 상세 — buildReviewPageData가 실제로 렌더링에 쓰는 값.
+    const album = repo.albums[0];
+    const page = buildReviewPageData({
+      slug: 'multi-genre',
+      review: repo.reviews[0].data,
+      album: album.data,
+      artists: new Map(repo.artists.map((a) => [a.slug, a.data])),
+      genres,
+      site,
+    });
+    expect(page.bucketLabel, '리뷰 상세 라벨이 album.buckets[0]과 불일치').toBe(groundTruth);
+
+    // buckets[1]("pop")의 라벨이 아님을 확인 — 둘 다 잘못된 인덱스로 나란히
+    // 회귀해도 groundTruth와의 비교만으로는 못 잡는 경우를 막는 덧문.
+    const wrongLabel = bucketLabelFor('pop', 2026, genres);
+    expect(charts[0].bucketLabel).not.toBe(wrongLabel);
+    expect(page.bucketLabel).not.toBe(wrongLabel);
+  });
+
   it('빈 버킷은 charts에 아무것도 기여하지 않는다 (R-4 — 홈은 미출력, 구조는 /list/{year}/가 보인다)', () => {
     const repo = repoOf({
       albums: [albumOf('only-pop')],
@@ -393,13 +441,19 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
   });
 
   it('차트 밖 평론이 하나라도 있으면 최신 리뷰가 발행일 내림차순으로 나온다 (중복 허용)', () => {
-    // 6 pop albums. The board kept 5 per bucket; the home's chart list now
-    // comes from the year's top 10, so all six are in it — the cap moved
-    // from 5-per-bucket to 10-overall (2026-09-10).
-    const albums = ['a', 'b', 'c', 'd', 'e', 'f'].map((k) => albumOf(`pop-${k}`));
-    const reviews = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) =>
-      reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`),
-    );
+    // NINE pop albums, up from six (2026-09-10). Six stopped proving
+    // anything about the browsing cap the moment that cap went 4 → 8: with
+    // six reviews and a limit of eight, `toHaveLength` would have matched
+    // the fixture rather than the rule, and a limit quietly raised to
+    // twenty — or dropped altogether — would have passed. Nine exceeds the
+    // cap, so the number below is the LIMIT's, not the fixture's.
+    //
+    // The board kept 5 per bucket; the home's chart list now comes from the
+    // year's top 10, so all nine are in it — the cap moved from
+    // 5-per-bucket to 10-overall (2026-09-10).
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    const albums = keys.map((k) => albumOf(`pop-${k}`));
+    const reviews = keys.map((k, i) => reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`));
     const { charts, latestReviews } = sectionsFor(repoOf({ albums, reviews }));
     // RELOCATED, not deleted (2026-09-10). This asserted the BOARD's
     // per-bucket top-5 cut. `deriveHomeSections` now takes the overall
@@ -407,19 +461,36 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
     // with six albums none are cut. What the assertion protects is
     // unchanged: the home's chart list is BOUNDED and ordered by score,
     // never an unbounded dump in config order.
-    expect(charts).toHaveLength(6);
-    expect(charts.map((c) => c.album)).toEqual(['pop-a', 'pop-b', 'pop-c', 'pop-d', 'pop-e', 'pop-f']);
-    // Newest first; the lowest-scored album is the newest review here. The
-    // DEFAULT limit dropped 6 → 4 on 2026-09-07 when the home's browsing
-    // grids became a fixed four-column row — six cards would have left two
-    // empty tracks on a second row. Asserted explicitly rather than by
-    // shortening the list, because "one full row" is the property.
-    expect(latestReviews).toHaveLength(4);
+    expect(charts).toHaveLength(9);
+    expect(charts.map((c) => c.album)).toEqual([
+      'pop-a',
+      'pop-b',
+      'pop-c',
+      'pop-d',
+      'pop-e',
+      'pop-f',
+      'pop-g',
+      'pop-h',
+      'pop-i',
+    ]);
+    // Newest first, and CUT AT THE LIMIT. The default went 6 → 4 on
+    // 2026-09-07, when the browsing grids became a fixed four-column row and
+    // six cards would have left two empty tracks on a second row, and 4 → 8
+    // on 2026-09-10, when those rows became paged scrollers and a fifth card
+    // stopped costing a second row (see deriveHomeSections). Asserted
+    // explicitly rather than by shortening the fixture, because the
+    // BOUNDEDNESS is the property — the ninth review is the one that proves
+    // it exists.
+    expect(latestReviews).toHaveLength(8);
     expect(latestReviews.map((a) => a.url)).toEqual([
+      '/reviews/pop-i/',
+      '/reviews/pop-h/',
+      '/reviews/pop-g/',
       '/reviews/pop-f/',
       '/reviews/pop-e/',
       '/reviews/pop-d/',
       '/reviews/pop-c/',
+      '/reviews/pop-b/',
     ]);
   });
 

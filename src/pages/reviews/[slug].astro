@@ -362,12 +362,27 @@ const { prev, next } = siteData.adjacent.get(`/reviews/${review.id}/`) ?? { prev
     .hero-rail {
       gap: var(--s-12);
     }
-    /* The plate moves above the cover on narrow screens: a full-width score
-       right under the title keeps "this album = this score" in one glance,
-       instead of pushing it below a 360px square (D2-R's entry point). */
-    .hero-rail :global(.score-mark) {
-      order: -1;
-    }
+    /* REVERSED 2026-09-10, decision-maker direction: "모바일 리뷰 점수는
+       앨범사진 아래에 있어야지...데스크탑처럼" (the mobile score belongs
+       BELOW the album cover, like on desktop). `order: -1` used to sit here,
+       moving the plate ABOVE the cover on narrow screens — the original
+       reasoning is kept rather than deleted, because the shape of that
+       argument will come up again:
+
+         "The plate moves above the cover on narrow screens: a full-width
+         score right under the title keeps 'this album = this score' in one
+         glance, instead of pushing it below a 360px square (D2-R's entry
+         point)."
+
+       That trade — score-before-cover for a faster glance — was overruled by
+       the decision-maker in favour of matching the desktop rail's own order
+       (cover, then score, flush under it). Removing `order: -1` returns the
+       plate to source order, which IS the desktop order already — no grid-
+       row/column reassignment needed here, only the property that fought it.
+       `.rail-cover`'s mobile cap below is unrelated to either order and is
+       unaffected. See 08-impl-notes/frontend.md for the post-reversal width
+       measurement (the original comment's "full-width score" claim, checked
+       against what the plate now renders at under the 360px cover). */
     .rail-cover {
       max-width: 360px;
     }
