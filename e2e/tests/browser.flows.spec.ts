@@ -20,6 +20,38 @@ test('US-2/US-1 — 홈 보드 행 클릭 → 평론 도달 (클릭 1회)', asyn
   await expect(page.locator('.score-mark')).toBeVisible(); // D2-R: the dial IS the landing proof
 });
 
+/**
+ * D2-R rail order — mobile AND desktop (2026-09-10). The two existing
+ * `.score-mark` checks above and below (`toBeVisible()`) only prove the
+ * plate is ON the page; neither says WHERE relative to the cover, which is
+ * exactly the axis the mobile `order: -1` reversal (reviews/[slug].astro)
+ * moved. A visibility check cannot catch two elements swapping places — both
+ * stay visible either way — which is why the order bug this pins shipped and
+ * was overlooked once already (frontend.md's own account of the reversal).
+ * Checked as a RECT COMPARISON (score's own top vs cover's own bottom)
+ * rather than as document order, because CSS `order` changes VISUAL order
+ * without touching DOM order — a DOM-order assertion would have kept passing
+ * throughout the whole incident.
+ */
+test('D2-R — 히어로 레일: 점수판이 커버 아래에 온다 (모바일·데스크톱 모두)', async ({ page }) => {
+  for (const [label, width] of [['모바일', 390], ['데스크톱', 1440]] as const) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(u('/reviews/aurora-line-first-light/'));
+    const cover = page.locator('.rail-cover');
+    const score = page.locator('.score-mark');
+    await expect(cover).toBeVisible();
+    await expect(score).toBeVisible();
+    const coverBox = (await cover.boundingBox())!;
+    const scoreBox = (await score.boundingBox())!;
+    expect(coverBox, `${label}: 커버 rect 없음`).not.toBeNull();
+    expect(scoreBox, `${label}: 점수판 rect 없음`).not.toBeNull();
+    // "아래" = score's top is at or below cover's bottom. A 1px allowance
+    // covers the zero-gap flush pairing (.hero-rail's own comment) without
+    // tolerating a real overlap or reversal.
+    expect(scoreBox.y, `${label}: 점수판이 커버 아래에 있지 않음 (score.top=${scoreBox.y} cover.bottom=${coverBox.y + coverBox.height})`).toBeGreaterThanOrEqual(coverBox.y + coverBox.height - 1);
+  }
+});
+
 test('US-9 — 평론 히어로 아티스트명 클릭 → 아티스트 페이지', async ({ page }) => {
   await page.goto(u('/reviews/aurora-line-first-light/'));
   await page.locator('a.artist-link').first().click();

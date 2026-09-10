@@ -318,8 +318,39 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
                 enhance.js disables both ends when there is nothing to reach.
                 With no script at all they are inert either way and the track
                 is still a native scroll container: swipe, trackpad, and the
-                thin scrollbar all still work. */}
-            <div class="carousel">
+                thin scrollbar all still work.
+
+                F-1 (Matthias, 2026-09-10) — `> 2` is necessary but not
+                sufficient. A count of 3 fills a whole page at ≥840px (3-up)
+                and a count of 4 fills a whole page at ≥1160px (4-up); at
+                exactly those (count, viewport) pairs the row cannot scroll at
+                all, so both arrows would be controls pointing at what is
+                already on screen (R-4) — with no script running to hide them
+                (enhance.js's `sync()` only DISABLES a button, never removes
+                it, and a no-script reader never runs it at all). A first
+                attempt at this gated `next`'s SSR `disabled` on a STATIC
+                viewport-blind rule and was wrong: it disabled `next` for
+                EVERY 3-or-4-card section regardless of width, which broke
+                the narrow widths where the row genuinely does scroll (count
+                3 at 641-839px, count 4 at ≤1159px) — a no-script reader there
+                could never reach the last card at all. Reverted.
+
+                THE FIX IS GEOMETRIC, NOT A `disabled` GATE: `data-count`
+                below carries the section's own card count, and the two
+                `@media` blocks beside the card-width rules
+                (`.cards > :global(.article-card)`, further down this file)
+                hide the WHOLE button pair — not just `next` — at exactly the
+                (count, viewport) pairs where nothing is reachable. Hiding the
+                pair rather than dimming one button keeps R-4's own wording
+                ("a control that can only ever point at what is already on
+                screen") satisfied for BOTH arrows at once, and it needs no
+                script: the pair is simply absent from that layout's DOM, at
+                every load, with or without enhance.js. The breakpoints reuse
+                the SAME numbers the width ladder already declares (840 /
+                1160), placed beside those very rules rather than restated
+                here, so the two counts and the two widths cannot drift apart
+                the way `WIDEST_ROW_PAGE` almost did. */}
+            <div class="carousel" data-count={latestReviews.length}>
               {latestReviews.length > 2 && (
                 <button type="button" class="carousel-btn prev" data-scroll="-1" aria-label="이전 리뷰" disabled>
                   <span aria-hidden="true">‹</span>
@@ -366,11 +397,12 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
         notes.length > 0 ? (
           <>
             {/* Same scroller as 최신 리뷰 above, and same reasoning for the
-                `> 2` threshold. The two browsing sections are siblings and
-                take the same treatment on purpose — giving Notes its own
-                shape would invent a rank the editorial structure does not
-                have (see deriveHomeSections). */}
-            <div class="carousel">
+                `> 2` threshold and the `data-count` pair-hiding rule (F-1) —
+                the two browsing sections are siblings and take the same
+                treatment on purpose — giving Notes its own shape would invent
+                a rank the editorial structure does not have (see
+                deriveHomeSections). */}
+            <div class="carousel" data-count={notes.length}>
               {notes.length > 2 && (
                 <button type="button" class="carousel-btn prev" data-scroll="-1" aria-label="이전 이야기" disabled>
                   <span aria-hidden="true">‹</span>
@@ -642,11 +674,24 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
      슬라이드해서 4개 목록까지 커버되게" — and, once it pages, "4개 제한으로
      할필요없이 8개나 12개까지 보이게 해도될거같아".)
 
-        viewport      cards / page   card width
-        ≥ 1160px           4         241 → 320px
-        840 – 1159         3         244 → 320px
-        641 – 839          2         292 → 320px
-        ≤ 640              2         (frame − 16) / 2
+     MN-1 (2026-09-10): the table below used to give ONE width per breakpoint.
+     That number is only correct when NO ARROWS RENDER — a section holding two
+     or fewer items (`length > 2` gates both buttons, above). The common case
+     is arrows present, and there both buttons + the two 8px gaps around
+     `.cards` (44+8+8+44 = 104px, `.carousel`'s own `gap`) come out of the
+     SAME container the card widths below are a fraction of, so every card in
+     the row loses 104px ÷ (cards per page) — measured at 1160px: 241.2px
+     card without arrows, 215.2px with. The cap (320px) is unaffected either
+     way since it is a `min(...)`, only reached at a wider viewport when
+     arrows are eating part of the row. At ≤640px the arrows move BELOW the
+     cards (`@media (max-width: 640px)` further down) precisely so they stop
+     costing card width at all — that row is identical with or without them.
+
+        viewport      cards / page   card width (no arrows)   card width (arrows — the common case)
+        ≥ 1160px           4         241 → 320px               215 → 320px
+        840 – 1159         3         244 → 320px               209 → 320px
+        641 – 839          2         292 → 320px                240 → 320px
+        ≤ 640              2         (frame − 16) / 2           (frame − 16) / 2 — unaffected, see above
 
      THE LADDER IS UNCHANGED — the same counts at the same breakpoints, sized
      by the same 320px cap and computed against the same gutter curve. What
@@ -711,10 +756,34 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     .cards > :global(.article-card) {
       flex-basis: min(320px, calc((100% - 2 * var(--s-16)) / 3));
     }
+    /* F-1 (2026-09-10) — 3 CARDS IS A FULL PAGE FROM HERE UP. This is the
+       breakpoint this rule's own comment three lines up just declared "3
+       cards per page" at, so a section holding exactly 3 has nowhere to
+       scroll to from here up (the ladder only gets WIDER, never narrower,
+       as the viewport grows) — both arrows would point at what is already
+       on screen (R-4). `min-width` queries are cumulative, so this also
+       covers ≥1160px automatically; the 4-card rule below adds its OWN
+       hide for exactly that width, where a 4-card section hits the same
+       wall a 3-card one hit here. Hiding the PAIR, not dimming `next` alone:
+       `prev` has nothing to point at either, and a dimmed `prev` next to a
+       vanished `next` would be two different answers to the same question
+       on one row. `display: none`, not `visibility: hidden`, so the pair
+       also leaves the flex row (`.cards` reclaims the width) and the tab
+       order (no dead stop for a keyboard reader). This is a PURE CSS rule —
+       no script needed for it to be correct on load, so a no-script reader
+       is never shown a button with nothing behind it. */
+    .carousel[data-count='3'] .carousel-btn {
+      display: none;
+    }
   }
   @media (min-width: 1160px) {
     .cards > :global(.article-card) {
       flex-basis: min(320px, calc((100% - 3 * var(--s-16)) / 4));
+    }
+    /* Same reasoning as the 3-card hide above, one rung up the ladder: from
+       here the page holds 4, so a 4-card section can no longer scroll. */
+    .carousel[data-count='4'] .carousel-btn {
+      display: none;
     }
   }
   @media (max-width: 640px) {

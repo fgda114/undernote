@@ -189,7 +189,25 @@ const score = showScore ? item.score : undefined;
         <span class="body">
           {showFormat && <FormatLabel text={item.formatLabel} variant="chip" />}
           <span class="title">{item.title}</span>
-          {item.type === 'review' && item.subtitle && <span class="subtitle">{item.subtitle}</span>}
+          {/* Artist · album year, same grammar as the row variant's subtitle
+              line (see that variant's comment for why the year is the
+              ALBUM's, not the publication date below) — MJ-1 (2026-09-10):
+              this line used to stop at the artist name here even though
+              ArticleItem has carried `releaseYear` since a527482. The row
+              variant got the year appended and this one did not, so the
+              home's Latest Reviews cards (which render THIS variant) never
+              showed a release year while the archive listing (which renders
+              `row`) did — same field, one call site wired, the other silently
+              not. Kept type-gated exactly like the row variant: a story's
+              subtitle is its own first paragraph, never an artist name, so
+              releaseYear (which only ever exists on a review) cannot apply
+              there either. */}
+          {item.type === 'review' && item.subtitle && (
+            <span class="subtitle">
+              {item.subtitle}
+              {item.releaseYear && <span class="release-year tnum"> · {item.releaseYear}</span>}
+            </span>
+          )}
           {item.excerpt && <span class="excerpt">{item.excerpt}</span>}
           <time class="date tnum" datetime={item.date}>
             {item.date}

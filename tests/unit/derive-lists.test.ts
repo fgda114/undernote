@@ -29,6 +29,10 @@ import {
   type ArticleItem,
 } from '../../src/lib/derive/lists';
 import { excerptFrom } from '../../src/lib/derive/excerpt';
+// F-2 (multi-genre label consistency, see the describe block below): the
+// SAME function review-page.ts calls, imported directly so the test's ground
+// truth is not a second, hand-rolled copy of the resolution rule.
+import { buildReviewPageData, bucketLabelFor } from '../../src/lib/derive/review-page';
 import type { Album, Artist, GenresConfig, ReviewFrontmatter, SiteConfig, Snapshot, Story } from '../../src/lib/schema';
 
 // ── fixture builders ───────────────────────────────────────────────────
@@ -358,6 +362,50 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
     // The genre label still travels with the card — ChartCard names it — but
     // it comes from the album now, not from which board it was found on.
     expect(charts.map((c) => c.bucketLabel)).toEqual(['팝', '힙합/R&B', '팝']);
+  });
+
+  // F-2 (2026-09-10, QA 권고 채택). 4aa3283이 고친 결함 — 홈 보드는 앨범이
+  // "마지막으로 발견된" 버킷(genres.yaml order가 가장 높은 것)을 읽고, 리뷰
+  // 상세는 `album.buckets[0]`을 읽어서, 같은 다장르 앨범을 두 지면이 다른
+  // 이름으로 부르던 것 — 을 겨냥한 회귀 테스트가 그 커밋 자체에는 없었다.
+  // 두 지면의 라벨을 서로만 비교하면 부족하다: 둘 다 같은 잘못된 값으로
+  // 수렴해도(예: 둘 다 마지막 버킷을 읽도록 나란히 재발) 통과해 버린다. 그래서
+  // `bucketLabelFor`(review-page.ts가 실제로 쓰는 그 함수)를 앨범의
+  // `buckets[0]`에 직접 적용한 값을 제3의 기준으로 두고, 홈 보드의 값과
+  // 리뷰 상세의 값 둘 다 그 기준과 일치하는지를 따로따로 확인한다.
+  it('다장르 앨범 — 홈 보드·리뷰 상세 라벨이 둘 다 album.buckets[0]과 일치한다 (F-2)', () => {
+    const repo = repoOf({
+      albums: [albumOf('multi-genre', { buckets: ['hiphop-rnb', 'pop'] })],
+      reviews: [reviewOf('multi-genre', '8.0', '2026-01-01')],
+    });
+    const { charts } = sectionsFor(repo);
+    expect(charts).toHaveLength(1);
+
+    // The ground truth: the same function review-page.ts calls, applied to
+    // the same album's buckets[0] directly — not read off either surface.
+    const groundTruth = bucketLabelFor('hiphop-rnb', 2026, genres);
+    expect(groundTruth).toBe('힙합/R&B'); // sanity: fixture's own genres block
+
+    // 홈 보드.
+    expect(charts[0].bucketLabel, '홈 보드 라벨이 album.buckets[0]과 불일치').toBe(groundTruth);
+
+    // 리뷰 상세 — buildReviewPageData가 실제로 렌더링에 쓰는 값.
+    const album = repo.albums[0];
+    const page = buildReviewPageData({
+      slug: 'multi-genre',
+      review: repo.reviews[0].data,
+      album: album.data,
+      artists: new Map(repo.artists.map((a) => [a.slug, a.data])),
+      genres,
+      site,
+    });
+    expect(page.bucketLabel, '리뷰 상세 라벨이 album.buckets[0]과 불일치').toBe(groundTruth);
+
+    // buckets[1]("pop")의 라벨이 아님을 확인 — 둘 다 잘못된 인덱스로 나란히
+    // 회귀해도 groundTruth와의 비교만으로는 못 잡는 경우를 막는 덧문.
+    const wrongLabel = bucketLabelFor('pop', 2026, genres);
+    expect(charts[0].bucketLabel).not.toBe(wrongLabel);
+    expect(page.bucketLabel).not.toBe(wrongLabel);
   });
 
   it('빈 버킷은 charts에 아무것도 기여하지 않는다 (R-4 — 홈은 미출력, 구조는 /list/{year}/가 보인다)', () => {

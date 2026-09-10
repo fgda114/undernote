@@ -141,6 +141,65 @@ test('D2-R2 — 리스트 지면 점수 표시·정렬 / 홈 보드 캐러셀(�
   }
 });
 
+/**
+ * MJ-1 (2026-09-10). a527482 added `ArticleItem.releaseYear` and wired it
+ * into ONLY the `row` variant's markup (ArticleCard's archive listing rows);
+ * the `card` variant the home's 최신 리뷰 section renders never got the same
+ * line. Nothing failed — `releaseYear` is optional on the type and neither
+ * template branch references the other — so the build stayed green and the
+ * gap only showed up by looking at the two rendered pages side by side.
+ *
+ * Regression-shaped test: this asserts the field reaches the SHIPPED HTML,
+ * on BOTH surfaces, not merely that `ArticleItem` carries it (derive-lists
+ * already covers that). Comparing the two surfaces to each other would not
+ * have caught the original bug either way — one of them was silently
+ * correct — so each is checked against the fixture's own release year
+ * independently.
+ */
+test('MJ-1 — 발매 연도가 row·card 두 변형 모두에 출력된다 (row=/archive/reviews/, card=홈 최신 리뷰)', () => {
+  const target = RICH_SET.find((a) => a.slug === 'aurora-line-first-light')!;
+  const releaseYear = target.release.slice(0, 4);
+  const hrefFrag = `href="${B}/reviews/${target.slug}/"`;
+  // A REGEX, NOT A LITERAL SUBSTRING (fixed after this test failed against
+  // correct output on first run). Astro writes a scoped-CSS attribute
+  // (`data-astro-cid-…`, a hash of the component file) between the class
+  // string and the closing `>` of every element it emits — `[^>]*` absorbs
+  // that without hardcoding the hash itself, which changes on any edit to
+  // ArticleCard.astro and would otherwise silently re-break this exact
+  // assertion the next time someone touches that file.
+  const needle = new RegExp(`class="release-year tnum"[^>]*>\\s*·\\s*${releaseYear}<`);
+
+  // card — home's 최신 리뷰 section, SCOPED TO THAT SECTION. `target` is the
+  // board's own #1 (9.1, the rich set's highest score), so its href appears
+  // TWICE on the home page — once as the Charts carousel's `row-link` (which
+  // never carries a release year at all; ChartCard is a different component)
+  // and once as the 최신 리뷰 section's `card`. An unscoped `indexOf` finds
+  // the FIRST occurrence, i.e. the Charts one, and would make this assertion
+  // pass or fail for a reason that has nothing to do with MJ-1 — sliced to
+  // the section boundary first, same anchors the neighbouring test computes.
+  const home = readPage(dir, '/');
+  const reviewsAt = home.indexOf('aria-label="최신 리뷰"');
+  const notesAt = home.indexOf('aria-label="음악 이야기"');
+  expect(reviewsAt, '홈 최신 리뷰 섹션 앵커 부재').toBeGreaterThan(-1);
+  expect(notesAt, '홈 음악 이야기 섹션 앵커 부재').toBeGreaterThan(reviewsAt);
+  const latestReviewsSection = home.slice(reviewsAt, notesAt);
+  const homeHrefAt = latestReviewsSection.indexOf(hrefFrag);
+  expect(homeHrefAt, `홈 최신 리뷰 섹션에 ${target.slug} 카드 링크 부재`).toBeGreaterThan(-1);
+  // The whole card lives inside one <a>, so the next `</a>` after the href
+  // closes it and bounds the search window to THIS card (no nested anchors
+  // exist inside ArticleCard's markup).
+  const homeCloseAt = latestReviewsSection.indexOf('</a>', homeHrefAt);
+  expect(latestReviewsSection.slice(homeHrefAt, homeCloseAt), `홈 card 변형에 발매 연도 부재 (MJ-1)`).toMatch(needle);
+
+  // row — /archive/reviews/, same bounding technique (this page only ever
+  // renders the `row` variant, so no section-scoping is needed here).
+  const archive = readPage(dir, '/archive/reviews/');
+  const rowHrefAt = archive.indexOf(hrefFrag);
+  expect(rowHrefAt, `/archive/reviews/에 ${target.slug} 행 링크 부재`).toBeGreaterThan(-1);
+  const rowCloseAt = archive.indexOf('</a>', rowHrefAt);
+  expect(archive.slice(rowHrefAt, rowCloseAt), `/archive/reviews/ row 변형에 발매 연도 부재`).toMatch(needle);
+});
+
 test('D2-R — 평론 히어로에 자기 점수 1회, 본문 이후 중복 없음', () => {
   for (const a of RICH_SET) {
     const html = readPage(dir, `/reviews/${a.slug}/`);

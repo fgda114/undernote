@@ -135,7 +135,7 @@
   --head-sheen: linear-gradient(100deg, #8bf7d2 0%, #63efc0 34%, #b9a5f7 100%);
   /* --bg-sheen  the ground itself: two radial gradients pinned to the top of
      the document, mint on the left and lavender on the right, both fading to
-     transparent before mid-page. It is what makes the page a FIELD rather
+     transparent well down the page. It is what makes the page a FIELD rather
      than a flat dark rectangle, and it is the one place the two accent
      families are allowed to touch without cost — the wash names nothing, so
      it cannot put the score's colour on something the score did not make.
@@ -149,6 +149,45 @@
      either alpha raises the floor the whole palette was cleared on, so this
      declaration and those tables move together or not at all.
 
+     VIEWPORT UNITS, NOT PX + PERCENT-OF-BODY (2026-09-10 — decision-maker
+     report: "모바일 화면에서 배경 색 그라데이션 들어가있는데 모바일 홈화면이랑
+     데스크탑 전체에서는 그라데이션 없어. 다 그라데이션 있게 고쳐줘"). Both the
+     SIZE and the POSITION used to be `1100px 620px at 18% -12%` — a fixed
+     pixel ellipse (so it covered a much smaller share of a wide desktop
+     viewport than a narrow phone one) positioned with PERCENTAGES OF THE
+     GRADIENT BOX, which for a `background-image` on `<body>` is the body
+     element's own box — i.e. the FULL DOCUMENT HEIGHT, not the viewport. On
+     any page taller than one screen (nearly all of them), `-12%` of a
+     multi-thousand-pixel document resolves to a center hundreds of pixels
+     above the visible top, which is what made the wash fully fade out by
+     roughly the first 300px and never reappear below it — measured (both
+     home and a review page, mobile and desktop, a 1px-wide strip 5px from
+     the left edge, sampled top to bottom): full fade to `#080C16` by the
+     4th of 12 samples every time, i.e. within the first quarter of ONE
+     screen, regardless of viewport. `vw`/`vh` resolve against the INITIAL
+     CONTAINING BLOCK (the viewport) by definition, on whichever property
+     they appear in — size or position — so expressing both in those units
+     anchors the ellipse to the SCREEN instead of the DOCUMENT, and scales it
+     with the viewport's own width/height instead of a fixed pixel count.
+     This is what "다 그라데이션 있게" required structurally: a percent-based
+     fix alone (keeping `%` but recentring it) would still have diluted
+     against document height on a long review page.
+
+     REACH EXTENDED, ALPHA UNCHANGED. The taper's stop moved from 72%/68% of
+     the ellipse's own radius to 90%/85% — a slower fade over a taller (vh-
+     scaled) ellipse, which is what "더 아래까지 끌고 가고" asked for. The two
+     `rgba` alphas (0.10 / 0.08) are the SAME two numbers as before: the
+     contrast audit run before this change (08-impl-notes/frontend.md) found
+     `--line-strong` on the #1E2D38 worst-case composite at 3.175:1 against
+     its 3:1 UI floor — a 0.175 buffer that a 20% alpha increase alone
+     already closes (measured in the same pass). There was no budget left to
+     spend on intensity without also moving `--line-strong`, which is a
+     separate token this fix does not touch — see frontend.md for the full
+     sweep. "실제로 보이게" is answered here by FIXING THE STRUCTURAL BUG (the
+     wash reaching its own documented peak reliably, at any viewport, instead
+     of fading before it ever does) rather than by raising the ceiling that
+     already has zero headroom under it.
+
      It is applied on <body> in global.css. It went missing there once: a
      comment rewrite deleted these three lines and left the prose describing
      them, so `background-image: var(--bg-sheen)` resolved to the invalid
@@ -156,8 +195,8 @@
      because an unresolvable var() is not an error. tests/unit/css-vars.test.ts
      now fails on any var() this file does not declare. */
   --bg-sheen:
-    radial-gradient(1100px 620px at 18% -12%, rgba(99, 239, 192, 0.1), transparent 72%),
-    radial-gradient(900px 520px at 88% -4%, rgba(185, 165, 247, 0.08), transparent 68%);
+    radial-gradient(85vw 85vh at 18vw 0vh, rgba(99, 239, 192, 0.1), transparent 90%),
+    radial-gradient(75vw 75vh at 88vw 4vh, rgba(185, 165, 247, 0.08), transparent 85%);
 
   /* ── Type: role tokens. Adding faces later is a 4-line change here and a
      @font-face pair in Base.astro — components never name a family. ── */
