@@ -491,19 +491,59 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
     color: var(--accent-2-ink);
   }
 
-  /* ── Lists: one rule set per section (layouts.md §2.4) ──────────────────
-     `.chart-cards` and `.cards` share only list resets here (list-style,
-     padding) — their sizing rules live apart because they are different
-     objects now: `.chart-cards` is a horizontal scroll track inside
-     `.chart-carousel` (below), `.cards` is a wrapping grid. Top margin moved
-     OFF `.chart-cards` and onto `.chart-carousel` (2026-09-10) since the
-     scroller is no longer the outermost element in the Charts section — see
-     that rule for why. */
+  /* ── Lists: shared scroll-container mechanics (layouts.md §2.4) ─────────
+     `.chart-cards` and `.cards` are both native horizontal scroll tracks now
+     (2026-09-10) — `.cards` was a WRAPPING GRID until the browsing rows
+     below became paged scrollers on the same date, and this comment had
+     kept describing the grid it replaced; corrected here rather than left
+     for the next reader to re-derive from the rule underneath it. Their
+     per-card SIZING still lives apart, in the `:global(...)` rules further
+     down — `.chart-cards`'s card is always the scroller's full width,
+     `.cards`'s cards are a fraction of it that changes with the breakpoint —
+     because that is the one place the two objects actually differ.
+     Everything else about moving one card (or one page) through an overflow
+     track — the containing block, the snap behaviour, the scrollbar
+     treatment — is identical, so it is written once, here, rather than
+     twice with a stray difference free to open between the copies. `gap`
+     (`.cards` only, below) is the one property that does NOT belong here —
+     see that rule for why. Top margin lives on `.chart-carousel` (below),
+     not here, since the scroller is no longer the outermost element in the
+     Charts section — see that rule for why. */
   .chart-cards,
   .cards {
     list-style: none;
     margin: 0;
     padding: 0;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    /* A CONTAINING BLOCK, NOT DECORATION — AND IT WAS MISSING (2026-09-10).
+       `overflow` does not clip an absolutely-positioned descendant whose
+       containing block is an ANCESTOR of the clipping box. Every card in
+       both rows carries a `.sr-only` span (global.css: `position: absolute`),
+       and with the scroller `position: static` those spans' containing block
+       was the page itself — so a 1px span sitting at card eight's static
+       position, at x≈2500, counted against the DOCUMENT's scrollable width
+       and put a horizontal scrollbar on the whole page.
+
+       `.chart-cards` never showed the defect, and the reason is worth
+       writing down: `.stagger`'s entrance animation ends on `transform:
+       translateY(0)`, `animation-fill-mode: both` keeps that computed value
+       forever, and a non-`none` transform makes each card a containing block
+       — so the spans were contained BY ACCIDENT, by a decorative rule with
+       an unrelated job. Deleting the animation would have opened the hole.
+       It surfaced the moment the browsing rows below became scrollers too,
+       since those cards have no animation and nothing else was holding it.
+       Fixed here, at the scroller both rows share, where it holds for
+       whatever ends up inside either of them next. */
+    position: relative;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    /* Room for the focus outline on a snapped card and for the scrollbar
+       thumb, so neither is clipped by the container's own overflow box. */
+    padding-bottom: var(--s-8);
   }
 
   /* ── Charts: one-card carousel (2026-09-10 — see the intro) ─────────────
@@ -580,38 +620,6 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
      scroll — the contained-scroll property browser.responsive.spec.ts
      measures is the DOCUMENT'S width, and this is what keeps this row from
      ever being counted against it. */
-  .chart-cards {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    /* A CONTAINING BLOCK, NOT DECORATION — AND IT WAS MISSING (2026-09-10).
-       `overflow` does not clip an absolutely-positioned descendant whose
-       containing block is an ANCESTOR of the clipping box. Every card in
-       this row carries a `.sr-only` span (global.css: `position: absolute`),
-       and with the scroller `position: static` those spans' containing block
-       was the page itself — so a 1px span sitting at card eight's static
-       position, at x≈2500, counted against the DOCUMENT's scrollable width
-       and put a horizontal scrollbar on the whole page.
-
-       This row never showed the defect, and the reason is worth writing
-       down: `.stagger`'s entrance animation ends on `transform:
-       translateY(0)`, `animation-fill-mode: both` keeps that computed value
-       forever, and a non-`none` transform makes each card a containing block
-       — so the spans were contained BY ACCIDENT, by a decorative rule with
-       an unrelated job. Deleting the animation would have opened the hole.
-       It surfaced the moment the browsing rows below became scrollers too,
-       since those cards have no animation and nothing else was holding it.
-       Fixed on both rows, at the scroller, where it holds for whatever ends
-       up inside them next. */
-    position: relative;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
-    /* Room for the focus outline on a snapped card and for the scrollbar
-       thumb, so neither is clipped by the container's own overflow box. */
-    padding-bottom: var(--s-8);
-  }
   /* `:global` reaches into ChartCard's own scoped output — Astro scopes a
      component's root element with an attribute selector, and a plain
      `.chart-cards > .chart-card` written here would carry THIS file's scope
@@ -720,21 +728,13 @@ const previousSnapshot = data.snapshots.find((s) => s.data.year === previousYear
      frame passes 320. Below that the share IS the width, so the row fills
      its track exactly — which is the property browser.hierarchy.spec.ts
      measures, now against the cards rather than against the track list. */
+  /* The one property `.chart-cards` above does not need: several cards share
+     a page here, so they need daylight between them. `.chart-cards` clips to
+     exactly one card's width (`flex: 0 0 100%`, below) — nothing else on
+     that row is ever visible at once, so a gap there would never be seen and
+     was never added. */
   .cards {
-    flex: 1;
-    min-width: 0;
-    display: flex;
     gap: var(--s-16);
-    /* Containing block for the cards' `.sr-only` spans — see `.chart-cards`
-       above for the defect this prevents and how it stayed hidden there. */
-    position: relative;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
-    /* Room for a focused card's outline and the scrollbar thumb, so the
-       container's own overflow box clips neither. */
-    padding-bottom: var(--s-8);
   }
   /* `:global` reaches into ArticleCard's scoped output — same reason as
      `.chart-cards > :global(.chart-card)` above. `flex: 0 0 <basis>` with
