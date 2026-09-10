@@ -408,3 +408,70 @@ test('탐색 캐러셀 — 화살표 한 번에 한 화면씩, 양 끝에서 멈
   await expect(next, '마지막 페이지인데 다음 버튼이 아직 살아 있음 — 끝이 보이지 않는다').toBeDisabled();
   await expect(prev, '첫 페이지를 벗어났는데 이전 버튼이 죽어 있음').toBeEnabled();
 });
+
+/**
+ * D2-R rail — the plate is the cover's WIDTH, flush under it, at every width
+ * (2026-09-10; grew out of the order test below, which shipped first and was
+ * not enough).
+ *
+ * WHY THIS IS A SEPARATE PROPERTY FROM ORDER. The order test pinned "score
+ * below cover" and passed — while the plate was 350px wide under a 320px
+ * cover at 390px, 600 under 320 at 640px, and 856 under 320 at 959px: an
+ * 88px-tall bar nearly three times the width of the artwork it belongs to,
+ * floating 12px off it. Every existing check was green throughout. "Below"
+ * and "the same object as" are different claims and the suite only made the
+ * first one.
+ *
+ * THE CAUSE IS WORTH KEEPING, because it is the reason this cannot be pinned
+ * by a pixel number. `.score-mark` is `width: 100%` (ScoreMark.astro) — on
+ * the desktop that 100% resolves against the 320px grid column, so the two
+ * matched for free and the desktop rail's "single stamped object" comment was
+ * true without anything enforcing it. Below 960px the grid collapses to
+ * `1fr`, the rail became the whole frame, and the plate followed the frame
+ * while the cover kept its own edge length. The fix gives the rail `--rail`
+ * back, so `width: 100%` lands on the same box the cover does.
+ *
+ * SO THIS ASSERTS THE RELATIONSHIP, NOT A WIDTH. Pinning "320px" would pass
+ * against a rail that had drifted to 320 for some unrelated reason, and would
+ * fail the day `--rail` legitimately changes. What must hold is that the two
+ * rects share an edge and a width — which is what "reads as one stamped
+ * object" means in measurable terms.
+ *
+ * The widths straddle the 959/960 collapse boundary deliberately: that
+ * boundary is where the two layouts hand off, and it is where this defect
+ * lived.
+ */
+test('D2-R — 히어로 레일: 점수판이 커버와 같은 폭으로 딱 붙는다 (959/960 경계 포함)', async ({ page }) => {
+  const rows: string[] = [];
+  const problems: string[] = [];
+  for (const width of [360, 390, 430, 640, 768, 959, 960, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(u('/reviews/aurora-line-first-light/'));
+    // THE PHOTO, NOT ITS CONTAINER. `.rail-cover` is a block that stretches
+    // with the rail; the <img> inside keeps the artwork's own edge length.
+    // In the pre-fix layout the container measured 350 / 600 / 856 while the
+    // photo stayed 320 — so comparing the plate against `.rail-cover` reads
+    // "same width" in exactly the broken state this test exists to catch,
+    // because the two stretched together. Caught by mutation-testing this
+    // very assertion (the gap check failed, the width check did not).
+    const cover = (await page.locator('.rail-cover img').boundingBox())!;
+    const score = (await page.locator('.score-mark').boundingBox())!;
+    const dw = Math.abs(score.width - cover.width);
+    const gap = score.y - (cover.y + cover.height);
+    const dx = Math.abs(score.x - cover.x);
+    rows.push(
+      `${width}px: 커버 ${cover.width.toFixed(1)} (x ${cover.x.toFixed(1)}) · 점수 ${score.width.toFixed(1)} (x ${score.x.toFixed(1)}) · 폭차 ${dw.toFixed(1)} · 간격 ${gap.toFixed(1)}`,
+    );
+    // 0.5px covers sub-pixel layout rounding and nothing else — the defect
+    // this replaced was 30 to 536px of width difference and a 12px gap.
+    if (dw > 0.5) problems.push(`${width}px — 폭이 ${dw.toFixed(1)}px 다름 (커버 ${cover.width.toFixed(1)} / 점수 ${score.width.toFixed(1)})`);
+    if (dx > 0.5) problems.push(`${width}px — 좌측 정렬이 ${dx.toFixed(1)}px 어긋남`);
+    if (gap > 0.5 || gap < -0.5) problems.push(`${width}px — 커버와 점수 사이 ${gap.toFixed(1)}px (붙어 있어야 함)`);
+  }
+  console.log(`히어로 레일 폭·간격 실측:\n  ${rows.join('\n  ')}`);
+  expect(problems, problems.join('\n')).toEqual([]);
+  // Both sides of the 959/960 collapse were actually visited — a future
+  // breakpoint move that put them in the same layout would otherwise let
+  // this pass while covering only one of the two.
+  expect(rows.length, '측정된 폭이 없음').toBe(9);
+});
