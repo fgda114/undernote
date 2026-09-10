@@ -37,54 +37,55 @@ Pretendard      Copyright © 2023 Kil Hyung-jin                     [name ID 0]
 Pretendard의 상류 `LICENSE`는 자체 고지를 머리에 달고 있다(`Copyright (c) 2021, Kil Hyung-jin`).
 Pretendard가 Source Han Sans · Inter · M PLUS 1에서 파생됐으므로 그 세 건의 고지도 같은 파일에 함께 있다.
 
-## Reserved Font Name — **Pretendard에 걸려 있다** (확인함, 2026-09-08)
+## Reserved Font Name — **해소됨 (2026-09-10)**
 
-| 서체 | RFN 선언 |
-|---|---|
-| **Pretendard** | **있음** — `with Reserved Font Name 'Pretendard'` (상류 `LICENSE` 2행). 파생 원본의 `'Source'`·`'Inter'`·`'M PLUS 1'`도 함께 선언돼 있다 |
-| Noto Serif KR | **없음** — 상류 `LICENSE`에 `with Reserved Font Name` 선언이 한 건도 없다. 본문 §"Definitions"에 나오는 것은 용어 정의이지 선언이 아니다 |
-
-**서브셋은 Modified Version이고, 따라서 RFN을 쓸 수 없다.** SIL의 공식 FAQ가 이 경우를 직접 다룬다:
+**Pretendard에는 RFN이 걸려 있고**(상류 `LICENSE` 2행
+`with Reserved Font Name 'Pretendard'`), **서브셋은 Modified Version이므로 그 이름을 쓸 수 없다.**
+SIL 공식 FAQ 2.6이 이 경우를 직접 다룬다:
 
 > **2.6 Is subsetting a webfont considered modification?**
 > Yes. Removing any parts of the font when delivering a webfont to a browser, including unused glyphs
 > and smart font code, is considered modification. This is permitted by the OFL but **would not
 > normally allow the use of RFNs.**
-> — `https://openfontlicense.org/documents/OFL-FAQ.txt`
 
-FAQ 2.7·2.8은 예외를 둔다 — **Functional Equivalence**를 지키면 RFN을 유지할 수 있다. 네 조건 전부를 만족해야 하고,
-`scripts/subset-fonts.py`의 산출물은 그중 **둘을 명백히 어긴다**:
+FAQ 2.8의 예외(Functional Equivalence)는 네 조건 전부를 요구하는데 이 저장소의 산출물은
+문자 목록을 KS X 1001 범위로 잘랐으므로 이미 어긴다.
 
-| FE 조건 | 이 저장소의 서브셋 |
-|---|---|
-| 같은 문자 목록 전부 지원 | **위반** — KS X 1001 2,350자 + ASCII + Latin-1 + 기호 소수로 잘랐다 |
-| 같은 스마트 폰트 동작 | 축소 — 기본 레이아웃 피처 목록만 남기고 힌팅·`DSIG` 제거 |
-| 시각적 품질 저하 없음 | 유지로 판단 |
-| **원 저작자·프로젝트·라이선스 메타데이터 보존** | **위반이었음** — 서브셋터 기본값이 name ID 13(라이선스 본문)·14(URL)를 버렸다. 이 저장소의 세 TTF 모두 13·14가 없음을 실측 확인 |
+### 무엇을 했는가
 
-### 지금 무엇이 충돌하는가
+**서브셋을 개명했다.** 원본 폰트가 없어도 되는 방법이었다 — 이미 있는 서브셋 파일의 `name`
+테이블을 직접 고치면 된다(fontTools). 2026-09-08 기록은 "원본으로 다시 서브셋해야 한다"고
+적었는데 **그건 틀린 판단이었다.**
 
-RFN 제한은 OFL §3의 문구대로 **"the primary font name as presented to the users"** 에 걸린다.
-파일명이 아니라 **사용자에게 제시되는 주 서체명**이다. 그래서:
-
-| 대상 | 값 | 판정 |
+| 대상 | 이전 | 지금 |
 |---|---|---|
-| 폰트 `name` 테이블 family (ID 1) | `Pretendard Variable` | **RFN 포함 — 충돌** |
-| CSS `font-family` (`src/layouts/Base.astro` · `src/styles/tokens.css`) | `'Pretendard Variable'` | **RFN 포함 — 충돌** |
-| 파일명 `PretendardVariable-sub.woff2` 등 | — | 주 서체명이 아니므로 §3의 직접 대상이 아니다. 다만 위 둘을 고치면 함께 정리하는 것이 자연스럽다 |
-| OG 카드 렌더러 등록명 (`src/lib/og/render.ts`) | `sans` / `serif` | 무관 — 내부 별칭이라 RFN을 쓰지 않는다 |
+| `name` ID 1·4·16 (family) | `Pretendard Variable` | **`Undernote Sans`** |
+| `name` ID 6 (PostScript) | `PretendardVariable-Regular` | **`UndernoteSans-Regular`** |
+| `name` ID 3 (unique id) | `1.309;CTUS;PretendardVariable` | **`1.309;UNDN;UndernoteSans-Regular`** |
+| CSS `font-family` | `'Pretendard Variable'` | **`'Undernote Sans'`** |
 
-### 해소 경로 (둘 중 하나, 결정 필요)
+**저작권 표시(`name` ID 0 — `Copyright © 2023 Kil Hyung-jin`)는 건드리지 않았다.** OFL이
+요구하는 것은 이름을 쓰지 않는 것이지 출처를 지우는 것이 아니다.
 
-1. **개명한다.** 서브셋의 `name` 테이블 family와 CSS `font-family`를 `'Pretendard'`를 포함하지 않는 이름으로 바꾼다.
-   `scripts/subset-fonts.py`를 원본 폰트 파일과 함께 다시 돌려야 하고(원본은 이 저장소에 없다), 시각적 변화는 0이다.
-2. **저작자에게 서면 허가를 받는다.** OFL §3이 명시하는 다른 한 경로다(FAQ 2.7도 이쪽을 권한다).
+**`--sans` 스택에서 `Pretendard`는 그대로 다음 자리에 남겼다.** 진짜를 설치해 둔 독자는 그것을
+받고, 받되 **그것의 진짜 이름으로** 받는다.
 
-**이 저장소는 아직 어느 쪽도 하지 않았다.** 미해소 상태를 여기 적어 두는 이유는, 라이선스 사본만 넣고
-RFN을 조용히 넘어가면 다음 사람이 "확인됐다"고 읽기 때문이다.
+### 같이 고친 것 — 라이선스 메타데이터
 
-### 이미 고친 것
+서브셋터 기본값이 `name` ID 13(라이선스 본문)·14(URL)를 버려서 **세 서체의 TTF/woff2 모두에
+없었다.** OFL §2가 요구하는 고지 자체이고 FE 조건 중 메타데이터 항목이기도 하다. 네 파일
+전부에 복원했다.
 
-`scripts/subset-fonts.py`가 앞으로는 name ID 0·13·14(저작권·라이선스 본문·라이선스 URL)를 **보존**한다.
-FE 조건 중 메타데이터 항목이자, RFN과 무관하게 OFL §2가 요구하는 고지 그 자체다.
-**현재 저장소에 커밋돼 있는 폰트 파일에는 아직 적용되지 않았다** — 원본 폰트로 서브셋을 다시 돌려야 반영된다.
+**Noto Serif KR은 개명하지 않았다** — 상류 `LICENSE`에 RFN 선언이 한 건도 없다(본문
+"Definitions"에 나오는 것은 용어 정의이지 선언이 아니다). 13·14만 복원했다.
+
+### 검증
+
+실브라우저에서 확인했다 — `PretendardVariable-sub.woff2`가 200으로 로드되고,
+`document.fonts`에 `Undernote Sans`가 `loaded`로 등록되며, 워드마크의 computed
+`font-family`가 `"Undernote Sans"`다. **이름이 어긋나면 조용히 대체 폰트로 떨어지므로
+그 확인이 이 작업의 핵심이었다.**
+
+`scripts/subset-fonts.py`는 앞으로 name ID 0·13·14를 보존한다(2026-09-08). **다음에 원본으로
+다시 서브셋을 돌린다면 개명도 그 스크립트에서 함께 해야 한다** — 지금은 산출물에만 적용돼
+있다.

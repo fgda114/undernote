@@ -161,7 +161,15 @@
 
   /* ── Type: role tokens. Adding faces later is a 4-line change here and a
      @font-face pair in Base.astro — components never name a family. ── */
-  --sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  /* 'Undernote Sans' is this repo's SUBSET of Pretendard, renamed as OFL
+     section 3 requires (2026-09-10): the original reserves the font name
+     "Pretendard", and a Modified Version — subsetting IS modification,
+     SIL FAQ 2.6 — may not use it. Same outlines, same metrics, different
+     name. `Pretendard` stays NEXT in the stack on purpose: a reader who
+     already has the real thing installed gets it, and gets it under its
+     own name. Attribution lives where the licence asks for it — the font's
+     own copyright record and licenses/Pretendard-OFL.txt. */
+  --sans: 'Undernote Sans', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --serif: 'Noto Serif KR', 'Apple SD Gothic Neo', serif;
   --display: var(--sans);
   --mono: var(--sans);
