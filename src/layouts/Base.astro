@@ -64,7 +64,7 @@ const fullTitle = title === site.site_name ? title : `${title} — ${site.site_n
 // to url() and Astro inlines the stylesheet, so root-relative font URLs
 // would 404 under a subpath deploy (B-1 class). Computed with withBase.
 const fontFaceCss = `
-@font-face{font-family:'Pretendard Variable';src:url('${withBase('/fonts/PretendardVariable-sub.woff2')}') format('woff2-variations');font-weight:45 920;font-display:swap}
+@font-face{font-family:'Undernote Sans';src:url('${withBase('/fonts/PretendardVariable-sub.woff2')}') format('woff2-variations');font-weight:45 920;font-display:swap}
 @font-face{font-family:'Noto Serif KR';src:url('${withBase('/fonts/NotoSerifKR-400-sub.woff2')}') format('woff2');font-weight:400;font-display:swap}
 @font-face{font-family:'Noto Serif KR';src:url('${withBase('/fonts/NotoSerifKR-700-sub.woff2')}') format('woff2');font-weight:700;font-display:swap}`;
 
@@ -101,8 +101,11 @@ const csp = cspContent(goatcounter);
     <meta property="og:url" content={absoluteUrl(path)} />
     <meta property="og:site_name" content={site.site_name} />
     <meta name="twitter:card" content="summary_large_image" />
-    {/* Pretendard paints the wordmark and every headline, so it is always
-        preloaded; the serif only on the two pages that actually set prose in it. */}
+    {/* 'Undernote Sans' (this repo's renamed Pretendard subset — see
+        tokens.css for why the name differs) paints the wordmark and every
+        headline, so it is always preloaded; the serif only on the two pages
+        that actually set prose in it. The FILE keeps its upstream name so
+        the OG renderer and the licence record point at the same artefact. */}
     <link rel="preload" href={withBase('/fonts/PretendardVariable-sub.woff2')} as="font" type="font/woff2" crossorigin />
     {
       preloadSerif && (
