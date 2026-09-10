@@ -393,13 +393,19 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
   });
 
   it('차트 밖 평론이 하나라도 있으면 최신 리뷰가 발행일 내림차순으로 나온다 (중복 허용)', () => {
-    // 6 pop albums. The board kept 5 per bucket; the home's chart list now
-    // comes from the year's top 10, so all six are in it — the cap moved
-    // from 5-per-bucket to 10-overall (2026-09-10).
-    const albums = ['a', 'b', 'c', 'd', 'e', 'f'].map((k) => albumOf(`pop-${k}`));
-    const reviews = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) =>
-      reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`),
-    );
+    // NINE pop albums, up from six (2026-09-10). Six stopped proving
+    // anything about the browsing cap the moment that cap went 4 → 8: with
+    // six reviews and a limit of eight, `toHaveLength` would have matched
+    // the fixture rather than the rule, and a limit quietly raised to
+    // twenty — or dropped altogether — would have passed. Nine exceeds the
+    // cap, so the number below is the LIMIT's, not the fixture's.
+    //
+    // The board kept 5 per bucket; the home's chart list now comes from the
+    // year's top 10, so all nine are in it — the cap moved from
+    // 5-per-bucket to 10-overall (2026-09-10).
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    const albums = keys.map((k) => albumOf(`pop-${k}`));
+    const reviews = keys.map((k, i) => reviewOf(`pop-${k}`, `${9 - i}.0`, `2026-01-0${i + 1}`));
     const { charts, latestReviews } = sectionsFor(repoOf({ albums, reviews }));
     // RELOCATED, not deleted (2026-09-10). This asserted the BOARD's
     // per-bucket top-5 cut. `deriveHomeSections` now takes the overall
@@ -407,19 +413,36 @@ describe('deriveHomeSections — 홈 3섹션 (W5 재편 2026-09-06)', () => {
     // with six albums none are cut. What the assertion protects is
     // unchanged: the home's chart list is BOUNDED and ordered by score,
     // never an unbounded dump in config order.
-    expect(charts).toHaveLength(6);
-    expect(charts.map((c) => c.album)).toEqual(['pop-a', 'pop-b', 'pop-c', 'pop-d', 'pop-e', 'pop-f']);
-    // Newest first; the lowest-scored album is the newest review here. The
-    // DEFAULT limit dropped 6 → 4 on 2026-09-07 when the home's browsing
-    // grids became a fixed four-column row — six cards would have left two
-    // empty tracks on a second row. Asserted explicitly rather than by
-    // shortening the list, because "one full row" is the property.
-    expect(latestReviews).toHaveLength(4);
+    expect(charts).toHaveLength(9);
+    expect(charts.map((c) => c.album)).toEqual([
+      'pop-a',
+      'pop-b',
+      'pop-c',
+      'pop-d',
+      'pop-e',
+      'pop-f',
+      'pop-g',
+      'pop-h',
+      'pop-i',
+    ]);
+    // Newest first, and CUT AT THE LIMIT. The default went 6 → 4 on
+    // 2026-09-07, when the browsing grids became a fixed four-column row and
+    // six cards would have left two empty tracks on a second row, and 4 → 8
+    // on 2026-09-10, when those rows became paged scrollers and a fifth card
+    // stopped costing a second row (see deriveHomeSections). Asserted
+    // explicitly rather than by shortening the fixture, because the
+    // BOUNDEDNESS is the property — the ninth review is the one that proves
+    // it exists.
+    expect(latestReviews).toHaveLength(8);
     expect(latestReviews.map((a) => a.url)).toEqual([
+      '/reviews/pop-i/',
+      '/reviews/pop-h/',
+      '/reviews/pop-g/',
       '/reviews/pop-f/',
       '/reviews/pop-e/',
       '/reviews/pop-d/',
       '/reviews/pop-c/',
+      '/reviews/pop-b/',
     ]);
   });
 
