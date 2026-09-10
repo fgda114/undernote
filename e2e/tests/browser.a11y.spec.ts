@@ -599,11 +599,12 @@ test('마스트헤드 — 워드마크와 내비가 같은 줄에서 기준선�
 });
 
 /**
- * THE MASTHEAD'S INK IS VERTICALLY CENTRED IN THE MASTHEAD (2026-09-08).
+ * THE MASTHEAD'S INK IS VERTICALLY CENTRED IN THE MASTHEAD (2026-09-08),
+ * IN BOTH OF THE SHAPES THE MASTHEAD HAS (2026-09-10).
  *
  * Baseline alignment fixed the wordmark against the nav and, on its own,
- * broke something the test above cannot see: the nav-link's 44px touch
- * target hung entirely BELOW the shared baseline, so the flex line was
+ * broke something the item-to-item test cannot see: the nav-link's 44px
+ * touch target hung entirely BELOW the shared baseline, so the flex line was
  * bottom-heavy and centring it left the visible row 10.5px under the top
  * edge with 31.5px of nothing beneath. Every baseline assertion passed
  * throughout — they measure the two runs against EACH OTHER, and both were
@@ -615,20 +616,49 @@ test('마스트헤드 — 워드마크와 내비가 같은 줄에서 기준선�
  * being wrong in the same direction.
  *
  * WHAT IS PINNED IS THE SYMMETRY, NOT THE PADDING. `.nav-link`'s 17px/7px
- * split is derived from measurement and a typeface change can invalidate
- * it; a test that pinned "17px" would keep passing while the row drifted
- * off centre. 2px of tolerance is under one CSS pixel of asymmetry per edge
- * and an order of magnitude below the 21px defect this replaced.
+ * split (one row) and 12px/12px split (two rows) are derived from
+ * measurement and a typeface change can invalidate either; a test that
+ * pinned "17px" would keep passing while the row drifted off centre. 2px of
+ * tolerance is under one CSS pixel of asymmetry per edge and an order of
+ * magnitude below the 21px defect this replaced.
  *
- * Wrapped widths are excluded BY MEASUREMENT: below ~471px the nav takes
- * its own row, and "the ink" is then two rows with a gap rather than one
- * band to centre.
+ * THE WRAPPED WIDTHS USED TO BE SKIPPED, AND THAT IS EXACTLY HOW THE NEXT
+ * DEFECT SHIPPED (2026-09-10). This test read, in its own words, "below
+ * ~471px the nav takes its own row, and 'the ink' is then two rows with a
+ * gap rather than one band to centre" — and then measured nothing there. It
+ * was a real difficulty and the wrong answer: the two-row masthead is what
+ * every phone renders, it had never been styled, and it showed. The
+ * wordmark's box sat at y=0 with nothing above it, the rows were 41px apart
+ * ink-to-ink, and the bar came to 101px at 390px. Nothing failed, because
+ * nothing looked.
+ *
+ * So the wrapped state gets its own invariants rather than an exemption:
+ *
+ *   1. SYMMETRY, the same property and the same 2px, measured against the
+ *      union of both rows' ink — the outer edges are still two edges of one
+ *      painted band whichever shape the bar is in.
+ *   2. THE GAP BETWEEN THE ROWS IS NOT THE TALLEST THING IN THE BAR. 41px of
+ *      air between two 16-24px runs of text is the specific defect, and it
+ *      is invisible to a symmetry check: padding both ends equally would
+ *      have "centred" it perfectly. Bounded by the nav row's own height,
+ *      which is the 44px touch target — a number this site already holds
+ *      everywhere and does not get to grow.
+ *   3. BOTH SHAPES ARE ACTUALLY REACHED. A future rule that made the
+ *      masthead one-row at every width — or two-row at every width — would
+ *      otherwise satisfy every assertion above by never entering the other
+ *      state, which is how the skip above passed for two days.
+ *
+ * The widths are real phone widths on purpose (390 iPhone 14/15, 393 Pixel,
+ * 402 iPhone 16, 414 iPhone Plus, 430 Pro Max) and they straddle the 405/406
+ * boundary Masthead.astro derives, so a font change that moves that boundary
+ * shows up here as a state flip with numbers attached rather than as silence.
  */
-test('마스트헤드 — 잉크가 마스트헤드 안에서 세로 중앙 (위·아래 여백 대칭)', async ({ page }) => {
+test('마스트헤드 — 한 줄일 때도 두 줄일 때도 잉크가 세로 중앙 (위·아래 여백 대칭)', async ({ page }) => {
   await page.goto(u('/'));
   const problems: string[] = [];
   const lines: string[] = [];
-  for (const width of [480, 640, 768, 1024, 1440, 1920, 2560]) {
+  const states = new Set<string>();
+  for (const width of [360, 390, 393, 402, 405, 406, 414, 430, 480, 640, 768, 1024, 1440, 1920, 2560]) {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(80);
     const m = await page.evaluate(() => {
@@ -641,30 +671,43 @@ test('마스트헤드 — 잉크가 마스트헤드 안에서 세로 중앙 (위
       const bar = document.querySelector('.masthead')!.getBoundingClientRect();
       const wm = ink(document.querySelector('.wordmark')!);
       const nav = [...document.querySelectorAll('.nav-link')].map(ink);
+      const navTop = Math.min(...nav.map((n) => n.top));
+      const navBot = Math.max(...nav.map((n) => n.bot));
       // The painted band is the union of both runs — the nav sets the top on
       // no width today, but reading the union means the assertion survives a
-      // type-scale change that reverses which one does.
-      const top = Math.min(wm.top, ...nav.map((n) => n.top));
-      const bottom = Math.max(wm.bot, ...nav.map((n) => n.bot));
+      // type-scale change that reverses which one does, and it is what makes
+      // the same two numbers meaningful in the two-row shape.
+      const top = Math.min(wm.top, navTop);
+      const bottom = Math.max(wm.bot, navBot);
+      const navBox = document.querySelector('.nav-link')!.getBoundingClientRect();
       return {
         above: top - bar.top,
         below: bar.bottom - bottom,
-        wrapped: Math.min(...nav.map((n) => n.top)) > wm.bot,
+        barHeight: bar.height,
+        wrapped: navTop > wm.bot,
+        rowGapInk: navTop - wm.bot,
+        navRowHeight: navBox.height,
       };
     });
-    if (m.wrapped) {
-      lines.push(`${width}: 내비가 별도 행 — 비교 대상 아님`);
-      continue;
-    }
+    states.add(m.wrapped ? '2행' : '1행');
     const skew = Math.abs(m.above - m.below);
-    lines.push(`${width}: 위 ${m.above.toFixed(1)} · 아래 ${m.below.toFixed(1)} · 차 ${skew.toFixed(1)}`);
+    lines.push(
+      `${width}: ${m.wrapped ? '2행' : '1행'} · 바 ${m.barHeight.toFixed(0)} · 위 ${m.above.toFixed(1)} · 아래 ${m.below.toFixed(1)} · 차 ${skew.toFixed(1)}` +
+        (m.wrapped ? ` · 행간 ${m.rowGapInk.toFixed(1)}` : ''),
+    );
     if (skew > 2) {
       problems.push(`${width}px — 마스트헤드 잉크가 위 ${m.above.toFixed(1)} / 아래 ${m.below.toFixed(1)}로 ${skew.toFixed(1)}px 치우침 (허용 2)`);
+    }
+    if (m.wrapped && m.rowGapInk > m.navRowHeight) {
+      problems.push(
+        `${width}px — 로고와 메뉴 사이가 ${m.rowGapInk.toFixed(1)}px로 메뉴 행 높이 ${m.navRowHeight.toFixed(1)}px보다 큼 (두 줄이 한 덩어리로 읽히지 않음)`,
+      );
     }
   }
   console.log(`마스트헤드 세로 여백 실측:\n  ${lines.join('\n  ')}`);
   expect(problems, problems.join('\n')).toEqual([]);
-  expect(lines.filter((l) => l.includes('· 차 ')).length, '비교된 폭이 하나도 없음').toBeGreaterThan(4);
+  expect(lines.length, '측정된 폭이 없음').toBeGreaterThan(10);
+  expect([...states].sort(), '마스트헤드가 두 형태 중 한쪽만 나옴 — 다른 쪽 규칙이 죽었거나 도달 불가').toEqual(['1행', '2행']);
 });
 
 /**
