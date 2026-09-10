@@ -39,6 +39,14 @@ for (const path of ['/', '/reviews/aurora-line-first-light/']) {
     // in browser.contrast.spec.ts's focus-ring test, which is the right
     // place to require it be reachable.
     const allowed = path === '/' ? ['A', 'BUTTON'] : ['A'];
+    // NON-EMPTY FIRST (2026-09-10). The two loops below iterate `seen`, so a
+    // walk that found NOTHING satisfies both of them without executing a
+    // single expectation — the vacuous pass this repo keeps rediscovering.
+    // The predecessor `toEqual(['A'])` failed on an empty set for free;
+    // widening it to an allow-list gave that up, so the floor is restated
+    // here explicitly. Every page in this suite has at least the masthead.
+    expect(seen.length, `${path}에서 탭으로 도달한 요소가 하나도 없음`).toBeGreaterThan(0);
+    expect(seen.map((s) => s.tag), `${path}에 앵커가 하나도 없음`).toContain('A');
     for (const s of seen) expect(allowed, `${path}에서 예상 밖 태그 ${s.tag}`).toContain(s.tag);
     // :focus-visible must paint an outline on keyboard focus.
     for (const s of seen) expect(s.outline).not.toBe('none');

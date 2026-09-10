@@ -136,21 +136,25 @@
  * asked for). ADR-0008 (ChartCard's own intro) forbids covering album art
  * except by the one recorded exception (the list thumbnail's score chip);
  * putting a translucent circle over the FEATURE cover — which runs flush to
- * the card's own left edge by design — would have been a second exception
- * with nothing but layout convenience to justify it. `.chart-carousel` sides
- * with the rule instead of arguing for a second exception: the two buttons
- * are flex siblings of the scroller, not `position: absolute` children of
- * it, so they occupy their own space beside the card rather than sitting on
- * top of any part of it — on every viewport, including the stacked mobile
- * layout where the cover runs full width above the body and a vertically
- * centred overlay would have landed on it either way. The cost is honest:
- * the visible card is `.chart-carousel`'s width minus two 44px circles and
- * two gaps (see the style block), not the section's full content width to
- * the pixel — but it is still the one full-width-feeling card the request
- * asked for, and it is precisely THIS shape at 641px+, 900px+ and stacked
- * mobile alike, because the same three flex children answer to every
- * viewport in WIDTHS (browser.hierarchy.spec.ts) rather than three
- * per-breakpoint layouts.
+ * the card's own left edge by design, and runs FULL WIDTH above the body on
+ * the stacked mobile layout — would have been a second exception with
+ * nothing but layout convenience to justify it, on every viewport, not only
+ * the wide one. `.chart-carousel` sides with the rule instead: the two
+ * buttons are siblings of the scroller, never `position: absolute` children
+ * of it, so they occupy their own space rather than sitting on top of any
+ * part of the card — see the style block for the two shapes that takes
+ * (flanking from 641px up, stacked below the card under it) and why the
+ * shape itself changes with viewport rather than staying one flex row down
+ * to 360px.
+ *
+ * THE COST IS HONEST AND MEASURED, NOT ASSUMED, AT BOTH SHAPES. From 641px
+ * up the visible card is `.chart-carousel`'s width minus two 44px circles
+ * and two gaps; that arithmetic is FIXED-PIXEL, so it costs proportionally
+ * more of a narrower row, and browser.hierarchy.spec.ts's own comment has
+ * the measured floor: 63% of the section's width at 390px before the
+ * stacked layout below 640px existed, which read as the cramped, crowded
+ * card this rebuild was asked to fix in the first place — a real image, not
+ * a hypothetical, driving the second CSS shape.
  *
  * NO ARROWS FOR A SINGLE CANDIDATE (R-4). `charts.length > 1` gates both
  * buttons — a control that can only ever point at the one card already on

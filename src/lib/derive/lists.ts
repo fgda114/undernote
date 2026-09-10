@@ -443,6 +443,16 @@ export interface HomeSections {
  * is visibly full of reviews, which reads as a fault rather than as
  * restraint. The genuinely empty case is handled by the page.
  */
+/** A bucket id resolved to its label using the board already built for this
+ *  year. The board carries {id, label} for every configured bucket, so this
+ *  needs no second read of genres.yaml — and an album whose bucket is not on
+ *  the board (an `etc` opt-out) simply has no genre line rather than a
+ *  fabricated one. */
+function bucketLabelOf(board: Board, bucketId: string | undefined): string {
+  if (!bucketId) return '';
+  return board.buckets.find((b) => b.id === bucketId)?.label ?? '';
+}
+
 export function deriveHomeSections(board: Board, top10: Top10Progressive, allArticles: ArticleItem[], limit = 4): HomeSections {
   // THE HOME CARD IS THE YEAR'S #1, NOT A BUCKET'S (2026-09-10).
   //
@@ -463,10 +473,25 @@ export function deriveHomeSections(board: Board, top10: Top10Progressive, allArt
   // `bucketLabel` stays on the item because ChartCard still names the genre;
   // it comes from the album's own buckets now rather than from which board
   // the entry was found on.
-  const bucketOf = new Map(board.buckets.flatMap((b) => b.entries.map((e) => [e.album, b.label] as const)));
+  // THE GENRE A CARD NAMES IS THE ALBUM'S FIRST ONE (2026-09-10) — the same
+  // rule the review page uses (review-page.ts#bucketLabel takes
+  // `album.buckets[0]`), so the two surfaces cannot disagree about the same
+  // record.
+  //
+  // They did. This used to read the label off whichever BOARD the album was
+  // found on, and a multi-genre album sits on several: the Map kept the last
+  // one written, i.e. the highest genres.yaml `order`. Measured on the live
+  // site — `slayr — Half Blood (BloodLuxe)`, `buckets: [digicore, rage]` —
+  // the home card said "Rage" while its own review page said "Digicore".
+  // Neither was wrong on its own terms; they were answering two different
+  // questions and only one of them is the album's.
+  //
+  // `ListEntry` already carries `buckets` (toListEntry copies them from the
+  // album), so the board lookup was never needed. `board` stays a parameter
+  // because `bucketCount` below still describes the chart, not the album.
   const charts = top10.entries.map((entry, i) => ({
     ...entry,
-    bucketLabel: bucketOf.get(entry.album) ?? '',
+    bucketLabel: bucketLabelOf(board, entry.buckets[0]),
     rank: i + 1,
     bucketCount: top10.entries.length,
   }));
