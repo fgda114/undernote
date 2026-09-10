@@ -224,7 +224,18 @@ const score = showScore ? item.score : undefined;
         <span class="text">
           {showFormat && <span class="format">{item.formatLabel}</span>}
           <span class="title">{item.title}</span>
-          {item.subtitle && <span class="subtitle">{item.subtitle}</span>}
+          {/* Artists and the ALBUM's year on one line. The `<time>` at the
+              row's end is the PUBLICATION date — when this magazine wrote
+              about the record — and the two are not the same fact once a
+              back-catalog review lands (2026-09-10). Separated by the same
+              middot the review page's own sub-line uses, so a reader meets
+              one grammar for "artist · year" across both surfaces. */}
+          {item.subtitle && (
+            <span class="subtitle">
+              {item.subtitle}
+              {item.releaseYear && <span class="release-year tnum"> · {item.releaseYear}</span>}
+            </span>
+          )}
         </span>
         <time class="date tnum" datetime={item.date}>
           {item.date}
@@ -358,6 +369,11 @@ const score = showScore ? item.score : undefined;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* Secondary to the artist it follows — same size, quieter ink. The year
+     is context, not the thing being named. */
+  .release-year {
+    color: var(--muted);
   }
   .date {
     font-family: var(--mono);

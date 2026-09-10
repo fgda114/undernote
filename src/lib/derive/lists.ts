@@ -245,6 +245,20 @@ export interface ArticleItem {
   subtitle: string;
   date: string;
   formatLabel: string;
+
+  /** The album's RELEASE year, for reviews only (2026-09-10).
+   *
+   * The listing already prints a date — but that is `date`, the
+   * PUBLICATION date (R-3), the day this magazine wrote about the record.
+   * A reader scanning the Reviews tab wants to know how old the ALBUM is,
+   * and those two numbers can be decades apart once back-catalog reviews
+   * start arriving. Kept as its own field rather than sliced off
+   * `release_date` at the template, which would break silently the day
+   * that format changes — the same reasoning review-page.ts records for
+   * `releaseYear` there.
+   *
+   * Absent on stories: a story has no album and therefore no release. */
+  releaseYear?: string;
   /** Album art for review items; null when the album has no cover, absent
    * for stories (which never have one). */
   cover?: CoverSet | null;
@@ -307,6 +321,7 @@ export function deriveLatestArticles(
       url: `/reviews/${j.slug}/`,
       title: j.album.title,
       subtitle: j.artistsLabel,
+      releaseYear: String(j.releaseYear),
       date: j.review.date,
       formatLabel: 'Reviews',
       cover: coverSetFor({ slug: j.slug, title: j.album.title, artistsLabel: j.artistsLabel, cover: j.album.cover }),
