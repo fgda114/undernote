@@ -1,6 +1,6 @@
 ---
 album: phoebe-bridgers-lost-weekend
-score: "8.4"
+score: "7.9"
 date: 2026-09-06
 editorial_check: true
 ---
