@@ -1,6 +1,6 @@
 ---
 album: slayr-half-blood-bloodluxe
-score: "9.0"
+score: "8.3"
 date: 2026-09-10
 editorial_check: true
 ---
